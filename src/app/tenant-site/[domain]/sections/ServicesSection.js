@@ -1,0 +1,918 @@
+// "use client";
+
+// /**
+//  * ServicesSection.js - UPDATED
+//  * 
+//  * Now supports two modes:
+//  * - mode="static" (default): Uses JSON content from website builder (existing behavior)
+//  * - mode="database": Fetches real services from API (for milestone/booking integration)
+//  * 
+//  * This allows tenants to choose whether to use simple static content
+//  * or connect to the full service/milestone system.
+//  */
+
+// import { useState, useEffect } from "react";
+// import { useTenantLang } from "../../contexts/TenantLangContext";
+// import { useTenantTheme } from "../../contexts/TenantThemeContext";
+// // import { useTenantSite } from "../TenantClientWrapper";
+// import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
+// import Link from "next/link";
+
+
+// export default function ServicesSection({ data, lang: propLang ,domain}) {
+
+// // =============================================================================
+// // API Configuration
+// // =============================================================================
+// const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+//   const { language, isRTL } = useTenantLang();
+//   const theme = useTenantTheme();
+
+
+//   const lang = propLang || language;
+  
+//   const {
+//     variant = "grid",
+//     title,
+//     subtitle,
+//     // Static mode: services from JSON
+//     services = [],
+//     // Database mode settings
+//     mode = "static", // "static" | "database"
+//     service_ids = [], // specific service IDs to display
+//     category_filter = null, // filter by category
+//     service_type_filter = null, // "booking" | "milestone" | "hybrid" | null (all)
+//     featured_only = false,
+//     max_services = 6,
+//     // Display options
+//     columns = 3,
+//     show_price = true,
+//     show_duration = true,
+//     show_book_button = true,
+//     show_service_type_badge = true,
+//     book_button_url,
+//     book_button_text,
+//     card_style = "elevated",
+//   } = data || {};
+
+
+
+//   // State for database mode
+//   const [dbServices, setDbServices] = useState([]);
+//   const [loading, setLoading] = useState(mode === "database");
+//   const [error, setError] = useState(null);
+
+//   // Resolve translations
+//   const resolvedTitle = resolveTranslated(title, lang);
+//   const resolvedSubtitle = resolveTranslated(subtitle, lang);
+//   const resolvedBookButton = resolveTranslated(book_button_text, lang) || "Book Now";
+
+//   // Fetch services from database if in database mode
+//   useEffect(() => {
+//     if (mode !== "database") return;
+
+//     const fetchServices = async () => {
+//       try {
+//         setLoading(true);
+        
+//         // Build query params
+//         const params = new URLSearchParams();
+//         if (service_ids.length > 0) {
+//           params.append("ids", service_ids.join(","));
+//         }
+//         if (category_filter) {
+//           params.append("category", category_filter);
+//         }
+//         if (service_type_filter) {
+//           params.append("order_type", service_type_filter);
+//         }
+//         if (featured_only) {
+//           params.append("featured", "true");
+//         }
+//         params.append("limit", String(max_services));
+//         params.append("is_active", "true");
+
+//         const response = await fetch(
+//           `${API_BASE}/api/v1/public-services/`,
+//           {
+//             headers: {
+//               "Content-Type": "application/json",
+//               "X-Tenant": domain,
+//             },
+//           }
+//         );
+
+//         if (!response.ok) throw new Error("Failed to fetch services");
+        
+//         const data = await response.json();
+//         // console.log(data,"fetched services XXXXXXXXXXXXXXXXX");
+//         setDbServices(data.results || data);
+//         setError(null);
+//       } catch (err) {
+//         console.error("Error fetching services:", err);
+//         setError(err.message);
+//       } finally {
+//         setLoading(false);
+//       }
+//     };
+
+//     fetchServices();
+//   }, [mode, service_ids, category_filter, service_type_filter, featured_only, max_services,domain]);
+
+//   // Determine which services to display
+//   const displayServices = mode === "database" 
+//     ? dbServices 
+//     : resolveTranslatedArray(services, lang, ["name", "title", "description"]);
+
+
+//   const colsClass = {
+//     2: "md:grid-cols-2",
+//     3: "md:grid-cols-3",
+//     4: "md:grid-cols-4",
+//   }[columns] || "md:grid-cols-3";
+
+//   const cardClasses = {
+//     elevated: "bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow",
+//     flat: "bg-gray-50 rounded-xl",
+//     bordered: "bg-white rounded-xl border-2 border-gray-200 hover:border-blue-500 transition-colors",
+//   }[card_style];
+
+//   // Button style using theme
+//   const buttonStyle = {
+//     backgroundColor: theme.primary_color || "#3B82F6",
+//   };
+
+//   // Loading state
+//   if (loading) {
+//     return (
+//       <section className={`px-6 md:px-12 py-20 ${isRTL ? "rtl" : ""}`}>
+//         <div className="max-w-7xl mx-auto">
+//           <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+//             {[1, 2, 3].map((i) => (
+//               <div key={i} className="bg-gray-100 rounded-2xl h-80 animate-pulse" />
+//             ))}
+//           </div>
+//         </div>
+//       </section>
+//     );
+//   }
+
+//   return (
+//     <section className={`px-6 md:px-12 py-20 ${isRTL ? "rtl" : ""}`}>
+//       {/* Header */}
+//       {(resolvedTitle || resolvedSubtitle) && (
+//         <div className="max-w-3xl mx-auto text-center mb-12">
+//           {resolvedTitle && (
+//             <h2 className="text-4xl font-bold text-gray-900 mb-4">
+//               {resolvedTitle}
+//             </h2>
+//           )}
+//           {resolvedSubtitle && (
+//             <p className="text-xl text-gray-600">
+//               {resolvedSubtitle}
+//             </p>
+//           )}
+//         </div>
+//       )}
+
+//       {/* Error State */}
+//       {error && (
+//         <div className="text-center py-8 text-red-500">
+//           <p>Failed to load services. Please try again.</p>
+//         </div>
+//       )}
+
+//       {/* Services Grid */}
+//       <div className={`grid ${colsClass} gap-8 max-w-7xl mx-auto`}>
+//         {displayServices.map((service, idx) => (
+//           <ServiceCard
+//             key={service.id || idx}
+//             service={service}
+//             mode={mode}
+//             cardClasses={cardClasses}
+//             buttonStyle={buttonStyle}
+//             showPrice={show_price}
+//             showDuration={show_duration}
+//             showBookButton={show_book_button}
+//             showServiceTypeBadge={show_service_type_badge}
+//             bookButtonText={resolvedBookButton}
+//             bookButtonUrl={book_button_url}
+//             theme={theme}
+//             lang={lang}
+//             isRTL={isRTL}
+//           />
+//         ))}
+//       </div>
+
+//       {/* Empty State */}
+//       {displayServices.length === 0 && !loading && (
+//         <div className="text-center py-12">
+//           <p className="text-gray-500">No services available at the moment.</p>
+//         </div>
+//       )}
+//     </section>
+//   );
+// }
+
+// // ============================================================
+// // SERVICE CARD COMPONENT
+// // ============================================================
+
+// function ServiceCard({
+//   service,
+//   mode,
+//   cardClasses,
+//   buttonStyle,
+//   showPrice,
+//   showDuration,
+//   showBookButton,
+//   showServiceTypeBadge,
+//   bookButtonText,
+//   bookButtonUrl,
+//   theme,
+//   lang,
+//   isRTL,
+// }) {
+//   // For database mode, service has specific structure
+//   // For static mode, service is from JSON content
+//     // console.log(service,"serviceXXXX");
+//     const name =  mode === "database"
+//         ? resolveTranslated(service.name, lang)
+//         : resolveTranslated(service.name || service.title, lang);
+
+//     const description =  mode === "database"  ? resolveTranslated(
+//             service.short_description || service.description,
+//             lang
+//         )
+//         : resolveTranslated(service.description, lang);
+
+
+
+//   const orderType =  mode === "database" ? service.order_type || (service.has_milestones ? "milestone" : "booking") : null;
+
+
+//   const rawPrice = service.price ?? service.base_price;
+//   const price = rawPrice ? Number(rawPrice) : null;
+
+//   const duration = service.duration_minutes;
+//   const image = service.image || service.image_url;
+//   const category = service.category;
+    
+//   const slug = service.slug;
+  
+//   // For milestone services, show package info
+//   const packages = service.packages || [];
+//   const hasPackages = packages.length > 0;
+//   const startingPrice = hasPackages 
+//     ? Math.min(...packages.map(p => p.price))
+//     : price;
+
+//   // Determine CTA based on service type
+//   const getCtaInfo = () => {
+//     if (mode === "static") {
+//       return {
+//         text: bookButtonText,
+//         url: bookButtonUrl || "#",
+//       };
+//     }
+
+//     switch (orderType) {
+//       case "milestone":
+//         return {
+//           text: resolveTranslated({ 
+//             en: "Order Now", 
+//             ar: "اطلب الآن", 
+//             ur: "ابھی آرڈر کریں" 
+//           }, lang),
+//           url: `/services/${slug}/order`,
+//         };
+//       case "hybrid":
+//         return {
+//           text: resolveTranslated({ 
+//             en: "Get Started", 
+//             ar: "ابدأ الآن", 
+//             ur: "شروع کریں" 
+//           }, lang),
+//           url: `/services/${slug}`,
+//         };
+//       case "booking":
+//       default:
+//         return {
+//           text: bookButtonText || resolveTranslated({ 
+//             en: "Book Now", 
+//             ar: "احجز الآن", 
+//             ur: "ابھی بک کریں" 
+//           }, lang),
+//           url: `/booking/service/${slug}`,
+//         };
+//     }
+//   };
+
+//   const cta = getCtaInfo();
+
+//   // Service type badge
+//   const getTypeBadge = () => {
+//     if (!showServiceTypeBadge || mode === "static" || !orderType) return null;
+
+//     const badges = {
+//       milestone: { 
+//         label: { en: "Project", ar: "مشروع", ur: "پروجیکٹ" },
+//         color: "bg-purple-100 text-purple-700",
+//       },
+//       hybrid: { 
+//         label: { en: "Hybrid", ar: "هجين", ur: "ہائبرڈ" },
+//         color: "bg-blue-100 text-blue-700",
+//       },
+//       booking: { 
+//         label: { en: "Booking", ar: "حجز", ur: "بکنگ" },
+//         color: "bg-green-100 text-green-700",
+//       },
+//     };
+
+//     const badge = badges[orderType];
+//     if (!badge) return null;
+
+//     return (
+//       <span className={`px-2 py-1 text-xs font-medium rounded-full ${badge.color}`}>
+//         {resolveTranslated(badge.label, lang)}
+//       </span>
+//     );
+//   };
+
+//   return (
+//     <div className={cardClasses}>
+//       {/* Service Image */}
+//       {image && (
+//         <div className="relative h-48 overflow-hidden rounded-t-2xl">
+//           <img
+//             src={image}
+//             alt={name}
+//             className="w-full h-full object-cover"
+//           />
+//           {/* Category Badge */}
+//           {category && (
+//             <span 
+//               className="absolute top-4 left-4 px-3 py-1 text-white text-xs font-medium rounded-full"
+//               style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
+//             >
+//               {typeof category === "object" ? resolveTranslated(category.name, lang) : category.name}
+//             </span>
+//           )}
+//           {/* Service Type Badge */}
+//           {getTypeBadge() && (
+//             <div className="absolute top-4 right-4">
+//               {getTypeBadge()}
+//             </div>
+//           )}
+//         </div>
+//       )}
+
+//       {/* Service Content */}
+//       <div className="p-6">
+//         <div className={`flex items-start justify-between gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+//           <h3 className="text-xl font-bold text-gray-900 mb-2">
+//             {name}
+//           </h3>
+//           {!image && getTypeBadge()}
+//         </div>
+
+//         {description && (
+//           <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+//             {description}
+//           </p>
+//         )}
+
+//         {/* Milestone Service: Show package info */}
+//         {mode === "database" && orderType === "milestone" && hasPackages && (
+//           <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+//             <p className="text-xs text-gray-500 mb-1">
+//               {resolveTranslated({ en: "Starting from", ar: "يبدأ من", ur: "شروع از" }, lang)}
+//             </p>
+//             <p className="text-lg font-bold" style={{ color: theme.primary_color }}>
+//               ${startingPrice}
+//             </p>
+//             <p className="text-xs text-gray-500">
+//               {packages.length} {resolveTranslated({ 
+//                 en: "packages available", 
+//                 ar: "باقات متاحة", 
+//                 ur: "پیکجز دستیاب" 
+//               }, lang)}
+//             </p>
+//           </div>
+//         )}
+
+//         {/* Price & Duration (for booking/static) */}
+//         {(mode === "database" || (mode === "static" && (price || duration))) && (
+//         <div className={`flex items-center justify-between mb-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+//             {showPrice && typeof price === "number" && price > 0 && (
+//             <div
+//                 className="text-2xl font-bold"
+//                 style={{ color: theme.primary_color || "#3B82F6" }}
+//             >
+//                 ${price}
+//             </div>
+//             )}
+
+//             {showDuration && typeof duration === "number" && duration > 0 && (
+//             <div className="text-sm text-gray-500">
+//                 {duration} min
+//             </div>
+//             )}
+
+//           </div>
+//         )}
+
+//         {/* Milestone Service: Show delivery time */}
+//         {mode === "database" && orderType === "milestone" && service.estimated_delivery_days && (
+//           <div className={`flex items-center gap-2 mb-4 text-sm text-gray-500 ${isRTL ? "flex-row-reverse" : ""}`}>
+//             <span>🚀</span>
+//             <span>
+//               {resolveTranslated({ en: "Delivery:", ar: "التسليم:", ur: "ڈیلیوری:" }, lang)}{" "}
+//               {service.estimated_delivery_days} {resolveTranslated({ en: "days", ar: "أيام", ur: "دن" }, lang)}
+//             </span>
+//           </div>
+//         )}
+
+//         {/* Rating (for database mode) */}
+//         {mode === "database" && Number(service.average_rating) > 0 && (
+//       <div className={`flex items-center gap-2 mb-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+//         <div className="flex items-center gap-1">
+//           <span className="text-yellow-400">⭐</span>
+//           <span className="font-medium">
+//             {Number(service.average_rating).toFixed(1)}
+//           </span>
+//         </div>
+
+//         {service.total_reviews > 0 && (
+//           <span className="text-sm text-gray-500">
+//             ({service.total_reviews} {resolveTranslated({
+//               en: "reviews",
+//               ar: "تقييمات",
+//               ur: "جائزے"
+//             }, lang)})
+//           </span>
+//         )}
+//       </div>
+//     )}
+
+
+//         {/* CTA Button */}
+//         {showBookButton &&
+//         (mode === "database" || (mode === "static" && bookButtonUrl)) && (
+//             <Link
+//             href={cta.url}
+//             className="block w-full py-3 text-white text-center rounded-xl font-semibold hover:opacity-90 transition-all"
+//             style={buttonStyle}
+//             >
+//             {cta.text}
+//             </Link>
+//         )}
+
+//       </div>
+//     </div>
+//   );
+// }
+
+// // Helper function (if not imported)
+// // function resolveTranslated(value, lang) {
+// //   if (!value) return "";
+// //   if (typeof value === "string") return value;
+// //   return value[lang] || value.en || value.ar || value.ur || "";
+// // }
+"use client";
+
+/**
+ * ServicesSection.js - UPDATED
+ * 
+ * Now uses centralized serviceTypeHelper for:
+ * - Service type detection
+ * - CTA routing (booking vs milestone vs order)
+ * - Badge rendering
+ * 
+ * Modes:
+ * - mode="static" (default): Uses JSON content from website builder
+ * - mode="database": Fetches real services from API
+ */
+
+import { useState, useEffect } from "react";
+import { useTenantLang } from "../../contexts/TenantLangContext";
+import { useTenantTheme } from "../../contexts/TenantThemeContext";
+import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
+import Link from "next/link";
+
+// ─── Centralized service type logic ─────────────────────────────────────────
+import {
+  getServiceType,
+  getServiceRoute,
+  getServiceBadge,
+  isBookableService,
+  isMilestoneService,
+  isProjectService,
+} from "@/lib/serviceTypeHelper";
+
+
+export default function ServicesSection({ data, lang: propLang, domain }) {
+
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+  const { language, isRTL } = useTenantLang();
+  const theme = useTenantTheme();
+  const lang = propLang || language;
+  
+  const {
+    variant = "grid",
+    title,
+    subtitle,
+    services = [],
+    mode = "static",
+    service_ids = [],
+    category_filter = null,
+    service_type_filter = null,
+    featured_only = false,
+    max_services = 6,
+    columns = 3,
+    show_price = true,
+    show_duration = true,
+    show_book_button = true,
+    show_service_type_badge = true,
+    book_button_url,
+    book_button_text,
+    card_style = "elevated",
+  } = data || {};
+
+  // State for database mode
+  const [dbServices, setDbServices] = useState([]);
+  const [loading, setLoading] = useState(mode === "database");
+  const [error, setError] = useState(null);
+
+  // Resolve translations
+  const resolvedTitle = resolveTranslated(title, lang);
+  const resolvedSubtitle = resolveTranslated(subtitle, lang);
+  const resolvedBookButton = resolveTranslated(book_button_text, lang) || "Book Now";
+
+  // Fetch services from database if in database mode
+  useEffect(() => {
+    if (mode !== "database") return;
+
+    const fetchServices = async () => {
+      try {
+        setLoading(true);
+        
+        const params = new URLSearchParams();
+        if (service_ids.length > 0) {
+          params.append("ids", service_ids.join(","));
+        }
+        if (category_filter) {
+          params.append("category", category_filter);
+        }
+        if (service_type_filter) {
+          params.append("order_type", service_type_filter);
+        }
+        if (featured_only) {
+          params.append("featured", "true");
+        }
+        params.append("limit", String(max_services));
+        params.append("is_active", "true");
+
+        const response = await fetch(
+          `${API_BASE}/api/v1/public-services/`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "X-Tenant": domain,
+            },
+          }
+        );
+
+        if (!response.ok) throw new Error("Failed to fetch services");
+        
+        const data = await response.json();
+        setDbServices(data.results || data);
+        setError(null);
+      } catch (err) {
+        console.error("Error fetching services:", err);
+        setError(err.message);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchServices();
+  }, [mode, service_ids, category_filter, service_type_filter, featured_only, max_services, domain]);
+
+  // Determine which services to display
+  const displayServices = mode === "database" 
+    ? dbServices 
+    : resolveTranslatedArray(services, lang, ["name", "title", "description"]);
+
+
+  const colsClass = {
+    2: "md:grid-cols-2",
+    3: "md:grid-cols-3",
+    4: "md:grid-cols-4",
+  }[columns] || "md:grid-cols-3";
+
+  const cardClasses = {
+    elevated: "bg-white rounded-2xl shadow-lg hover:shadow-xl transition-shadow",
+    flat: "bg-gray-50 rounded-xl",
+    bordered: "bg-white rounded-xl border-2 border-gray-200 hover:border-blue-500 transition-colors",
+  }[card_style];
+
+  const buttonStyle = {
+    backgroundColor: theme.primary_color || "#3B82F6",
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <section className={`px-6 md:px-12 py-20 ${isRTL ? "rtl" : ""}`}>
+        <div className="max-w-7xl mx-auto">
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {[1, 2, 3].map((i) => (
+              <div key={i} className="bg-gray-100 rounded-2xl h-80 animate-pulse" />
+            ))}
+          </div>
+        </div>
+      </section>
+    );
+  }
+
+  return (
+    <section className={`px-6 md:px-12 py-20 ${isRTL ? "rtl" : ""}`}>
+      {/* Header */}
+      {(resolvedTitle || resolvedSubtitle) && (
+        <div className="max-w-3xl mx-auto text-center mb-12">
+          {resolvedTitle && (
+            <h2 className="text-4xl font-bold text-gray-900 mb-4">
+              {resolvedTitle}
+            </h2>
+          )}
+          {resolvedSubtitle && (
+            <p className="text-xl text-gray-600">
+              {resolvedSubtitle}
+            </p>
+          )}
+        </div>
+      )}
+
+      {/* Error State */}
+      {error && (
+        <div className="text-center py-8 text-red-500">
+          <p>Failed to load services. Please try again.</p>
+        </div>
+      )}
+
+      {/* Services Grid */}
+      <div className={`grid ${colsClass} gap-8 max-w-7xl mx-auto`}>
+        {displayServices.map((service, idx) => (
+          <ServiceCard
+            key={service.id || idx}
+            service={service}
+            mode={mode}
+            cardClasses={cardClasses}
+            buttonStyle={buttonStyle}
+            showPrice={show_price}
+            showDuration={show_duration}
+            showBookButton={show_book_button}
+            showServiceTypeBadge={show_service_type_badge}
+            bookButtonText={resolvedBookButton}
+            bookButtonUrl={book_button_url}
+            theme={theme}
+            lang={lang}
+            isRTL={isRTL}
+          />
+        ))}
+      </div>
+
+      {/* Empty State */}
+      {displayServices.length === 0 && !loading && (
+        <div className="text-center py-12">
+          <p className="text-gray-500">No services available at the moment.</p>
+        </div>
+      )}
+    </section>
+  );
+}
+
+// ============================================================
+// SERVICE CARD COMPONENT
+// ============================================================
+
+function ServiceCard({
+  service,
+  mode,
+  cardClasses,
+  buttonStyle,
+  showPrice,
+  showDuration,
+  showBookButton,
+  showServiceTypeBadge,
+  bookButtonText,
+  bookButtonUrl,
+  theme,
+  lang,
+  isRTL,
+}) {
+  const name = mode === "database"
+    ? resolveTranslated(service.name, lang)
+    : resolveTranslated(service.name || service.title, lang);
+
+  const description = mode === "database"
+    ? resolveTranslated(service.short_description || service.description, lang)
+    : resolveTranslated(service.description, lang);
+
+  // ── Use centralized helper for type detection ──
+  const serviceType = mode === "database" ? getServiceType(service) : null;
+
+  const rawPrice = service.price ?? service.base_price;
+  const price = rawPrice ? Number(rawPrice) : null;
+
+  const duration = service.duration_minutes;
+  const image = service.image || service.image_url;
+  const category = service.category;
+  const slug = service.slug;
+  
+  const packages = service.packages || [];
+  const hasPackages = packages.length > 0;
+  const startingPrice = hasPackages 
+    ? Math.min(...packages.map(p => p.price))
+    : price;
+
+  // ── Use centralized routing helper ──
+  const getCtaInfo = () => {
+    if (mode === "static") {
+      return {
+        text: bookButtonText,
+        url: bookButtonUrl || "#",
+      };
+    }
+
+    const route = getServiceRoute(service);
+
+    // Pick CTA label based on flow type
+    const labels = {
+      booking: bookButtonText || resolveTranslated({ 
+        en: "Book Now", ar: "احجز الآن", ur: "ابھی بک کریں" 
+      }, lang),
+      milestone: resolveTranslated({ 
+        en: "Start Project", ar: "ابدأ المشروع", ur: "پروجیکٹ شروع کریں" 
+      }, lang),
+      order: resolveTranslated({ 
+        en: "Order Now", ar: "اطلب الآن", ur: "ابھی آرڈر کریں" 
+      }, lang),
+    };
+
+    return {
+      text: labels[route.flow] || labels.booking,
+      url: route.url,
+    };
+  };
+
+  const cta = getCtaInfo();
+
+  // ── Use centralized badge helper ──
+  const getTypeBadge = () => {
+    if (!showServiceTypeBadge || mode === "static" || !serviceType) return null;
+
+    const badge = getServiceBadge(service);
+    if (!badge) return null;
+
+    return (
+      <span className={`px-2 py-1 text-xs font-medium rounded-full ${badge.color}`}>
+        {badge.labelKey}
+      </span>
+    );
+  };
+
+  return (
+    <div className={cardClasses}>
+      {/* Service Image */}
+      {image && (
+        <div className="relative h-48 overflow-hidden rounded-t-2xl">
+          <img
+            src={image}
+            alt={name}
+            className="w-full h-full object-cover"
+          />
+          {/* Category Badge */}
+          {category && (
+            <span 
+              className="absolute top-4 left-4 px-3 py-1 text-white text-xs font-medium rounded-full"
+              style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
+            >
+              {typeof category === "object" ? resolveTranslated(category.name, lang) : category.name}
+            </span>
+          )}
+          {/* Service Type Badge */}
+          {getTypeBadge() && (
+            <div className="absolute top-4 right-4">
+              {getTypeBadge()}
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Service Content */}
+      <div className="p-6">
+        <div className={`flex items-start justify-between gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+          <h3 className="text-xl font-bold text-gray-900 mb-2">
+            {name}
+          </h3>
+          {!image && getTypeBadge()}
+        </div>
+
+        {description && (
+          <p className="text-gray-600 text-sm mb-4 line-clamp-2">
+            {description}
+          </p>
+        )}
+
+        {/* Milestone Service: Show package info */}
+        {mode === "database" && isMilestoneService(service) && hasPackages && (
+          <div className="mb-4 p-3 bg-gray-50 rounded-lg">
+            <p className="text-xs text-gray-500 mb-1">
+              {resolveTranslated({ en: "Starting from", ar: "يبدأ من", ur: "شروع از" }, lang)}
+            </p>
+            <p className="text-lg font-bold" style={{ color: theme.primary_color }}>
+              ${startingPrice}
+            </p>
+            <p className="text-xs text-gray-500">
+              {packages.length} {resolveTranslated({ 
+                en: "packages available", 
+                ar: "باقات متاحة", 
+                ur: "پیکجز دستیاب" 
+              }, lang)}
+            </p>
+          </div>
+        )}
+
+        {/* Price & Duration (for booking/static) */}
+        {(mode === "database" || (mode === "static" && (price || duration))) && (
+        <div className={`flex items-center justify-between mb-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+            {showPrice && typeof price === "number" && price > 0 && (
+            <div
+                className="text-2xl font-bold"
+                style={{ color: theme.primary_color || "#3B82F6" }}
+            >
+                ${price}
+            </div>
+            )}
+
+            {showDuration && typeof duration === "number" && duration > 0 && (
+            <div className="text-sm text-gray-500">
+                {duration} min
+            </div>
+            )}
+          </div>
+        )}
+
+        {/* Milestone Service: Show delivery time */}
+        {mode === "database" && isProjectService(service) && service.estimated_delivery_days && (
+          <div className={`flex items-center gap-2 mb-4 text-sm text-gray-500 ${isRTL ? "flex-row-reverse" : ""}`}>
+            <span>🚀</span>
+            <span>
+              {resolveTranslated({ en: "Delivery:", ar: "التسليم:", ur: "ڈیلیوری:" }, lang)}{" "}
+              {service.estimated_delivery_days} {resolveTranslated({ en: "days", ar: "أيام", ur: "دن" }, lang)}
+            </span>
+          </div>
+        )}
+
+        {/* Rating (for database mode) */}
+        {mode === "database" && Number(service.average_rating) > 0 && (
+      <div className={`flex items-center gap-2 mb-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+        <div className="flex items-center gap-1">
+          <span className="text-yellow-400">⭐</span>
+          <span className="font-medium">
+            {Number(service.average_rating).toFixed(1)}
+          </span>
+        </div>
+
+        {service.total_reviews > 0 && (
+          <span className="text-sm text-gray-500">
+            ({service.total_reviews} {resolveTranslated({
+              en: "reviews",
+              ar: "تقييمات",
+              ur: "جائزے"
+            }, lang)})
+          </span>
+        )}
+      </div>
+    )}
+
+        {/* CTA Button */}
+        {showBookButton &&
+        (mode === "database" || (mode === "static" && bookButtonUrl)) && (
+            <Link
+            href={cta.url}
+            className="block w-full py-3 text-white text-center rounded-xl font-semibold hover:opacity-90 transition-all"
+            style={buttonStyle}
+            >
+            {cta.text}
+            </Link>
+        )}
+
+      </div>
+    </div>
+  );
+}

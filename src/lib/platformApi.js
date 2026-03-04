@@ -1,0 +1,423 @@
+/**
+ * SuperAdmin API Client
+ *
+ * All fetch calls to /api/v1/platform/* endpoints.
+ * Handles JWT auth, token refresh, and error normalisation.
+ */
+
+import Cookies from "js-cookie";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "";
+
+// ─── Token helpers ──────────────────────────────────────────────
+
+function authHeaders() {
+  const token = Cookies.get("access_token");
+  return token ? { Authorization: `Bearer ${token}` } : {};
+}
+
+async function refreshAccessToken() {
+  const refresh = Cookies.get("refresh_token");
+  if (!refresh) return null;
+
+  const res = await fetch(`${API}/api/v1/auth/token/refresh/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ refresh }),
+  });
+
+  if (!res.ok) {
+    Cookies.remove("access_token");
+    Cookies.remove("refresh_token");
+    if (typeof window !== "undefined") window.location.href = "/auth/login";
+    return null;
+  }
+
+  const data = await res.json();
+  Cookies.set("access_token", data.access);
+  return data.access;
+}
+
+// ─── Core fetch wrapper ─────────────────────────────────────────
+
+async function platformFetch(endpoint, options = {}) {
+  const url = `${API}${endpoint}`;
+
+  const makeReq = (token) =>
+    fetch(url, {
+      ...options,
+      headers: {
+        "Content-Type": "application/json",
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...options.headers,
+      },
+    });
+
+  let token = Cookies.get("access_token");
+  let res = await makeReq(token);
+
+  // Auto-refresh on 401
+  if (res.status === 401) {
+    const newToken = await refreshAccessToken();
+    if (newToken) {
+      res = await makeReq(newToken);
+    }
+  }
+
+  let data = null;
+  try {
+    data = await res.json();
+  } catch {
+    /* empty body */
+  }
+
+  if (!res.ok) {
+    const err = new Error(data?.detail || data?.message || `Request failed: ${res.status}`);
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+
+  return data;
+}
+
+// ─── Auth ───────────────────────────────────────────────────────
+
+export async function platformLogin(email, password) {
+  const res = await fetch(`${API}/api/v1/platform/auth/login/`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ email, password }),
+  });
+
+  const data = await res.json();
+  if (!res.ok) {
+    const err = new Error(data?.detail || "Login failed");
+    err.status = res.status;
+    err.data = data;
+    throw err;
+  }
+
+  return data;
+}
+
+export async function platformMe() {
+  return platformFetch("/api/v1/platform/auth/me/");
+}
+
+export async function platformLogout() {
+  const refresh = Cookies.get("refresh_token");
+  try {
+    await platformFetch("/api/v1/platform/auth/logout/", {
+      method: "POST",
+      body: JSON.stringify({ refresh }),
+    });
+  } catch {
+    /* best-effort */
+  }
+  Cookies.remove("access_token");
+  Cookies.remove("refresh_token");
+}
+
+// ─── Dashboard ──────────────────────────────────────────────────
+
+export async function fetchPlatformDashboard() {
+  return platformFetch("/api/v1/platform/dashboard/");
+}
+
+// ─── Employees (Sub-admins) ─────────────────────────────────────
+
+export async function fetchEmployees(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return platformFetch(`/api/v1/platform/employees/${qs ? `?${qs}` : ""}`);
+}
+
+export async function fetchEmployee(id) {
+  return platformFetch(`/api/v1/platform/employees/${id}/`);
+}
+
+export async function createEmployee(payload) {
+  return platformFetch("/api/v1/platform/employees/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updateEmployee(id, payload) {
+  return platformFetch(`/api/v1/platform/employees/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deactivateEmployee(id) {
+  return platformFetch(`/api/v1/platform/employees/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export async function activateEmployee(id) {
+  return platformFetch(`/api/v1/platform/employees/${id}/activate/`, {
+    method: "POST",
+  });
+}
+
+export async function changeEmployeeRole(id, roleId) {
+  return platformFetch(`/api/v1/platform/employees/${id}/change-role/`, {
+    method: "POST",
+    body: JSON.stringify({ role_id: roleId }),
+  });
+}
+
+export async function addEmployeePermission(id, permission) {
+  return platformFetch(`/api/v1/platform/employees/${id}/add-permission/`, {
+    method: "POST",
+    body: JSON.stringify({ permission }),
+  });
+}
+
+export async function removeEmployeePermission(id, permission) {
+  return platformFetch(`/api/v1/platform/employees/${id}/remove-permission/`, {
+    method: "POST",
+    body: JSON.stringify({ permission }),
+  });
+}
+
+export async function resetEmployeePermissions(id) {
+  return platformFetch(`/api/v1/platform/employees/${id}/reset-permissions/`, {
+    method: "POST",
+  });
+}
+
+// ─── Roles ──────────────────────────────────────────────────────
+
+export async function fetchRoles() {
+  const data = await platformFetch("/api/v1/platform/roles/");
+  return data.results || [];
+}
+
+
+export async function fetchRole(id) {
+  return platformFetch(`/api/v1/platform/roles/${id}/`);
+}
+
+// ─── Permissions ────────────────────────────────────────────────
+
+export async function fetchPermissions(grouped = true, category = "") {
+  const qs = new URLSearchParams();
+  if (grouped) qs.set("grouped", "true");
+  if (category) qs.set("category", category);
+  return platformFetch(`/api/v1/platform/permissions/?${qs}`);
+}
+
+export async function fetchPermissionCategories() {
+  return platformFetch("/api/v1/platform/permissions/categories/");
+}
+
+export async function fetchMyPermissions() {
+  return platformFetch("/api/v1/platform/my-permissions/");
+}
+
+// ─── Audit Logs ─────────────────────────────────────────────────
+
+export async function fetchAuditLogs(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return platformFetch(`/api/v1/platform/audit-logs/${qs ? `?${qs}` : ""}`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TENANTS (NEW)
+// ═══════════════════════════════════════════════════════════════
+
+// ─── Tenant CRUD ────────────────────────────────────────
+export async function fetchTenants(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return platformFetch(`/api/v1/platform/tenants/${qs ? `?${qs}` : ""}`);
+}
+
+export async function fetchTenant(id) {
+  return platformFetch(`/api/v1/platform/tenants/${id}/`);
+}
+
+export async function updateTenant(id, payload) {
+  return platformFetch(`/api/v1/platform/tenants/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+
+export async function fetchTenantMembers(id, params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return platformFetch(`/api/v1/platform/tenants/${id}/members/${qs ? `?${qs}` : ""}`);
+}
+
+
+// ─── Tenant Actions ─────────────────────────────────────
+
+export async function suspendTenant(id, reason = "") {
+  return platformFetch(`/api/v1/platform/tenants/${id}/suspend/`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+export async function activateTenant(id) {
+  return platformFetch(`/api/v1/platform/tenants/${id}/activate/`, {
+    method: "POST",
+  });
+}
+
+
+
+export async function verifyTenantDocument(id, action, reason = "") {
+  return platformFetch(`/api/v1/platform/tenants/${id}/verify-document/`, {
+    method: "POST",
+    body: JSON.stringify({ action, reason }),
+  });
+}
+
+// ─── Billing Actions ────────────────────────────────────
+
+export function changeTenantPlan(id, planTier, billingInterval = "month") {
+  return platformFetch(`/api/v1/platform/tenants/${id}/change-plan/`, {
+    method: "POST",
+    body: JSON.stringify({
+      plan_tier: planTier,
+      billing_interval: billingInterval,
+    }),
+  });
+}
+
+export function cancelTenantSubscription(id) {
+  return platformFetch(`/api/v1/platform/tenants/${id}/cancel-subscription/`, {
+    method: "POST",
+  });
+}
+
+export function resumeTenantSubscription(id) {
+  return platformFetch(`/api/v1/platform/tenants/${id}/resume-subscription/`, {
+    method: "POST",
+  });
+}
+
+
+// ─── Stats ──────────────────────────────────────────────
+export async function fetchTenantStats() {
+  return platformFetch("/api/v1/platform/tenants/stats/");
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// BILLING & PLANS (NEW)
+// ═══════════════════════════════════════════════════════════════
+
+
+export async function fetchBillingStats() {
+  return platformFetch("/api/v1/platform/billing/stats/");
+}
+
+export async function fetchPlans(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return platformFetch(`/api/v1/platform/billing/plans/${qs ? `?${qs}` : ""}`);
+}
+
+export async function fetchPlan(id) {
+  return platformFetch(`/api/v1/platform/billing/plans/${id}/`);
+}
+
+export async function createPlan(payload) {
+  return platformFetch("/api/v1/platform/billing/plans/", {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function updatePlan(id, payload) {
+  return platformFetch(`/api/v1/platform/billing/plans/${id}/`, {
+    method: "PUT",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deletePlan(id) {
+  return platformFetch(`/api/v1/platform/billing/plans/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+export async function togglePlanStatus(id) {
+  return platformFetch(`/api/v1/platform/billing/plans/${id}/toggle-status/`, {
+    method: "POST",
+  });
+}
+
+export async function fetchPlanSubscribers(id) {
+  return platformFetch(`/api/v1/platform/billing/plans/${id}/subscribers/`);
+}
+
+export async function fetchPlanFeatures(planId) {
+  return platformFetch(`/api/v1/platform/billing/plans/${planId}/features/`);
+}
+
+export async function addPlanFeature(planId, payload) {
+  return platformFetch(`/api/v1/platform/billing/plans/${planId}/features/`, {
+    method: "POST",
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function deletePlanFeature(planId, featureId) {
+  return platformFetch(`/api/v1/platform/billing/plans/${planId}/features/${featureId}/`, {
+    method: "DELETE",
+  });
+}
+
+export async function fetchPlanChanges(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return platformFetch(`/api/v1/platform/billing/plan-changes/${qs ? `?${qs}` : ""}`);
+}
+
+export async function reviewPlanChange(id, action, notes = "") {
+  return platformFetch(`/api/v1/platform/billing/plan-changes/${id}/review/`, {
+    method: "POST",
+    body: JSON.stringify({ action, notes }),
+  });
+}
+
+export async function fetchFeatureRegistry(){
+  return platformFetch("/api/v1/platform/billing/feature-registry/");
+}
+
+// ═══════════════════════════════════════════════════════════════════
+// BILLING ANALYTICS
+// ════════════════════════
+
+export async function fetchAnalyticsOverview() {
+  return platformFetch("/api/v1/platform/billing/analytics/overview/");
+}
+
+export async function fetchMrrHistory(months = 12) {
+  return platformFetch(`/api/v1/platform/billing/analytics/mrr-history/?months=${months}`);
+}
+
+export async function fetchChurnData(months = 6) {
+  return platformFetch(`/api/v1/platform/billing/analytics/churn/?months=${months}`);
+}
+
+export async function fetchCohortData(months = 6) {
+  return platformFetch(`/api/v1/platform/billing/analytics/cohorts/?months=${months}`);
+}
+
+export async function fetchGrowthData(months = 12) {
+  return platformFetch(`/api/v1/platform/billing/analytics/growth/?months=${months}`);
+}
+
+export async function fetchPlanMix() {
+  return platformFetch("/api/v1/platform/billing/analytics/plan-mix/");
+
+}
+
+
+
+

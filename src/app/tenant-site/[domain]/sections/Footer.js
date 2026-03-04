@@ -1,0 +1,145 @@
+"use client";
+
+import { useTenantLang } from "../../contexts/TenantLangContext";
+import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
+
+export default function Footer({ data, lang: propLang }) {
+  const { language, isRTL } = useTenantLang();
+  const lang = propLang || language;
+
+  const {
+    logo,
+    business_name,
+    tagline,
+    columns = [],
+    social_links = [],
+    contact_info = {},
+    copyright,
+    show_powered_by = true,
+    background = "dark",
+  } = data || {};
+
+  const resolvedTagline = resolveTranslated(tagline, lang);
+  const resolvedCopyright = resolveTranslated(copyright, lang);
+  const resolvedColumns = columns.map(col => ({
+    ...col,
+    title: resolveTranslated(col.title, lang),
+    links: resolveTranslatedArray(col.links || [], lang, ["label", "href"]),
+  }));
+
+  /* ================= OLD BACKGROUND LOGIC ================= */
+
+  let bgStyle = {};
+  let textClass = "text-[color:var(--color-text)]";
+  let mutedClass = "text-[color:var(--color-text-muted)]";
+  let borderClass = "border-[color:var(--color-border)]";
+
+  if (background === "dark") {
+    bgStyle = { backgroundColor: "var(--color-dark-bg)" };
+    textClass = "text-white";
+    mutedClass = "text-white/70";
+    borderClass = "border-white/20";
+  }
+
+  if (background === "light") {
+    bgStyle = { backgroundColor: "var(--color-background)" };
+  }
+
+  if (background === "gradient") {
+    bgStyle = { backgroundColor: "var(--color-primary)" };
+    textClass = "text-white";
+    mutedClass = "text-white/70";
+    borderClass = "border-white/20";
+  }
+
+  return (
+    <footer style={bgStyle} className={isRTL ? "rtl" : ""}>
+      <div className="max-w-7xl mx-auto px-6 py-16">
+
+        {/* ================= MAIN GRID ================= */}
+        <div className={`grid gap-12 ${resolvedColumns.length ? "md:grid-cols-4" : "md:grid-cols-2"}`}>
+
+          {/* Brand */}
+          <div>
+            {logo ? (
+              <img src={logo} alt={business_name} className="h-10 mb-4" />
+            ) : (
+              business_name && (
+                <h3 className={`text-2xl font-bold mb-4 ${textClass}`}>
+                  {business_name}
+                </h3>
+              )
+            )}
+
+            {resolvedTagline && (
+              <p className={`${mutedClass} mb-6`}>{resolvedTagline}</p>
+            )}
+
+            {(contact_info.email || contact_info.phone || contact_info.address) && (
+              <div className={`space-y-2 ${mutedClass}`}>
+                {contact_info.email && <p>✉️ {contact_info.email}</p>}
+                {contact_info.phone && <p>📞 {contact_info.phone}</p>}
+                {contact_info.address && (
+                  <p>📍 {resolveTranslated(contact_info.address, lang)}</p>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Links */}
+          {resolvedColumns.map((col, idx) => (
+            <div key={idx}>
+              <h4 className={`font-semibold text-lg mb-4 ${textClass}`}>
+                {col.title}
+              </h4>
+              <ul className="space-y-3">
+                {col.links.map((link, i) => (
+                  <li key={i}>
+                    <a
+                      href={link.href || "#"}
+                      className={`${mutedClass} hover:text-white transition-colors`}
+                    >
+                      {link.label}
+                    </a>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ))}
+        </div>
+
+        {/* ================= SOCIAL ================= */}
+        {social_links.length > 0 && (
+          <div className={`flex gap-4 mt-10 ${isRTL ? "flex-row-reverse" : ""}`}>
+            {social_links.map((s, i) => (
+              <a
+                key={i}
+                href={s.url || s.href || "#"}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={`${mutedClass} hover:text-white transition-colors`}
+              >
+                {s.platform}
+              </a>
+            ))}
+          </div>
+        )}
+
+        {/* ================= BOTTOM ================= */}
+        <div className={`mt-12 pt-8 border-t ${borderClass} flex flex-col md:flex-row justify-between gap-4`}>
+          <p className={mutedClass}>
+            {resolvedCopyright ||
+              `© ${new Date().getFullYear()} ${business_name || ""}`}
+          </p>
+
+          {show_powered_by && (
+            <p className={`text-sm ${mutedClass}`}>
+              Powered by <span className="font-semibold">YourPlatform</span>
+            </p>
+          )}
+        </div>
+
+      </div>
+    </footer>
+  );
+}
