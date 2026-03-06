@@ -16,10 +16,14 @@
  *  - In-order messaging
  */
 
+
 import { useState, useEffect, useRef, useCallback } from "react";
-import { useTenantLang } from "../contexts/TenantLangContext";
-import { useTenantTheme } from "../contexts/TenantThemeContext";
-import { resolveTranslated } from "../[domain]/utils/resolveTranslated";
+// import { useTenantLang } from "@/app/tenant-site/contexts/TenantLangContext";
+// import { useTenantTheme } from "@/app/tenant-site/contexts/TenantThemeContext";
+
+// import resolveTranslated from "@/app/tenant-site/[domain]/utils/resolveTranslated";
+import { useApp } from "@/contexts/AppContext";
+import { useParams } from 'next/navigation';
 import {
   fetchProviderOrders,
   fetchOrderDetail,
@@ -30,7 +34,14 @@ import {
   uploadOrderFile,
   sendOrderMessage,
   getStatusConfig,
-} from "@/lib/orderApi";
+} from "./orderApi";
+
+function translate(key, lang) {
+    const obj = T[key];
+    if (!obj) return key;
+    return obj[lang] || obj.en;
+    }
+
 
 // =============================================================================
 // TRANSLATIONS
@@ -78,38 +89,39 @@ const T = {
   review: { en: "Customer Review", ar: "تقييم العميل", ur: "کسٹمر ریویو" },
 };
 
-function t(key, lang) {
-  return resolveTranslated(T[key] || { en: key }, lang);
-}
 
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
-export default function ProviderOrdersDashboard({ domain, token, orderId = null }) {
-  const { language, isRTL } = useTenantLang();
-  const theme = useTenantTheme();
+export default function ProviderOrdersDashboard({ orderId = null }) {
+
+  const {language, activeTenant, tenants, isRTL } = useApp();
+
+  const tenant = tenants?.find(t => t.id === activeTenant);
+  const theme = tenant?.settings?.branding || {};
+
   const lang = language;
+
+
 
   if (orderId) {
     return (
       <ProviderOrderDetail
-        domain={domain}
-        token={token}
+        tenantId={activeTenant}
         orderId={orderId}
         theme={theme}
         lang={lang}
         isRTL={isRTL}
-      />
+        />
     );
   }
 
   return (
     <ProviderOrderList
-      domain={domain}
-      token={token}
-      theme={theme}
-      lang={lang}
-      isRTL={isRTL}
+    tenantId={activeTenant}
+    theme={theme}
+    lang={lang}
+    isRTL={isRTL}
     />
   );
 }
@@ -117,7 +129,7 @@ export default function ProviderOrdersDashboard({ domain, token, orderId = null 
 // =============================================================================
 // PROVIDER ORDER LIST
 // =============================================================================
-function ProviderOrderList({ domain, token, theme, lang, isRTL }) {
+function ProviderOrderList({ tenantId, theme, lang, isRTL }){
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [filter, setFilter] = useState("all");
@@ -128,31 +140,33 @@ function ProviderOrderList({ domain, token, theme, lang, isRTL }) {
   }, [filter]);
 
   async function loadOrders() {
-    setLoading(true);
-    try {
-      const params = {};
-      if (filter === "new") params.status = "paid";
-      else if (filter === "active") params.status = "in_progress";
-      else if (filter === "delivered") params.status = "delivered";
-      else if (filter === "completed") params.status = "completed";
-      else if (filter === "revisions") params.status = "revision_requested";
-      else if (filter !== "all") params.status = filter;
+  setLoading(true);
 
-      const data = await fetchProviderOrders(domain, token, params);
-      setOrders(data.results || data || []);
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setLoading(false);
-    }
+  try {
+    const params = {};
+
+    if (filter === "new") params.status = "paid";
+    else if (filter === "active") params.status = "in_progress";
+    else if (filter === "delivered") params.status = "delivered";
+    else if (filter === "completed") params.status = "completed";
+    else if (filter === "revisions") params.status = "revision_requested";
+
+    const data = await fetchProviderOrders(tenantId, params);
+
+    setOrders(data.results || data || []);
+  } catch (e) {
+    console.error("Orders fetch failed:", e);
+  } finally {
+    setLoading(false);
   }
+}
 
   async function handleQuickAccept(e, orderId) {
     e.preventDefault();
     e.stopPropagation();
     setActionLoading(orderId);
     try {
-      await acceptOrder(domain, token, orderId);
+      await acceptOrder(tenantId, orderId);
       await loadOrders();
     } catch (e) {
       alert(e.message);
@@ -164,10 +178,10 @@ function ProviderOrderList({ domain, token, theme, lang, isRTL }) {
   async function handleQuickDecline(e, orderId) {
     e.preventDefault();
     e.stopPropagation();
-    if (!confirm(t("declineConfirm", lang))) return;
+    if (!confirm(translate("declineConfirm", lang))) return;
     setActionLoading(orderId);
     try {
-      await declineOrder(domain, token, orderId);
+      await declineOrder(tenantId, orderId);
       await loadOrders();
     } catch (e) {
       alert(e.message);
@@ -191,7 +205,7 @@ function ProviderOrderList({ domain, token, theme, lang, isRTL }) {
 
   return (
     <div className={`max-w-4xl mx-auto p-6 ${isRTL ? "rtl" : ""}`}>
-      <h1 className="text-2xl font-bold text-gray-900 mb-6">{t("title", lang)}</h1>
+      <h1 className="text-2xl font-bold text-gray-900 mb-6">{translate("title", lang)}</h1>
 
       {/* Filters */}
       <div className={`flex gap-2 mb-6 overflow-x-auto pb-2 ${isRTL ? "flex-row-reverse" : ""}`}>
@@ -213,7 +227,7 @@ function ProviderOrderList({ domain, token, theme, lang, isRTL }) {
               }`}
               style={{ backgroundColor: isActive ? theme.primary_color || "#3B82F6" : undefined }}
             >
-              {resolveTranslated(f.label, lang)}
+              {f.label[lang] || f.label.en}
               {badge && (
                 <span className="absolute -top-1 -right-1 bg-red-500 text-white text-[10px] font-bold rounded-full w-5 h-5 flex items-center justify-center">
                   {badge}
@@ -234,7 +248,7 @@ function ProviderOrderList({ domain, token, theme, lang, isRTL }) {
       ) : orders.length === 0 ? (
         <div className="text-center py-16">
           <div className="text-5xl mb-4">📋</div>
-          <p className="text-gray-500">{t("noOrders", lang)}</p>
+          <p className="text-gray-500">{translate("noOrders", lang)}</p>
         </div>
       ) : (
         <div className="space-y-4">
@@ -281,19 +295,19 @@ function ProviderOrderCard({ order, theme, lang, isRTL, actionLoading, onAccept,
             </span>
             {order.is_overdue && (
               <span className="px-2 py-0.5 text-xs font-medium rounded-full bg-red-100 text-red-700">
-                ⏰ {t("overdue", lang)}
+                ⏰ {translate("overdue", lang)}
               </span>
             )}
           </div>
           <p className="text-gray-600 text-sm">{order.service_name}</p>
           {order.customer_name && (
             <p className="text-gray-400 text-xs mt-1">
-              {t("customer", lang)}: {order.customer_name}
+              {translate("customer", lang)}: {order.customer_name}
             </p>
           )}
           {order.due_date && (
             <p className="text-gray-400 text-xs mt-0.5">
-              {t("dueDate", lang)}: {new Date(order.due_date).toLocaleDateString()}
+              {translate("dueDate", lang)}: {new Date(order.due_date).toLocaleDateString()}
             </p>
           )}
         </div>
@@ -317,14 +331,14 @@ function ProviderOrderCard({ order, theme, lang, isRTL, actionLoading, onAccept,
             className="flex-1 py-2 text-white rounded-lg text-sm font-semibold hover:opacity-90 disabled:opacity-50 transition-opacity"
             style={{ backgroundColor: "#10B981" }}
           >
-            {actionLoading ? "..." : `✓ ${t("acceptOrder", lang)}`}
+            {actionLoading ? "..." : `✓ ${translate("acceptOrder", lang)}`}
           </button>
           <button
             onClick={(e) => onDecline(e, order.id)}
             disabled={actionLoading}
             className="px-4 py-2 bg-gray-100 text-gray-600 rounded-lg text-sm font-medium hover:bg-gray-200 disabled:opacity-50"
           >
-            {t("declineOrder", lang)}
+            {translate("declineOrder", lang)}
           </button>
         </div>
       )}
@@ -332,7 +346,7 @@ function ProviderOrderCard({ order, theme, lang, isRTL, actionLoading, onAccept,
       {/* Revision notice */}
       {isRevision && (
         <div className="mt-3 pt-3 border-t border-orange-200">
-          <p className="text-sm text-orange-700">⚠️ {t("revisionRequested", lang)}</p>
+          <p className="text-sm text-orange-700">⚠️ {translate("revisionRequested", lang)}</p>
         </div>
       )}
     </a>
@@ -342,7 +356,7 @@ function ProviderOrderCard({ order, theme, lang, isRTL, actionLoading, onAccept,
 // =============================================================================
 // PROVIDER ORDER DETAIL
 // =============================================================================
-function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
+function ProviderOrderDetail({ tenantId, orderId, theme, lang, isRTL }) {
   const [order, setOrder] = useState(null);
   const [messages, setMessages] = useState([]);
   const [newMessage, setNewMessage] = useState("");
@@ -360,7 +374,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
   async function loadOrder() {
     setLoading(true);
     try {
-      const data = await fetchOrderDetail(domain, token, orderId);
+      const data = await fetchOrderDetail(tenantId, orderId);
       setOrder(data);
       setMessages(data.messages || []);
     } catch (e) {
@@ -379,7 +393,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
     setActionLoading(true);
     setError(null);
     try {
-      await acceptOrder(domain, token, orderId);
+      await acceptOrder(tenantId, orderId);
       showSuccess("Order accepted!");
       await loadOrder();
     } catch (e) {
@@ -390,11 +404,11 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
   }
 
   async function handleDecline() {
-    if (!confirm(t("declineConfirm", lang))) return;
+    if (!confirm(translate("declineConfirm", lang))) return;
     setActionLoading(true);
     setError(null);
     try {
-      await declineOrder(domain, token, orderId);
+      await declineOrder(tenantId, orderId);
       showSuccess("Order declined.");
       await loadOrder();
     } catch (e) {
@@ -408,7 +422,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
     setActionLoading(true);
     setError(null);
     try {
-      await startWork(domain, token, orderId);
+      await startWork(tenantId, orderId);
       showSuccess("Work started! Due date has been set.");
       await loadOrder();
     } catch (e) {
@@ -426,7 +440,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
     setActionLoading(true);
     setError(null);
     try {
-      await deliverOrder(domain, token, orderId, deliveryMessage);
+      await deliverOrder(tenantId, orderId, deliveryMessage);
       setDeliveryMessage("");
       showSuccess("Delivery submitted!");
       await loadOrder();
@@ -440,7 +454,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
   async function handleSendMessage() {
     if (!newMessage.trim()) return;
     try {
-      const msg = await sendOrderMessage(domain, token, orderId, newMessage);
+      const msg = await sendOrderMessage(tenantId, orderId, newMessage);
       setMessages((prev) => [...prev, msg]);
       setNewMessage("");
       messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -474,7 +488,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
     <div className={`max-w-3xl mx-auto p-6 space-y-6 ${isRTL ? "rtl" : ""}`}>
       {/* Back link */}
       <a href="/provider/orders" className="text-sm text-gray-500 hover:text-gray-700">
-        {t("back", lang)}
+        {translate("back", lang)}
       </a>
 
       {/* Header */}
@@ -487,14 +501,14 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
             </span>
             {order.is_overdue && (
               <span className="px-3 py-1 text-sm font-medium rounded-full bg-red-100 text-red-700">
-                ⏰ {t("overdue", lang)}
+                ⏰ {translate("overdue", lang)}
               </span>
             )}
           </div>
           <p className="text-gray-600">{order.service_name}</p>
           {order.package_name && (
             <p className="text-gray-400 text-sm mt-1">
-              {t("package", lang)}: {order.package_name}
+              {translate("package", lang)}: {order.package_name}
             </p>
           )}
         </div>
@@ -516,19 +530,19 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
       {/* Revision Alert */}
       {order.status === "revision_requested" && (
         <div className="p-4 bg-orange-50 border border-orange-200 rounded-xl text-orange-800 text-sm">
-          ⚠️ {t("revisionRequested", lang)}
+          ⚠️ {translate("revisionRequested", lang)}
         </div>
       )}
 
       {/* Earnings Breakdown */}
       <div className="bg-gray-50 rounded-xl p-5 space-y-3">
         <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wide">
-          {t("earnings", lang)}
+          {translate("earnings", lang)}
         </h3>
-        <Row label={t("totalOrder", lang)} value={`$${Number(order.total_amount).toFixed(2)}`} isRTL={isRTL} />
+        <Row label={translate("totalOrder", lang)} value={`$${Number(order.total_amount).toFixed(2)}`} isRTL={isRTL} />
         {order.platform_fee && (
           <Row
-            label={t("platformFee", lang)}
+            label={translate("platformFee", lang)}
             value={`-$${Number(order.platform_fee).toFixed(2)}`}
             isRTL={isRTL}
             valueClass="text-red-500"
@@ -536,7 +550,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
         )}
         <div className="border-t border-gray-200 pt-2">
           <Row
-            label={t("youEarn", lang)}
+            label={translate("youEarn", lang)}
             value={`$${Number(order.provider_earning || order.total_amount).toFixed(2)}`}
             isRTL={isRTL}
             labelClass="font-bold"
@@ -547,13 +561,13 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
 
       {/* Order Info */}
       <div className="bg-gray-50 rounded-xl p-5 space-y-3">
-        <Row label={t("customer", lang)} value={order.customer_name || "—"} isRTL={isRTL} />
-        <Row label={t("ordered", lang)} value={new Date(order.created_at).toLocaleDateString()} isRTL={isRTL} />
+        <Row label={translate("customer", lang)} value={order.customer_name || "—"} isRTL={isRTL} />
+        <Row label={translate("ordered", lang)} value={new Date(order.created_at).toLocaleDateString()} isRTL={isRTL} />
         {order.due_date && (
-          <Row label={t("dueDate", lang)} value={new Date(order.due_date).toLocaleDateString()} isRTL={isRTL} />
+          <Row label={translate("dueDate", lang)} value={new Date(order.due_date).toLocaleDateString()} isRTL={isRTL} />
         )}
         <Row
-          label={t("revisionsUsed", lang)}
+          label={translate("revisionsUsed", lang)}
           value={`${order.revisions_used || 0} / ${order.revisions_allowed || 0}`}
           isRTL={isRTL}
         />
@@ -563,7 +577,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
       {order.requirements && Object.keys(order.requirements).length > 0 && (
         <div className="bg-blue-50 rounded-xl p-5 space-y-3">
           <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wide">
-            {t("requirements", lang)}
+            {translate("requirements", lang)}
           </h3>
           {Object.entries(order.requirements).map(([key, value]) => (
             <div key={key} className="text-sm">
@@ -594,14 +608,14 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
               className="flex-1 py-3 text-white rounded-xl font-semibold hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: "#10B981" }}
             >
-              {actionLoading ? "..." : `✓ ${t("acceptOrder", lang)}`}
+              {actionLoading ? "..." : `✓ ${translate("acceptOrder", lang)}`}
             </button>
             <button
               onClick={handleDecline}
               disabled={actionLoading}
               className="px-6 py-3 bg-gray-100 text-gray-600 rounded-xl font-medium hover:bg-gray-200 disabled:opacity-50"
             >
-              {t("declineOrder", lang)}
+              {translate("declineOrder", lang)}
             </button>
           </div>
         </div>
@@ -622,7 +636,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
             className="w-full py-3 text-white rounded-xl font-semibold hover:opacity-90 disabled:opacity-50"
             style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
           >
-            {actionLoading ? "..." : `🚀 ${t("startWork", lang)}`}
+            {actionLoading ? "..." : `🚀 ${translate("startWork", lang)}`}
           </button>
         </div>
       )}
@@ -632,8 +646,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
         <div className="space-y-4">
           {/* File Upload */}
           <FileUploadZone
-            domain={domain}
-            token={token}
+            tenantId={tenantId}
             orderId={orderId}
             theme={theme}
             lang={lang}
@@ -644,12 +657,12 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
           {/* Delivery Submission */}
           <div className="bg-green-50 rounded-xl p-5 space-y-4">
             <h3 className="font-bold text-green-800">
-              📦 {t("deliver", lang)}
+              📦 {translate("deliver", lang)}
             </h3>
             <textarea
               value={deliveryMessage}
               onChange={(e) => setDeliveryMessage(e.target.value)}
-              placeholder={t("deliveryMsg", lang)}
+              placeholder={translate("deliveryMsg", lang)}
               rows={3}
               className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-green-200 focus:border-transparent"
             />
@@ -659,7 +672,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
               className="w-full py-3 text-white rounded-xl font-semibold hover:opacity-90 disabled:opacity-50"
               style={{ backgroundColor: "#10B981" }}
             >
-              {actionLoading ? "..." : `📦 ${t("deliver", lang)}`}
+              {actionLoading ? "..." : `📦 ${translate("deliver", lang)}`}
             </button>
           </div>
         </div>
@@ -671,7 +684,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
       {/* Customer Review */}
       {order.review && (
         <div className="bg-yellow-50 rounded-xl p-5">
-          <h3 className="font-bold text-gray-900 mb-2">{t("review", lang)}</h3>
+          <h3 className="font-bold text-gray-900 mb-2">{translate("review", lang)}</h3>
           <div className="flex gap-1 mb-2">
             {[1, 2, 3, 4, 5].map((s) => (
               <span key={s} className={s <= order.review.rating ? "text-yellow-400" : "text-gray-300"}>
@@ -687,11 +700,11 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
 
       {/* Messages */}
       <div className="space-y-4">
-        <h3 className="font-bold text-gray-900">{t("messages", lang)}</h3>
+        <h3 className="font-bold text-gray-900">{translate("messages", lang)}</h3>
 
         <div className="space-y-3 max-h-80 overflow-y-auto">
           {messages.length === 0 ? (
-            <p className="text-gray-400 text-center py-6 text-sm">{t("noMessages", lang)}</p>
+            <p className="text-gray-400 text-center py-6 text-sm">{translate("noMessages", lang)}</p>
           ) : (
             messages.map((msg) => (
               <div
@@ -721,7 +734,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
               value={newMessage}
               onChange={(e) => setNewMessage(e.target.value)}
               onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-              placeholder={t("sendMsg", lang)}
+              placeholder={translate("sendMsg", lang)}
               className="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-200 focus:border-transparent"
             />
             <button
@@ -729,7 +742,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
               className="px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90"
               style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
             >
-              {t("send", lang)}
+              {translate("send", lang)}
             </button>
           </div>
         )}
@@ -741,7 +754,7 @@ function ProviderOrderDetail({ domain, token, orderId, theme, lang, isRTL }) {
 // =============================================================================
 // FILE UPLOAD ZONE (Drag & Drop + Click)
 // =============================================================================
-function FileUploadZone({ domain, token, orderId, theme, lang, isRTL, onUploadComplete }) {
+function FileUploadZone({ tenantId, orderId, theme, lang, isRTL, onUploadComplete }) {
   const [dragActive, setDragActive] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [uploadProgress, setUploadProgress] = useState([]);
@@ -773,7 +786,7 @@ function FileUploadZone({ domain, token, orderId, theme, lang, isRTL, onUploadCo
 
       for (let i = 0; i < fileArr.length; i++) {
         try {
-          await uploadOrderFile(domain, token, orderId, fileArr[i], category);
+          await uploadOrderFile(tenantId, orderId, fileArr[i], category);
           progress[i].status = "done";
         } catch (e) {
           progress[i].status = "error";
@@ -792,7 +805,7 @@ function FileUploadZone({ domain, token, orderId, theme, lang, isRTL, onUploadCo
 
       onUploadComplete?.();
     },
-    [domain, token, orderId, category, onUploadComplete]
+    [tenantId, orderId, category, onUploadComplete]
   );
 
   const handleDrop = useCallback(
@@ -817,19 +830,19 @@ function FileUploadZone({ domain, token, orderId, theme, lang, isRTL, onUploadCo
     <div className="space-y-3">
       <div className="flex items-center justify-between">
         <h3 className="font-bold text-gray-900 text-sm uppercase tracking-wide">
-          {t("uploadFiles", lang)}
+          {translate("uploadFiles", lang)}
         </h3>
 
         {/* Category selector */}
         <div className="flex items-center gap-2">
-          <span className="text-xs text-gray-500">{t("fileCategory", lang)}:</span>
+          <span className="text-xs text-gray-500">{translate("fileCategory", lang)}:</span>
           <select
             value={category}
             onChange={(e) => setCategory(e.target.value)}
             className="text-xs border border-gray-300 rounded-lg px-2 py-1 bg-white"
           >
-            <option value="delivery">{t("delivery", lang)}</option>
-            <option value="work">{t("work", lang)}</option>
+            <option value="delivery">{translate("delivery", lang)}</option>
+            <option value="work">{translate("work", lang)}</option>
           </select>
         </div>
       </div>
@@ -855,10 +868,10 @@ function FileUploadZone({ domain, token, orderId, theme, lang, isRTL, onUploadCo
           className="hidden"
         />
         <div className="text-4xl mb-2">{dragActive ? "📥" : "📎"}</div>
-        <p className="text-sm text-gray-600">{t("dragDrop", lang)}</p>
+        <p className="text-sm text-gray-600">{translate("dragDrop", lang)}</p>
         <p className="text-xs text-gray-400 mt-1">
           {category === "delivery" ? "📦" : "📁"}{" "}
-          {category === "delivery" ? t("delivery", lang) : t("work", lang)}
+          {category === "delivery" ? translate("delivery", lang) : translate("work", lang)}
         </p>
       </div>
 
@@ -881,7 +894,7 @@ function FileUploadZone({ domain, token, orderId, theme, lang, isRTL, onUploadCo
               </span>
               <span className="flex-1 truncate">{item.name}</span>
               {item.status === "uploading" && (
-                <span className="text-xs">{t("uploading", lang)}</span>
+                <span className="text-xs">{translate("uploading", lang)}</span>
               )}
               {item.error && <span className="text-xs">{item.error}</span>}
             </div>
@@ -933,9 +946,9 @@ function OrderFilesDisplay({ files, lang, isRTL }) {
 
   return (
     <div className="space-y-4">
-      {renderFileList(deliveryFiles, `📦 ${t("deliveryFiles", lang)}`)}
-      {renderFileList(workFiles, `📁 ${t("workFiles", lang)}`)}
-      {renderFileList(requirementFiles, `📋 ${t("requirements", lang)}`)}
+      {renderFileList(deliveryFiles, `📦 ${translate("deliveryFiles", lang)}`)}
+      {renderFileList(workFiles, `📁 ${translate("workFiles", lang)}`)}
+      {renderFileList(requirementFiles, `📋 ${translate("requirements", lang)}`)}
     </div>
   );
 }

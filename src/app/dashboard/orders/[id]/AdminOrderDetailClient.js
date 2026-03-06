@@ -14,20 +14,11 @@
  * - Uses existing POST endpoints for actions
  */
 
+import { authFetch } from "../lib/api";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import { useApp } from "@/contexts/AppContext";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
-
-function getToken() {
-  return localStorage.getItem("token");
-}
-
-function apiHeaders(token) {
-  const h = { "Content-Type": "application/json" };
-  if (token) h["Authorization"] = `Bearer ${token}`;
-  return h;
-}
 
 // ─── Status config ───
 
@@ -61,7 +52,8 @@ const TRANSITION_LABELS = {
 
 export default function AdminOrderDetailClient({ orderId }) {
   const router = useRouter();
-
+  const { activeTenant } = useApp();
+  const tenantId = activeTenant?.id || activeTenant;
   const [order, setOrder] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -80,30 +72,34 @@ export default function AdminOrderDetailClient({ orderId }) {
     try {
       setLoading(true);
       setError(null);
-      const token = getToken();
 
-      if (!token) {
+      if (!tenantId) {
         router.push("/auth/login");
         return;
       }
 
-      const res = await fetch(`${API_BASE}/api/v1/orders/${orderId}/`, {
-        headers: apiHeaders(token),
-      });
+      const data = await authFetch(
+        `/api/v1/orders/${orderId}/`,
+        tenantId
+      );
 
-      if (!res.ok) {
-        if (res.status === 401) { router.push("/auth/login"); return; }
-        if (res.status === 404) { setError("Order not found."); return; }
-        throw new Error(`${res.status}`);
+      setOrder(data);
+    } catch (err) {
+      if (err.status === 401) {
+        router.push("/auth/login");
+        return;
       }
 
-      setOrder(await res.json());
-    } catch {
-      setError("Failed to load order.");
+      if (err.status === 404) {
+        setError("Order not found.");
+        return;
+      }
+
+      setError(err.message || "Failed to load order.");
     } finally {
       setLoading(false);
     }
-  }, [orderId, router]);
+  }, [orderId, tenantId, router]);
 
   useEffect(() => {
     fetchOrder();
@@ -113,23 +109,19 @@ export default function AdminOrderDetailClient({ orderId }) {
   const handleStatusUpdate = async (newStatus) => {
     try {
       setActionLoading(newStatus);
-      const token = getToken();
 
-      const res = await fetch(`${API_BASE}/api/v1/orders/${orderId}/update-status/`, {
-        method: "POST",
-        headers: apiHeaders(token),
-        body: JSON.stringify({ status: newStatus }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(err.detail || "Failed to update status.");
-        return;
-      }
+      await authFetch(
+        `/api/v1/orders/${orderId}/update-status/`,
+        tenantId,
+        {
+          method: "POST",
+          body: JSON.stringify({ status: newStatus }),
+        }
+      );
 
       await fetchOrder();
-    } catch {
-      alert("Failed to update status.");
+    } catch (err) {
+      alert(err.message || "Failed to update status.");
     } finally {
       setActionLoading(null);
     }
@@ -139,50 +131,42 @@ export default function AdminOrderDetailClient({ orderId }) {
   const handleCancel = async () => {
     try {
       setActionLoading("cancel");
-      const token = getToken();
 
-      const res = await fetch(`${API_BASE}/api/v1/orders/${orderId}/cancel/`, {
-        method: "POST",
-        headers: apiHeaders(token),
-        body: JSON.stringify({ reason: cancelReason }),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(err.detail || "Failed to cancel.");
-        return;
-      }
+      await authFetch(
+        `/api/v1/orders/${orderId}/cancel/`,
+        tenantId,
+        {
+          method: "POST",
+          body: JSON.stringify({ reason: cancelReason }),
+        }
+      );
 
       setShowCancelModal(false);
       setCancelReason("");
       await fetchOrder();
-    } catch {
-      alert("Failed to cancel order.");
+    } catch (err) {
+      alert(err.message || "Failed to cancel.");
     } finally {
       setActionLoading(null);
     }
   };
 
   // ─── Complete order ───
-  const handleComplete = async () => {
+    const handleComplete = async () => {
     try {
       setActionLoading("complete");
-      const token = getToken();
 
-      const res = await fetch(`${API_BASE}/api/v1/orders/${orderId}/complete/`, {
-        method: "POST",
-        headers: apiHeaders(token),
-      });
-
-      if (!res.ok) {
-        const err = await res.json().catch(() => ({}));
-        alert(err.detail || "Failed to complete.");
-        return;
-      }
+      await authFetch(
+        `/api/v1/orders/${orderId}/complete/`,
+        tenantId,
+        {
+          method: "POST",
+        }
+      );
 
       await fetchOrder();
-    } catch {
-      alert("Failed to complete order.");
+    } catch (err) {
+      alert(err.message || "Failed to complete.");
     } finally {
       setActionLoading(null);
     }
@@ -195,23 +179,20 @@ export default function AdminOrderDetailClient({ orderId }) {
 
     try {
       setSendingMessage(true);
-      const token = getToken();
 
-      const res = await fetch(`${API_BASE}/api/v1/orders/${orderId}/add-message/`, {
-        method: "POST",
-        headers: apiHeaders(token),
-        body: JSON.stringify({ content: messageText.trim() }),
-      });
-
-      if (!res.ok) {
-        alert("Failed to send message.");
-        return;
-      }
+      await authFetch(
+        `/api/v1/orders/${orderId}/add-message/`,
+        tenantId,
+        {
+          method: "POST",
+          body: JSON.stringify({ content: messageText.trim() }),
+        }
+      );
 
       setMessageText("");
       await fetchOrder();
-    } catch {
-      alert("Failed to send message.");
+    } catch (err) {
+      alert(err.message || "Failed to send message.");
     } finally {
       setSendingMessage(false);
     }

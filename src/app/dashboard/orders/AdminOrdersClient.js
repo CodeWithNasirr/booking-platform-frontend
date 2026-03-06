@@ -11,23 +11,14 @@
  * - Search and status filtering via query params
  * - No new auth, no new endpoints
  */
-
+import { authFetch } from "./lib/api";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import Cookies from 'js-cookie';
+import { useApp } from "@/contexts/AppContext";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 
-const token = Cookies.get('access_token');
-    
-
-
-function apiHeaders(token) {
-  const h = { "Content-Type": "application/json" };
-  if (token) h["Authorization"] = `Bearer ${token}`;
-  return h;
-}
 
 // ─── Status config ───
 
@@ -46,6 +37,10 @@ const ALL_STATUSES = Object.keys(STATUS_CONFIG);
 export default function AdminOrdersClient() {
   const router = useRouter();
 
+  const { t, activeTenant } = useApp();
+    // Handle both object and string tenant ID
+    const tenantId = activeTenant?.id || activeTenant;
+
   const [orders, setOrders] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -55,6 +50,8 @@ export default function AdminOrdersClient() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
+  
+
   // Debounce search input
   useEffect(() => {
     const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
@@ -63,40 +60,38 @@ export default function AdminOrdersClient() {
 
   // ─── Fetch orders ───
   const fetchOrders = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-      
-      if (!token) {
-        router.push("/auth/login");
-        return;
-      }
+  try {
+    setLoading(true);
+    setError(null);
 
-      const params = new URLSearchParams();
-      if (statusFilter !== "all") params.set("status", statusFilter);
-      if (debouncedSearch) params.set("search", debouncedSearch);
-
-      const qs = params.toString() ? `?${params.toString()}` : "";
-      const res = await fetch(`${API_BASE}/api/v1/orders/${qs}`, {
-        headers: apiHeaders(token),
-      });
-
-      if (!res.ok) {
-        if (res.status === 401) {
-          router.push("/auth/login");
-          return;
-        }
-        throw new Error(`${res.status}`);
-      }
-
-      const data = await res.json();
-      setOrders(data.results || data);
-    } catch {
-      setError("Failed to load orders.");
-    } finally {
-      setLoading(false);
+    if (!tenantId) {
+      router.push("/auth/login");
+      return;
     }
-  }, [statusFilter, debouncedSearch, router]);
+
+    const params = new URLSearchParams();
+    if (statusFilter !== "all") params.set("status", statusFilter);
+    if (debouncedSearch) params.set("search", debouncedSearch);
+
+    const qs = params.toString() ? `?${params.toString()}` : "";
+
+    const data = await authFetch(
+      `/api/v1/orders/${qs}`,
+      tenantId
+    );
+
+    setOrders(data?.results || data || []);
+  } catch (err) {
+    if (err.status === 401) {
+      router.push("/auth/login");
+      return;
+    }
+
+    setError(err.message || "Failed to load orders.");
+  } finally {
+    setLoading(false);
+  }
+}, [statusFilter, debouncedSearch, router, tenantId]);
 
   useEffect(() => {
     fetchOrders();

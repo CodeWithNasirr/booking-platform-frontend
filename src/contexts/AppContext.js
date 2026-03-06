@@ -143,7 +143,7 @@ export function AppProvider({ children }) {
         }
 
         const data = await res.json();
-        // console.log("User data loaded:", data);
+        console.log("User data loaded:", data);
 
         if (res.ok) {
           setUser(data.user);
