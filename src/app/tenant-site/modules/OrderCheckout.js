@@ -21,60 +21,46 @@ import { loadStripe } from "@stripe/stripe-js";
 import { Elements, PaymentElement, useStripe, useElements } from "@stripe/react-stripe-js";
 import { useTenantLang } from "../contexts/TenantLangContext";
 import { useTenantTheme } from "../contexts/TenantThemeContext";
-import { useTenantSite } from "../[domain]/TenantClientWrapper";
 import { resolveTranslated } from "../[domain]/utils/resolveTranslated";
 import { initiateOrderPayment, confirmOrderPayment, getStatusConfig } from "@/lib/orderApi";
 
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
 // =============================================================================
 // MAIN COMPONENT
 // =============================================================================
-export default function OrderCheckout({ serviceSlug, domain }) {
+export default function OrderCheckout({ service, domain }) {
+  console.log(service)
   const router = useRouter();
   const { language, isRTL } = useTenantLang();
   const theme = useTenantTheme();
   const lang = language;
 
   // State
-  const [service, setService] = useState(null);
+
+  // State
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [requirements, setRequirements] = useState({});
-  const [customerData, setCustomerData] = useState({ name: "", email: "", phone: "" });
-  const [step, setStep] = useState(0); // 0=select, 1=details, 2=pay, 3=done
+  const [customerData, setCustomerData] = useState({
+    name: "",
+    email: "",
+    phone: "",
+  });
+
+  const [step, setStep] = useState(0); // 0=select,1=details,2=pay,3=done
   const [clientSecret, setClientSecret] = useState(null);
   const [orderResult, setOrderResult] = useState(null);
-  const [loading, setLoading] = useState(true);
+
   const [error, setError] = useState(null);
   const [paying, setPaying] = useState(false);
 
   // Fetch service
   useEffect(() => {
-    async function load() {
-      try {
-        const res = await fetch(`${API_BASE}/api/v1/public-services/`, {
-          headers: { "Content-Type": "application/json", "X-Tenant": domain },
-        });
-        if (!res.ok) throw new Error("Failed to load services");
-        const data = await res.json();
-        const list = data.services || data.results || data || [];
-        const svc = list.find(
-          (s) => (s.slug || s.id) === serviceSlug || 
-                 s.title?.en?.toLowerCase().replace(/\s+/g, "-") === serviceSlug
-        );
-        if (!svc) throw new Error("Service not found");
-        setService(svc);
-        // Auto-select if only one package or no packages
-        if (svc.packages?.length === 1) setSelectedPackage(svc.packages[0]);
-      } catch (e) {
-        setError(e.message);
-      } finally {
-        setLoading(false);
-      }
+    if (service?.packages?.length === 1) {
+      setSelectedPackage(service.packages[0]);
     }
-    load();
-  }, [serviceSlug, domain]);
+  }, [service]);
 
   const currentPrice = selectedPackage?.price || service?.base_price || service?.price || 0;
   const deliveryDays = selectedPackage?.delivery_days || service?.estimated_delivery_days || 7;
@@ -127,17 +113,17 @@ export default function OrderCheckout({ serviceSlug, domain }) {
   };
 
   // ── Loading / Error ──
-  if (loading) {
-    return (
-      <div className="max-w-3xl mx-auto p-8">
-        <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/2" />
-          <div className="h-48 bg-gray-200 rounded-xl" />
-          <div className="h-48 bg-gray-200 rounded-xl" />
-        </div>
-      </div>
-    );
-  }
+  // if (loading) {
+  //   return (
+  //     <div className="max-w-3xl mx-auto p-8">
+  //       <div className="animate-pulse space-y-6">
+  //         <div className="h-8 bg-gray-200 rounded w-1/2" />
+  //         <div className="h-48 bg-gray-200 rounded-xl" />
+  //         <div className="h-48 bg-gray-200 rounded-xl" />
+  //       </div>
+  //     </div>
+  //   );
+  // }
 
   if (!service) {
     return (
@@ -345,7 +331,7 @@ function StepsHeader({ steps, currentStep, theme, lang, isRTL }) {
 }
 
 function ServiceHeader({ service, theme, lang, isRTL }) {
-  const title = resolveTranslated(service.title || service.name, lang);
+  const title = resolveTranslated(service.name, lang);
   const desc = resolveTranslated(service.description || service.short_description, lang);
   return (
     <div className={`flex gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
@@ -488,7 +474,7 @@ function CustomerDetailsForm({ data, onChange, lang, isRTL }) {
 }
 
 function OrderSummary({ service, pkg, price, deliveryDays, revisionsAllowed, theme, lang, isRTL }) {
-  const title = resolveTranslated(service.title || service.name, lang);
+  const title = resolveTranslated(service.name, lang);
   const pkgName = pkg ? resolveTranslated(pkg.name || pkg.title, lang) || pkg.name : null;
   return (
     <div className="bg-gray-50 rounded-xl p-5 space-y-3">

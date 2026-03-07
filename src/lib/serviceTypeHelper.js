@@ -28,9 +28,7 @@ export function getServiceType(service) {
   const raw =
     service.order_type ||
     service.service_type ||
-    service.booking_type ||
-    (service.has_milestones ? "milestone" : null) ||
-    "online"; // safe default
+    service.booking_type 
 
   return raw.toLowerCase().trim();
 }

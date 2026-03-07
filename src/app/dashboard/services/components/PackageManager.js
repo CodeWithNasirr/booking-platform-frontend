@@ -83,7 +83,7 @@ export function PackageManager({ packages, onChange }) {
               value={pkg.price}
               onChange={(e) => {
                 const newPkgs = [...packages];
-                newPkgs[idx].price = parseFloat(e.target.value) || 0;
+                newPkgs[idx].price = parseFloat(e.target.value) ;
                 onChange(newPkgs);
               }}
               className="px-3 py-2 border rounded-lg"
@@ -98,7 +98,7 @@ export function PackageManager({ packages, onChange }) {
               onChange={(e) => {
                 const newPkgs = [...packages];
                 newPkgs[idx].delivery_days =
-                  parseInt(e.target.value) || 0;
+                  parseInt(e.target.value) ;
                 onChange(newPkgs);
               }}
               className="px-3 py-2 border rounded-lg"
@@ -111,7 +111,7 @@ export function PackageManager({ packages, onChange }) {
               onChange={(e) => {
                 const newPkgs = [...packages];
                 newPkgs[idx].revisions =
-                  parseInt(e.target.value) || 0;
+                  parseInt(e.target.value) ;
                 onChange(newPkgs);
               }}
               className="px-3 py-2 border rounded-lg"

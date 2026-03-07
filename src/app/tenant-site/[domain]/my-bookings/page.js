@@ -15,7 +15,6 @@ export default async function MyBookingsPage({ params }) {
   return (
     <MyBookingsClient
       domain={domain}
-      tenantId={site.id}
       defaultLanguage={site.default_language}
     />
   );

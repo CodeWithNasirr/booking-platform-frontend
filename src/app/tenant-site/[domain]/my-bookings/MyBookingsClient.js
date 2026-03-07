@@ -9,7 +9,7 @@ import { resolveTranslated } from "../utils/resolveTranslated";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 import { useEffect } from "react";
 
-export default function MyBookingsClient({ domain, tenantId }) {
+export default function MyBookingsClient({ domain}) {
   const { language, isRTL } = useTenantLang();
   const theme = useTenantTheme();
 

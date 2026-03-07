@@ -15,7 +15,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
-import { getMyOrders } from "@/app/tenant-site/api/orderApi";
+import { getMyOrders } from "@/lib/orderApi";
 import CustomerOrdersDashboard from "@/app/tenant-site/modules/CustomerOrdersDashboard";
 
 export default function MyOrdersClient({ domain }) {

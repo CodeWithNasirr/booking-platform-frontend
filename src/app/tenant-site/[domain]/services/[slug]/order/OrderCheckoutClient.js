@@ -17,7 +17,7 @@ import OrderCheckout from "../../../../modules/OrderCheckout";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
-export default function OrderCheckoutClient({ domain, tenantId, serviceSlug }) {
+export default function OrderCheckoutClient({ domain, serviceSlug }) {
   const { language, isRTL } = useTenantLang();
   const theme = useTenantTheme();
 
@@ -28,35 +28,29 @@ export default function OrderCheckoutClient({ domain, tenantId, serviceSlug }) {
   useEffect(() => {
     async function fetchService() {
       try {
-        const res = await fetch(`${API_BASE}/api/v1/public-services/`, {
-          headers: {
-            "Content-Type": "application/json",
-            "X-Tenant": domain,
-          },
-        });
+        const res = await fetch(
+          `${API_BASE}/api/v1/public-services/${serviceSlug}/`,
+          {
+            headers: {
+              "Content-Type": "application/json",
+              "X-Tenant": domain,
+            },
+          }
+        );
 
-        if (!res.ok) throw new Error("Failed to fetch services");
+        if (!res.ok) throw new Error("Service not found");
 
-        const data = await res.json();
-        const services = data.services || data.results || data || [];
+        const service = await res.json();
 
-        const normalize = (v) =>
-          v?.toString().toLowerCase().trim().replace(/\s+/g, "-");
 
-        const found = services.find((s) => {
-          if (s.slug) return normalize(s.slug) === normalize(serviceSlug);
-          return normalize(s.title?.en || s.name) === normalize(serviceSlug);
-        });
-
-        if (!found) throw new Error("Service not found");
-
-        // Only allow digital services for order checkout
-        const sType = found.service_type || found.order_type;
-        if (sType && sType !== "digital") {
-          throw new Error("This service does not support orders. Use booking instead.");
+        // Ensure it's a digital order service
+        if (service.service_type !== "digital" || service.order_type !== "order") {
+          throw new Error(
+            "This service does not support orders. Use booking instead."
+          );
         }
 
-        setService(found);
+        setService(service);
       } catch (err) {
         setError(err.message);
       } finally {
@@ -64,7 +58,9 @@ export default function OrderCheckoutClient({ domain, tenantId, serviceSlug }) {
       }
     }
 
-    fetchService();
+    if (serviceSlug) {
+      fetchService();
+    }
   }, [domain, serviceSlug]);
 
   if (loading) {

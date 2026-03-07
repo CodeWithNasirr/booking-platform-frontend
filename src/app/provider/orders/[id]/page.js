@@ -2,15 +2,15 @@
 
 import { useParams } from 'next/navigation';
 import DashboardLayout from '@/components/provider/DashboardLayout';
-import ProviderOrdersDashboard from '@/app/provider/orders/ProviderOrdersDashboard';
-
+// import ProviderOrdersDashboard from '@/app/provider/orders/ProviderOrdersDashboard';
+import ProviderOrderDetailClient from '../ProviderOrderDetailClient';
 export default function OrderDetailsPage() {
   const params = useParams();
   const orderId = params.id;
 
   return (
     <DashboardLayout pageName="Order Details">
-      <ProviderOrdersDashboard orderId={orderId} />
+      <ProviderOrderDetailClient orderId={orderId} />
     </DashboardLayout>
   );
 }

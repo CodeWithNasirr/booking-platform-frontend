@@ -116,7 +116,6 @@ export async function fetchSite(domain) {
     }
 
     const data = await res.json();
-
     return {
       site: data.site,
       theme: data.theme,
