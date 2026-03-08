@@ -17,6 +17,7 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
+
 // ─── Helper: build headers with auth + tenant ───
 function buildHeaders(domain, token) {
   const headers = {
@@ -106,12 +107,19 @@ export async function initiateOrderPayment(domain, payload, token) {
  * Note: In the MVP, the Stripe webhook (Step 3) handles confirmation
  * server-side. This is an optional client-side confirmation.
  */
-export async function confirmOrderPayment(domain, orderId, paymentIntentId, token) {
-  const res = await fetch(`${API_BASE}/api/v1/orders/${orderId}/update-status/`, {
-    method: "POST",
-    headers: buildHeaders(domain, token),
-    body: JSON.stringify({ status: "paid", note: `PI: ${paymentIntentId}` }),
-  });
+export async function confirmOrderPayment(domain, orderId, paymentIntentId) {
+  const res = await fetch(
+    `${API_BASE}/api/v1/orders/confirm-payment/`,
+    {
+      method: "POST",
+      headers: buildHeaders(domain),
+      body: JSON.stringify({
+        order_id: orderId,
+        payment_intent_id: paymentIntentId,
+      }),
+    }
+  );
+
   return handleResponse(res);
 }
 
