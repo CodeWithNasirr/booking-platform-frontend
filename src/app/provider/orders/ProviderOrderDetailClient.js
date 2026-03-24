@@ -40,12 +40,16 @@ const STATUS_CONFIG = {
 
 // Provider-allowed actions — maps to specific backend endpoints
 const PROVIDER_ACTIONS = {
-  paid:               [{ endpoint: "start_work", label: "Start Working",      icon: "🚀" }],
+  // paid:               [{ endpoint: "start_work", label: "Start Working",      icon: "🚀" }],
   accepted:           [{ endpoint: "start_work", label: "Start Working",      icon: "🚀" }],
   in_progress:        [{ endpoint: "deliver",    label: "Submit Delivery",    icon: "📦", needsMessage: true }],
   revision_requested: [{ endpoint: "deliver",    label: "Resubmit Delivery", icon: "📦", needsMessage: true }],
+  pending_assignment: [
+  { action: "assign_provider", label: "Assign Provider", style: "primary"}
+  ],
   // Everything else: no actions
 };
+
 
 export default function ProviderOrderDetailClient({ orderId }) {
   const router = useRouter();
@@ -62,6 +66,7 @@ export default function ProviderOrderDetailClient({ orderId }) {
   const [actionLoading, setActionLoading] = useState(null);
   const [deliveryMessage, setDeliveryMessage] = useState("");
   const [showDeliveryForm, setShowDeliveryForm] = useState(false);
+  
 
   // ─── Fetch order: GET /orders/{id}/ ───
   const fetchOrder = useCallback(async () => {
@@ -150,7 +155,7 @@ export default function ProviderOrderDetailClient({ orderId }) {
   const sc = STATUS_CONFIG[order.status] || {};
   const actions = PROVIDER_ACTIONS[order.status] || [];
   const isTerminal = ["completed", "cancelled", "refunded"].includes(order.status);
-
+  
   return (
     <div className={`max-w-7xl mx-auto p-6 ${isRTL ? "rtl" : ""}`}>
       {/* Back */}
@@ -330,7 +335,10 @@ export default function ProviderOrderDetailClient({ orderId }) {
               initialMessages={order.messages || []}
               files={order.files || []}
               onRefresh={fetchOrder}
-              currentUser={{ id: user?.id, name: user?.full_name || user?.email }}
+              currentUser={{
+                id: user?.id,
+                role: "provider"
+              }}
               readOnly={isTerminal}
             />
           </div>

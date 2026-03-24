@@ -1,28 +1,39 @@
-// src/app/tenant-site/[domain]/services/[serviceSlug]/order/page.js
 import { fetchSite } from "../../../utils/fetchSite";
-import OrderCheckoutClient from "./OrderCheckoutClient";
 import { notFound } from "next/navigation";
+import OrderCheckoutClient from "./OrderCheckoutClient";
 
-export function generateMetadata({ params }) {
-  const { serviceSlug } = params;
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+export async function generateMetadata({ params }) {
+  const { slug } = await params;
 
   return {
-    title: `Order - ${serviceSlug?.replace(/-/g, " ") || "Service"}`,
+    title: `Order - ${slug?.replace(/-/g, " ") || "Service"}`,
   };
 }
 
 export default async function OrderCheckoutPage({ params }) {
   const { domain, slug } = await params;
 
-  const { site, error } = await fetchSite(domain);
-  if (error || !site?.is_published) {
+  // fetch site config
+  const siteResult = await fetchSite(domain);
+  const { site, sections, error: siteError } = siteResult;
+
+  if (siteError || !site?.is_published) {
     notFound();
   }
+
+  // Extract header/footer
+  const header = sections?.find((s) => s.section_type === "header");
+  const footer = sections?.find((s) => s.section_type === "footer");
 
   return (
     <OrderCheckoutClient
       domain={domain}
       serviceSlug={slug}
+      site={site}
+      header={header}
+      footer={footer}
     />
   );
 }

@@ -6,7 +6,7 @@ import VideoCallModule from "./VideoCallModule";
 import FileUploadModule from "./FileUploadModule";
 import ContactFormModule from "./ContactFormModule";
 
-import OrderCheckout from "./OrderCheckout";
+import OrderCheckout from "./order-checkout";
 import CustomerOrdersDashboard from "./CustomerOrdersDashboard";
 import ProviderOrdersDashboard from "./ProviderOrdersDashboard";
 

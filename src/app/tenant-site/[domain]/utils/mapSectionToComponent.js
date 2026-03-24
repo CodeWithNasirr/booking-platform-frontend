@@ -37,7 +37,7 @@ const Gallery = dynamic(() => import("../sections/Gallery"), { ssr: true });
 const Team = dynamic(() => import("../sections/Team"), { ssr: true });
 
 
-const OrderCheckoutModule = dynamic(() => import("../../modules/OrderCheckout"), { 
+const OrderCheckoutModule = dynamic(() => import("../../modules/order-checkout"), { 
   ssr: false,
   loading: () => <ModulePlaceholder type="order_checkout" />
 });

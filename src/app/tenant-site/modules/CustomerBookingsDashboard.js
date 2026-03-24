@@ -1,18 +1,18 @@
-// src/app/tenant-site/modules/CustomerOrdersDashboard.js
+// src/app/tenant-site/modules/CustomerBookingsDashboard.js
 "use client";
 
 /**
- * CustomerOrdersDashboard — Module with Self-Contained Auth
+ * CustomerBookingsDashboard — Module with Self-Contained Auth
  *
- * Renders inside LayoutRenderer as a module (order_dashboard).
+ * Renders inside LayoutRenderer as a module.
  * Handles its own customer access:
- *   - Authenticated user → fetch orders with Bearer token
- *   - Guest → email → OTP → signed token via X-Order-Token header
+ *   - Authenticated user → fetch bookings with Bearer token
+ *   - Guest → email → OTP → token via Authorization header
  *
  * Refinements:
- *   - Token storage keyed by tenantId (not domain)
- *   - Guest uses X-Order-Token header; auth user uses Authorization: Bearer
- *   - TimestampSigner token on backend (not JWT)
+ *   - Token storage keyed by tenantId
+ *   - Guest uses Authorization: Bearer header
+ *   - Auto-login if token exists
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -21,16 +21,12 @@ import { useState, useEffect, useCallback } from "react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
-function apiHeaders(domain, token, isGuestToken) {
+function apiHeaders(domain, token) {
   const h = { "Content-Type": "application/json" };
   if (domain) h["X-Tenant"] = domain;
 
   if (token) {
-    if (isGuestToken) {
-      h["X-Order-Token"] = token;
-    } else {
-      h["Authorization"] = `Bearer ${token}`;
-    }
+    h["Authorization"] = `Bearer ${token}`;
   }
 
   return h;
@@ -50,18 +46,16 @@ async function apiCall(url, opts) {
 // ─── Token storage: keyed by tenantId ───
 
 function tokenKey(tenantId) {
-  return `customer_order_token_${tenantId}`;
+  return `customer_booking_token_${tenantId}`;
 }
 function emailStoreKey(tenantId) {
-  return `customer_order_email_${tenantId}`;
+  return `customer_booking_email_${tenantId}`;
 }
-
-
 
 /**
  * Find any stored guest token.
  * When tenantId is known, checks the exact key.
- * When tenantId is unknown (LayoutRenderer), scans all keys.
+ * When tenantId is unknown, scans all keys.
  */
 function findStoredGuestToken(tenantId) {
   try {
@@ -72,14 +66,14 @@ function findStoredGuestToken(tenantId) {
       if (token) return { token, email: email || "", tenantId };
     }
 
-    // Fallback: scan for any customer_order_token_* key
+    // Fallback: scan for any customer_booking_token_* key
     const keys = Object.keys(localStorage);
     for (const key of keys) {
-      if (key.startsWith("customer_order_token_")) {
+      if (key.startsWith("customer_booking_token_")) {
         const token = localStorage.getItem(key);
         if (token) {
-          const storedTenantId = key.replace("customer_order_token_", "");
-          const email = localStorage.getItem(`customer_order_email_${storedTenantId}`) || "";
+          const storedTenantId = key.replace("customer_booking_token_", "");
+          const email = localStorage.getItem(`customer_booking_email_${storedTenantId}`) || "";
           return { token, email, tenantId: storedTenantId };
         }
       }
@@ -98,17 +92,14 @@ function clearStoredGuestToken(tenantId) {
   } catch {}
 }
 
-
 // ─── Status config ───
 
 const STATUS_CONFIG = {
-  pending_payment: { label: "Pending Payment", color: "bg-yellow-100 text-yellow-800" },
-  paid:            { label: "Paid",            color: "bg-blue-100 text-blue-800" },
-  in_progress:     { label: "In Progress",     color: "bg-purple-100 text-purple-800" },
-  delivered:       { label: "Delivered",        color: "bg-green-100 text-green-800" },
-  completed:       { label: "Completed",        color: "bg-green-200 text-green-900" },
-  cancelled:       { label: "Cancelled",        color: "bg-red-100 text-red-800" },
-  refunded:        { label: "Refunded",         color: "bg-gray-100 text-gray-800" },
+  scheduled: { label: "Scheduled", color: "bg-blue-100 text-blue-800" },
+  completed: { label: "Completed", color: "bg-green-100 text-green-800" },
+  cancelled: { label: "Cancelled", color: "bg-red-100 text-red-800" },
+  pending:   { label: "Pending",   color: "bg-yellow-100 text-yellow-800" },
+  confirmed: { label: "Confirmed", color: "bg-purple-100 text-purple-800" },
 };
 
 function StatusBadge({ status }) {
@@ -124,16 +115,14 @@ function StatusBadge({ status }) {
 // MAIN COMPONENT
 // =========================================================================
 
-export default function CustomerOrdersDashboard({
+export default function CustomerBookingsDashboard({
   domain,
-  tenantId: tenantIdProp ,
-  onSelectOrder,
-  token: externalToken,
+  tenantId: tenantIdProp,
+  onSelectBooking,
 }) {
   // ─── Auth state ───
   const [authState, setAuthState] = useState("checking");
   const [accessToken, setAccessToken] = useState(null);
-  const [isGuestToken, setIsGuestToken] = useState(false);
   const [customerEmail, setCustomerEmail] = useState("");
   // Resolved tenantId (from prop or from stored token)
   const [resolvedTenantId, setResolvedTenantId] = useState(tenantIdProp || null);
@@ -145,27 +134,18 @@ export default function CustomerOrdersDashboard({
   const [otpVerifying, setOtpVerifying] = useState(false);
   const [authError, setAuthError] = useState("");
 
-  // ─── Orders state ───
-  const [orders, setOrders] = useState([]);
+  // ─── Bookings state ───
+  const [bookings, setBookings] = useState([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
 
   // ─── 1. Check for existing auth on mount ───
   useEffect(() => {
-    // Parent passed a JWT (e.g. MyOrdersClient with full user auth)
-    if (externalToken) {
-      setAccessToken(externalToken);
-      setIsGuestToken(false);
-      setAuthState("authenticated");
-      return;
-    }
-
     // Check for stored guest access token
     const stored = findStoredGuestToken(tenantIdProp);
     if (stored) {
       setAccessToken(stored.token);
-      setIsGuestToken(true);
       setCustomerEmail(stored.email);
       setResolvedTenantId(stored.tenantId);
       setAuthState("authenticated");
@@ -173,10 +153,10 @@ export default function CustomerOrdersDashboard({
     }
 
     setAuthState("email");
-  }, [tenantIdProp, externalToken]);
+  }, [tenantIdProp]);
 
-  // ─── 2. Fetch orders when authenticated ───
-  const fetchOrders = useCallback(async () => {
+  // ─── 2. Fetch bookings when authenticated ───
+  const fetchBookings = useCallback(async () => {
     if (!accessToken) return;
 
     try {
@@ -184,34 +164,33 @@ export default function CustomerOrdersDashboard({
       setError(null);
 
       const data = await apiCall(
-        `${API_BASE}/api/v1/orders/my-orders/`,
-        { headers: apiHeaders(domain, accessToken, isGuestToken) }
+        `${API_BASE}/api/v1/guest-bookings/by-email/`,
+        { headers: apiHeaders(domain, accessToken) }
       );
 
-      setOrders(data);
+      setBookings(data.bookings || []);
     } catch (err) {
       if (err.status === 401 || err.status === 403) {
         // Token expired or invalid — clear and show email form
-       if (resolvedTenantId) {
+        if (resolvedTenantId) {
           localStorage.removeItem(tokenKey(resolvedTenantId));
           localStorage.removeItem(emailStoreKey(resolvedTenantId));
         }
         setAccessToken(null);
-        setIsGuestToken(false);
         setAuthState("email");
         return;
       }
-      setError("Failed to load orders. Please try again.");
+      setError("Failed to load bookings. Please try again.");
     } finally {
       setLoading(false);
     }
-  }, [accessToken, isGuestToken, domain, resolvedTenantId]);
+  }, [accessToken, domain, resolvedTenantId]);
 
   useEffect(() => {
     if (authState === "authenticated") {
-      fetchOrders();
+      fetchBookings();
     }
-  }, [authState, fetchOrders]);
+  }, [authState, fetchBookings]);
 
   // ─── 3. Request OTP ───
   const handleRequestOTP = async (e) => {
@@ -222,7 +201,7 @@ export default function CustomerOrdersDashboard({
       setOtpSending(true);
       setAuthError("");
 
-      await apiCall(`${API_BASE}/api/v1/orders/request-access/`, {
+      await apiCall(`${API_BASE}/api/v1/guest-bookings/otp/send/`, {
         method: "POST",
         headers: apiHeaders(domain),
         body: JSON.stringify({ email: emailInput.trim() }),
@@ -241,7 +220,7 @@ export default function CustomerOrdersDashboard({
     }
   };
 
-  // ─── 4. Verify OTP → get signed token ───
+  // ─── 4. Verify OTP → get token ───
   const handleVerifyOTP = async (e) => {
     e.preventDefault();
     if (!otpCode.trim()) return;
@@ -250,29 +229,29 @@ export default function CustomerOrdersDashboard({
       setOtpVerifying(true);
       setAuthError("");
 
-      const data = await apiCall(`${API_BASE}/api/v1/orders/verify-access/`, {
+      const data = await apiCall(`${API_BASE}/api/v1/guest-bookings/otp/verify/`, {
         method: "POST",
         headers: apiHeaders(domain),
         body: JSON.stringify({
           email: customerEmail,
-          code: otpCode.trim(),
+          otp: otpCode.trim(),
         }),
       });
 
       const newToken = data.token;
-      const newTenantId = data.tenant_id || resolvedTenantId;
+      const newTenantId = data.tenant_id || resolvedTenantId || tenantIdProp;
 
       // Store with tenantId key
       if (newTenantId) {
         try {
           localStorage.setItem(tokenKey(newTenantId), newToken);
           localStorage.setItem(emailStoreKey(newTenantId), customerEmail);
+          console.log(`[CustomerBookingsDashboard] Stored token for tenant ${newTenantId}`);
         } catch {}
         setResolvedTenantId(newTenantId);
       }
 
       setAccessToken(newToken);
-      setIsGuestToken(true);
       setAuthState("authenticated");
     } catch (err) {
       setAuthError(err.data?.detail || "Invalid code. Please try again.");
@@ -281,12 +260,11 @@ export default function CustomerOrdersDashboard({
     }
   };
 
-   // ─── Logout ───
+  // ─── Logout ───
   const handleLogout = () => {
     clearStoredGuestToken(resolvedTenantId);
     setAccessToken(null);
-    setIsGuestToken(false);
-    setOrders([]);
+    setBookings([]);
     setCustomerEmail("");
     setEmailInput("");
     setOtpCode("");
@@ -308,9 +286,9 @@ export default function CustomerOrdersDashboard({
   if (authState === "email") {
     return (
       <div className="max-w-md mx-auto px-4 py-12">
-        <h2 className="text-xl font-bold mb-2">View Your Orders</h2>
+        <h2 className="text-xl font-bold mb-2">View Your Bookings</h2>
         <p className="text-gray-500 text-sm mb-6">
-          Enter the email you used when placing your order.
+          Enter the email you used when making your booking.
         </p>
         <form onSubmit={handleRequestOTP}>
           <input
@@ -339,7 +317,7 @@ export default function CustomerOrdersDashboard({
       <div className="max-w-md mx-auto px-4 py-12">
         <h2 className="text-xl font-bold mb-2">Enter Verification Code</h2>
         <p className="text-gray-500 text-sm mb-6">
-          We sent a 6-digit code to <strong>{customerEmail}</strong>
+          We sent a code to <strong>{customerEmail}</strong>
         </p>
         <form onSubmit={handleVerifyOTP}>
           <input
@@ -357,7 +335,7 @@ export default function CustomerOrdersDashboard({
             disabled={otpVerifying || otpCode.length < 6}
             className="w-full bg-blue-600 text-white py-3 rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
           >
-            {otpVerifying ? "Verifying..." : "Verify & View Orders"}
+            {otpVerifying ? "Verifying..." : "Verify & View Bookings"}
           </button>
         </form>
         <div className="mt-4 flex justify-between text-sm">
@@ -380,14 +358,14 @@ export default function CustomerOrdersDashboard({
   }
 
   // =========================================================================
-  // RENDER: ORDERS DASHBOARD
+  // RENDER: BOOKINGS DASHBOARD
   // =========================================================================
 
-  const filteredOrders =
-    statusFilter === "all" ? orders : orders.filter((o) => o.status === statusFilter);
+  const filteredBookings =
+    statusFilter === "all" ? bookings : bookings.filter((b) => b.status === statusFilter);
 
-  const statusCounts = orders.reduce((acc, o) => {
-    acc[o.status] = (acc[o.status] || 0) + 1;
+  const statusCounts = bookings.reduce((acc, b) => {
+    acc[b.status] = (acc[b.status] || 0) + 1;
     return acc;
   }, {});
 
@@ -395,18 +373,16 @@ export default function CustomerOrdersDashboard({
     <div className="max-w-4xl mx-auto px-4 py-8">
       <div className="flex justify-between items-center mb-6">
         <div>
-          <h1 className="text-2xl font-bold">My Orders</h1>
+          <h1 className="text-2xl font-bold">My Bookings</h1>
           {customerEmail && <p className="text-sm text-gray-500">{customerEmail}</p>}
         </div>
         <div className="flex gap-3">
-          <button onClick={fetchOrders} className="text-sm text-blue-600 hover:underline">
+          <button onClick={fetchBookings} className="text-sm text-blue-600 hover:underline">
             Refresh
           </button>
-          {isGuestToken && (
-            <button onClick={handleLogout} className="text-sm text-gray-400 hover:underline">
-              Sign out
-            </button>
-          )}
+          <button onClick={handleLogout} className="text-sm text-gray-400 hover:underline">
+            Sign out
+          </button>
         </div>
       </div>
 
@@ -419,7 +395,7 @@ export default function CustomerOrdersDashboard({
       {error && (
         <div className="text-center py-8">
           <p className="text-red-600 mb-3">{error}</p>
-          <button onClick={fetchOrders} className="text-blue-600 hover:underline text-sm">
+          <button onClick={fetchBookings} className="text-blue-600 hover:underline text-sm">
             Try again
           </button>
         </div>
@@ -436,7 +412,7 @@ export default function CustomerOrdersDashboard({
                   : "bg-gray-100 text-gray-600 hover:bg-gray-200"
               }`}
             >
-              All ({orders.length})
+              All ({bookings.length})
             </button>
             {Object.entries(statusCounts).map(([s, count]) => (
               <button
@@ -453,33 +429,35 @@ export default function CustomerOrdersDashboard({
             ))}
           </div>
 
-          {filteredOrders.length === 0 ? (
+          {filteredBookings.length === 0 ? (
             <div className="text-center py-12 text-gray-400">
-              <p className="text-lg">No orders found</p>
+              <p className="text-lg">No bookings found</p>
               <p className="text-sm mt-1">
                 {statusFilter !== "all"
                   ? "Try a different filter."
-                  : "Your orders will appear here after you make a purchase."}
+                  : "Your bookings will appear here after you make a reservation."}
               </p>
             </div>
           ) : (
             <div className="space-y-4">
-              {filteredOrders.map((order) => (
+              {filteredBookings.map((booking) => (
                 <div
-                  key={order.id}
-                  onClick={() => onSelectOrder?.(order.id)}
+                  key={booking.id}
+                  onClick={() => onSelectBooking?.(booking.id)}
                   className="bg-white rounded-lg shadow p-4 cursor-pointer hover:shadow-md transition-shadow"
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-semibold">{order.service_name || "Service"}</h3>
-                      <p className="text-sm text-gray-500">#{order.order_number}</p>
+                      <h3 className="font-semibold">{booking.service_name || "Service"}</h3>
+                      <p className="text-sm text-gray-500">#{booking.booking_number}</p>
                     </div>
-                    <StatusBadge status={order.status} />
+                    <StatusBadge status={booking.status} />
                   </div>
                   <div className="mt-3 flex justify-between text-sm text-gray-500">
-                    <span>{order.currency || "$"} {order.total_amount}</span>
-                    <span>{new Date(order.created_at).toLocaleDateString()}</span>
+                    <span>
+                      {booking.currency || "$"} {Number(booking.amount_paid).toFixed(2)}
+                    </span>
+                    <span>{new Date(booking.created_at).toLocaleDateString()}</span>
                   </div>
                 </div>
               ))}

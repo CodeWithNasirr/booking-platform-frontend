@@ -66,6 +66,7 @@ export default{
   "orderType.booking": "Booking",
   "orderType.milestone": "Project",
   "orderType.hybrid": "Hybrid",
+  "orderType.order":"Order",
 
   "status.deleted": "Deleted",
   "status.inactive": "Inactive",

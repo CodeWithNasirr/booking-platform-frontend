@@ -23,7 +23,7 @@ import { useTenantLang } from "../contexts/TenantLangContext";
 import { useTenantTheme } from "../contexts/TenantThemeContext";
 import { resolveTranslated } from "../[domain]/utils/resolveTranslated";
 import { initiateOrderPayment, confirmOrderPayment, getStatusConfig } from "@/lib/orderApi";
-
+import Link from "next/link";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
@@ -31,7 +31,7 @@ const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY)
 // MAIN COMPONENT
 // =============================================================================
 export default function OrderCheckout({ service, domain }) {
-  console.log(service)
+  // console.log(service.slug,"service.slug")
   const router = useRouter();
   const { language, isRTL } = useTenantLang();
   const theme = useTenantTheme();
@@ -94,7 +94,7 @@ export default function OrderCheckout({ service, domain }) {
 
     try {
       const payload = {
-        service_id: service.id,
+        service_slug: service.slug,
         package_id: selectedPackage?.id || null,
         requirements,
         customer_name: customerData.name,
@@ -265,8 +265,34 @@ export default function OrderCheckout({ service, domain }) {
             pkg={selectedPackage}
             price={currentPrice}
             deliveryDays={deliveryDays}
-            onSuccess={(data) => {
-              setOrderResult((prev) => ({ ...prev, ...data }));
+                       onSuccess={(data) => {
+              // ── FIX: Store guest access token after payment ──
+              if (data?.guest_access_token && data?.tenant_id) {
+                try {
+                  localStorage.setItem(
+                    `customer_order_token_${data.tenant_id}`,
+                    data.guest_access_token
+                  );
+                  // Also store email for display
+                  if (data.customer_email) {
+                    localStorage.setItem(
+                      `customer_order_email_${data.tenant_id}`,
+                      data.customer_email
+                    );
+                  }
+                } catch (e) {
+                  console.warn("Failed to store guest token:", e);
+                }
+              }
+
+              setOrderResult((prev) => ({
+                ...prev,
+                // Keep order_id from initiate, add id from confirm
+                id: data?.id,
+                order_number: data?.order_number || prev?.order_number,
+                total_amount: data?.total_amount || prev?.total_amount,
+                status: data?.status,
+              }));
               setStep(3);
             }}
             onBack={() => setStep(1)}
@@ -529,10 +555,11 @@ function PaymentStep({ domain, orderId, orderNumber, service, pkg, price, delive
     }
 
     try {
-      const result = await confirmOrderPayment(domain, {
-        order_id: orderId,
-        payment_intent_id: paymentIntent.id,
-      });
+      const result = await confirmOrderPayment(
+      domain,
+      orderId,
+      paymentIntent.id
+    );
       onSuccess(result);
     } catch (e) {
       setError(e.message);
@@ -592,6 +619,9 @@ function PaymentStep({ domain, orderId, orderNumber, service, pkg, price, delive
 
 function ConfirmationStep({ orderResult, service, pkg, deliveryDays, theme, lang, isRTL }) {
   const title = resolveTranslated(service.title || service.name, lang);
+
+  // Use order_id (from initiate) or id (from confirm) — both are the UUID
+  const orderId = orderResult?.order_id || orderResult?.id;
   return (
     <div className="mt-8 text-center space-y-6">
       <div
@@ -635,16 +665,26 @@ function ConfirmationStep({ orderResult, service, pkg, deliveryDays, theme, lang
       </div>
 
       <div className="flex flex-wrap gap-4 justify-center">
-        <a
-          href={`/orders/${orderResult?.order_id}`}
+        <Link
+          href={`/my-orders/${orderId}`}
           className="px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity"
           style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
         >
-          {resolveTranslated({ en: "View Order", ar: "عرض الطلب", ur: "آرڈر دیکھیں" }, lang)}
-        </a>
-        <a href="/" className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200">
-          {resolveTranslated({ en: "Back to Home", ar: "العودة للرئيسية", ur: "ہوم پر واپس" }, lang)}
-        </a>
+          {resolveTranslated(
+            { en: "View Order", ar: "عرض الطلب", ur: "آرڈر دیکھیں" },
+            lang
+          )}
+        </Link>
+
+        <Link
+          href={`/`}
+          className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200"
+        >
+          {resolveTranslated(
+            { en: "Back to Home", ar: "العودة للرئيسية", ur: "ہوم پر واپس" },
+            lang
+          )}
+        </Link>
       </div>
     </div>
   );

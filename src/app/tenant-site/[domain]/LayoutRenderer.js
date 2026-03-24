@@ -13,6 +13,7 @@ export default function LayoutRenderer({
   theme = {},
   site = {},
   rtlEnabled = false,
+
 }) {
   const { language, isRTL } = useTenantLang();
   const themeConfig = useTenantTheme();
@@ -60,8 +61,10 @@ export default function LayoutRenderer({
       )}
 
       {/* ================= CONTENT SECTIONS ================= */}
+        {/* {contentSections.length === 0 && !heroSection && ( */}
+
       <main>
-        {contentSections.length === 0 && !heroSection && (
+         {contentSections.length === 0 && !heroSection && !headerSection && !footerSection && (
           <div className="min-h-[50vh] flex items-center justify-center bg-gray-50">
             <div className="text-center p-8">
               <p className="text-gray-500">No content sections configured yet.</p>

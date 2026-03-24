@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState,useEffect } from 'react'
 import { useRouter } from 'next/navigation'
 import { Plus, Search } from 'lucide-react'
 import { useApp } from '@/contexts/AppContext'
@@ -55,10 +55,12 @@ export default function ProvidersPage() {
 
   useBlockBackNavigation(!!user)
 
-  if (!loadingUser && !user) {
-    router.replace('/')
-    return null
-  }
+  useEffect(() => {
+    if (!loadingUser && !user) {
+      router.push("/login");
+    }
+  }, [loadingUser, router,user]);
+
 
   if (requiresOnboarding) {
     router.replace('/auth/onboarding?step=1')

@@ -1,30 +1,22 @@
-// src/app/tenant-site/[domain]/my-orders/[orderId]/page.js
-
-/**
- * Order Detail Page
- *
- * Route: /{domain}/my-orders/{orderId}
- */
-
+// src/app/tenant-site/[domain]/my-bookings/[bookingId]/page.js
 import { notFound } from "next/navigation";
 import { fetchSite } from "../../utils/fetchSite";
-
-import MyOrderDetailClient from "./MyOrderDetailClient";
+import BookingDetailClient from "./BookingDetailClient";
 
 export async function generateMetadata({ params }) {
   const { domain } = await params;
-
   const { site } = await fetchSite(domain);
-  const name = site?.tenant?.name || "Order Details";
+
+  const name = site?.tenant?.name || "Booking Details";
 
   return {
-    title: `Order Details | ${name}`,
-    description: `View your order details from ${name}`,
+    title: `Booking Details | ${name}`,
+    description: `View your booking details from ${name}`,
   };
 }
 
-export default async function OrderDetailPage({ params }) {
-  const { domain, orderId } = await params;
+export default async function BookingDetailPage({ params }) {
+  const { domain, bookingId } = await params;
 
   const siteResult = await fetchSite(domain);
   const { site, sections, error } = siteResult;
@@ -35,12 +27,12 @@ export default async function OrderDetailPage({ params }) {
   const footer = sections?.find((s) => s.section_type === "footer");
 
   return (
-    <MyOrderDetailClient
+    <BookingDetailClient
       domain={domain}
-      orderId={orderId}
       site={site}
       header={header}
       footer={footer}
+      bookingId={bookingId}
     />
   );
 }

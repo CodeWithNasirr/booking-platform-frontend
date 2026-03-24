@@ -6,7 +6,14 @@ import { notFound } from "next/navigation";
 export default async function MyBookingsPage({ params }) {
 
   const { domain } = await params;
-  const { site, error } = await fetchSite(domain);
+
+  const siteResult = await fetchSite(domain);
+  const { site, sections, error } = siteResult;
+
+  if (error || !site?.is_published) notFound();
+
+  const header = sections?.find((s) => s.section_type === "header");
+  const footer = sections?.find((s) => s.section_type === "footer");
 
   if (error || !site?.is_published) {
     notFound();
@@ -15,6 +22,9 @@ export default async function MyBookingsPage({ params }) {
   return (
     <MyBookingsClient
       domain={domain}
+      site={site}
+      header={header}
+      footer={footer}
       defaultLanguage={site.default_language}
     />
   );

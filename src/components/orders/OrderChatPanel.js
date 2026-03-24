@@ -45,6 +45,7 @@ export default function OrderChatPanel({
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
+ 
   // ─── Fetch messages from backend on mount + when orderId changes ───
   const fetchMessages = useCallback(async () => {
     if (!orderId || !tenantId || !authFetch) return;
@@ -202,9 +203,7 @@ export default function OrderChatPanel({
               </div>
             ) : (
               messages.map((msg) => {
-                const isMe =
-                  msg.sender === currentUser.id ||
-                  msg.sender_name === currentUser.name;
+                const isMe = msg.sender_type === currentUser.role;
                 const isSystem = msg.is_system || msg.is_system_message;
 
                 if (isSystem) {

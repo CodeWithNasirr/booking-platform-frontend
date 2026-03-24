@@ -41,6 +41,7 @@ export default {
   "orderType.booking": "حجز",
   "orderType.milestone": "مشروع",
   "orderType.hybrid": "مختلط",
+  "orderType.order":"طلب",
 
   "status.deleted": "محذوف",
   "status.inactive": "غير نشط",

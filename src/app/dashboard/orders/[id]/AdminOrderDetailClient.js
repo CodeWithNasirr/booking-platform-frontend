@@ -29,6 +29,11 @@ import OrderChatPanel from "@/components/orders/OrderChatPanel";
 
 const STATUS_CONFIG = {
   pending_payment:    { label: "Pending Payment",    color: "bg-amber-50 text-amber-700 border border-amber-200",     icon: "⏳" },
+  pending_assignment: {
+    label: "Waiting Provider Assignment",
+    color: "bg-yellow-50 text-yellow-700 border border-yellow-200",
+    icon: "👤"
+  },
   paid:               { label: "Paid",               color: "bg-blue-50 text-blue-700 border border-blue-200",        icon: "💳" },
   accepted:           { label: "Accepted",           color: "bg-indigo-50 text-indigo-700 border border-indigo-200",  icon: "✓" },
   in_progress:        { label: "In Progress",        color: "bg-violet-50 text-violet-700 border border-violet-200",  icon: "⚡" },
@@ -41,11 +46,14 @@ const STATUS_CONFIG = {
 
 // Admin actions per status — each maps to a specific backend endpoint
 const ADMIN_ACTIONS = {
+  pending_assignment: [
+  { action: "assign_provider", label: "Assign Provider", style: "primary" }
+  ],
   pending_payment: [],
   paid: [
-    { endpoint: "accept_order", label: "Accept Order", style: "primary" },
-    { endpoint: "start_work",   label: "Start Work",   style: "primary" },
-    { action: "cancel",         label: "Cancel",        style: "danger" },
+    // { endpoint: "accept_order", label: "Accept Order", style: "primary" },
+    // { endpoint: "start_work",   label: "Start Work",   style: "primary" },
+    // { action: "cancel",         label: "Cancel",        style: "danger" },
   ],
   accepted: [
     { endpoint: "start_work", label: "Start Work", style: "primary" },
@@ -79,6 +87,8 @@ const ACTION_STYLES = {
 export default function AdminOrderDetailClient({ orderId }) {
   const router = useRouter();
   const { activeTenant, user } = useApp();
+  
+  const isAgency = activeTenant?.has_providers === true;
   const tenantId = activeTenant?.id || activeTenant;
 
   const [order, setOrder] = useState(null);
@@ -93,6 +103,11 @@ export default function AdminOrderDetailClient({ orderId }) {
   // Cancel modal
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
+
+  // Provider Assignment 
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [providers, setProviders] = useState([]);
+  const [selectedProvider, setSelectedProvider] = useState(null);
 
   // ─── Fetch order detail ───
   const fetchOrder = useCallback(async () => {
@@ -113,6 +128,19 @@ export default function AdminOrderDetailClient({ orderId }) {
   }, [orderId, tenantId, router]);
 
   useEffect(() => { fetchOrder(); }, [fetchOrder]);
+
+
+  const fetchProviders = async () => {
+    try {
+      const data = await authFetch(
+        `/api/v1/services/${order.service_id}/providers/`,
+        tenantId
+      );
+      setProviders(data);
+    } catch (err) {
+      console.error(err);
+    }
+  };
 
   // ─── Call a specific action endpoint: POST /orders/{id}/{endpoint}/ ───
   const callAction = async (endpoint) => {
@@ -180,6 +208,40 @@ export default function AdminOrderDetailClient({ orderId }) {
     }
   };
 
+
+  const confirmAssignProvider = async () => {
+
+    if (!selectedProvider) return;
+
+    try {
+
+      setActionLoading("assign_provider");
+
+      await authFetch(
+        `/api/v1/orders/${orderId}/assign_provider/`,
+        tenantId,
+        {
+          method: "POST",
+          body: JSON.stringify({
+            provider_id: selectedProvider
+          })
+        }
+      );
+
+      setShowAssignModal(false);
+      setSelectedProvider(null);
+
+      await fetchOrder();
+
+    } catch (err) {
+      alert(err.message || "Failed to assign provider");
+    } finally {
+      setActionLoading(null);
+    }
+
+  };
+
+
   // ─── Complete: POST /orders/{id}/accept_delivery/ ───
   const handleComplete = async () => {
     try {
@@ -200,6 +262,11 @@ export default function AdminOrderDetailClient({ orderId }) {
 
     if (actionDef.action === "cancel") {
       setShowCancelModal(true);
+    }
+
+    else if (actionDef.action === "assign_provider") {
+      setShowAssignModal(true);
+      fetchProviders();
     }
 
     else if (actionDef.action === "complete") {
@@ -248,7 +315,12 @@ export default function AdminOrderDetailClient({ orderId }) {
   }
 
   const sc = STATUS_CONFIG[order.status] || {};
-  const actions = ADMIN_ACTIONS[order.status] || [];
+  let actions = ADMIN_ACTIONS[order.status] || [];
+
+  // hide assign button for individual tenant
+  if (!isAgency) {
+    actions = actions.filter(a => a.action !== "assign_provider");
+  }
   const isTerminal = ["completed", "cancelled", "refunded"].includes(order.status);
 
   return (
@@ -258,33 +330,60 @@ export default function AdminOrderDetailClient({ orderId }) {
         onClick={() => router.push("/dashboard/orders")}
         className="text-sm text-gray-400 hover:text-gray-600 mb-5 flex items-center gap-1.5 transition-colors"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <svg
+          width="14"
+          height="14"
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth="2"
+        >
+          <path d="M19 12H5M12 19l-7-7 7-7" />
+        </svg>
         Back to orders
       </button>
 
       {/* ═══ 2-Column Grid ═══ */}
       <div className="grid grid-cols-12 gap-6">
-
         {/* ═══ LEFT COLUMN (8/12) ═══ */}
         <div className="col-span-12 lg:col-span-8 space-y-5">
-
           {/* Header card */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
             <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
               <div>
-                <h1 className="text-xl font-bold text-gray-900">{order.service_name || "Order"}</h1>
-                <p className="text-sm text-gray-400 mt-0.5 font-mono">#{order.order_number}</p>
+                <h1 className="text-xl font-bold text-gray-900">
+                  {order.service_name || "Order"}
+                </h1>
+                <p className="text-sm text-gray-400 mt-0.5 font-mono">
+                  #{order.order_number}
+                </p>
               </div>
-              <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${sc.color}`}>
+              <span
+                className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${sc.color}`}
+              >
                 {sc.icon} {sc.label || order.status}
               </span>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-4 border-t border-gray-100">
-              <QuickStat label="Amount" value={`${order.currency || "USD"} ${parseFloat(order.total_amount || 0).toFixed(2)}`} />
-              <QuickStat label="Delivery" value={order.delivery_days ? `${order.delivery_days} days` : "—"} />
-              <QuickStat label="Revisions" value={`${order.revisions_used || 0}/${order.revisions_allowed || 0}`} />
-              <QuickStat label="Created" value={new Date(order.created_at).toLocaleDateString()} />
+              <QuickStat
+                label="Amount"
+                value={`${order.currency || "USD"} ${parseFloat(order.total_amount || 0).toFixed(2)}`}
+              />
+              <QuickStat
+                label="Delivery"
+                value={
+                  order.delivery_days ? `${order.delivery_days} days` : "—"
+                }
+              />
+              <QuickStat
+                label="Revisions"
+                value={`${order.revisions_used || 0}/${order.revisions_allowed || 0}`}
+              />
+              <QuickStat
+                label="Created"
+                value={new Date(order.created_at).toLocaleDateString()}
+              />
             </div>
           </div>
 
@@ -301,7 +400,9 @@ export default function AdminOrderDetailClient({ orderId }) {
                       ACTION_STYLES[a.style] || ACTION_STYLES.secondary
                     }`}
                   >
-                    {actionLoading === (a.endpoint || a.action) ? "..." : a.label}
+                    {actionLoading === (a.endpoint || a.action)
+                      ? "..."
+                      : a.label}
                   </button>
                 ))}
               </div>
@@ -318,7 +419,7 @@ export default function AdminOrderDetailClient({ orderId }) {
             />
             <PersonCard
               title="Provider"
-              name={order.provider_name || "Unassigned"}
+              name={order.provider_name || "Waiting Assignment"}
               email={order.provider_email}
             />
           </div>
@@ -326,11 +427,15 @@ export default function AdminOrderDetailClient({ orderId }) {
           {/* Requirements */}
           {order.requirements && Object.keys(order.requirements).length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Requirements</h3>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                Requirements
+              </h3>
               <div className="space-y-2">
                 {Object.entries(order.requirements).map(([key, value]) => (
                   <div key={key} className="flex gap-2 text-sm">
-                    <span className="text-gray-400 capitalize min-w-[120px]">{key.replace(/_/g, " ")}:</span>
+                    <span className="text-gray-400 capitalize min-w-[120px]">
+                      {key.replace(/_/g, " ")}:
+                    </span>
                     <span className="text-gray-700">{String(value)}</span>
                   </div>
                 ))}
@@ -341,7 +446,9 @@ export default function AdminOrderDetailClient({ orderId }) {
           {/* Status history */}
           {order.status_history?.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Timeline</h3>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">
+                Timeline
+              </h3>
               <div className="relative">
                 <div className="absolute left-[7px] top-2 bottom-2 w-px bg-gray-100" />
                 <div className="space-y-4">
@@ -355,14 +462,33 @@ export default function AdminOrderDetailClient({ orderId }) {
                             <span className="text-sm font-medium text-gray-700">
                               {entry.from_status || "Created"}
                             </span>
-                            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-gray-300"><path d="M5 12h14M12 5l7 7-7 7"/></svg>
-                            <span className={`text-xs px-2 py-0.5 rounded-md ${toConf.color || "bg-gray-100"}`}>
+                            <svg
+                              width="12"
+                              height="12"
+                              viewBox="0 0 24 24"
+                              fill="none"
+                              stroke="currentColor"
+                              strokeWidth="2"
+                              className="text-gray-300"
+                            >
+                              <path d="M5 12h14M12 5l7 7-7 7" />
+                            </svg>
+                            <span
+                              className={`text-xs px-2 py-0.5 rounded-md ${toConf.color || "bg-gray-100"}`}
+                            >
                               {toConf.label || entry.to_status}
                             </span>
                           </div>
-                          {entry.notes && <p className="text-xs text-gray-400 mt-0.5">{entry.notes}</p>}
+                          {entry.notes && (
+                            <p className="text-xs text-gray-400 mt-0.5">
+                              {entry.notes}
+                            </p>
+                          )}
                           <p className="text-[11px] text-gray-300 mt-0.5">
-                            {entry.changed_by_name || "System"} · {new Date(entry.created_at || entry.changed_at).toLocaleString()}
+                            {entry.changed_by_name || "System"} ·{" "}
+                            {new Date(
+                              entry.created_at || entry.changed_at,
+                            ).toLocaleString()}
                           </p>
                         </div>
                       </div>
@@ -376,35 +502,79 @@ export default function AdminOrderDetailClient({ orderId }) {
           {/* Review */}
           {order.review && (
             <div className="bg-white rounded-xl border border-gray-200 p-5">
-              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Customer Review</h3>
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                Customer Review
+              </h3>
               <div className="flex items-center gap-1.5 mb-2">
                 {[1, 2, 3, 4, 5].map((s) => (
-                  <span key={s} className={`text-lg ${s <= order.review.rating ? "text-amber-400" : "text-gray-200"}`}>★</span>
+                  <span
+                    key={s}
+                    className={`text-lg ${s <= order.review.rating ? "text-amber-400" : "text-gray-200"}`}
+                  >
+                    ★
+                  </span>
                 ))}
-                <span className="text-sm text-gray-500 ml-1">{order.review.rating}/5</span>
+                <span className="text-sm text-gray-500 ml-1">
+                  {order.review.rating}/5
+                </span>
               </div>
               {order.review.comment && (
-                <p className="text-sm text-gray-600 leading-relaxed">{order.review.comment}</p>
+                <p className="text-sm text-gray-600 leading-relaxed">
+                  {order.review.comment}
+                </p>
               )}
             </div>
           )}
 
           {/* Order detail card */}
           <div className="bg-white rounded-xl border border-gray-200 p-5">
-            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Order Details</h3>
+            <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+              Order Details
+            </h3>
             <div className="grid grid-cols-2 gap-x-6 gap-y-2">
-              <DetailRow label="Subtotal" value={`${order.currency || "USD"} ${parseFloat(order.subtotal || 0).toFixed(2)}`} />
-              <DetailRow label="Platform Fee" value={`${order.currency || "USD"} ${parseFloat(order.platform_fee || 0).toFixed(2)}`} />
-              <DetailRow label="Provider Earning" value={`${order.currency || "USD"} ${parseFloat(order.provider_earning || 0).toFixed(2)}`} />
+              <DetailRow
+                label="Subtotal"
+                value={`${order.currency || "USD"} ${parseFloat(order.subtotal || 0).toFixed(2)}`}
+              />
+              <DetailRow
+                label="Platform Fee"
+                value={`${order.currency || "USD"} ${parseFloat(order.platform_fee || 0).toFixed(2)}`}
+              />
+              <DetailRow
+                label="Provider Earning"
+                value={`${order.currency || "USD"} ${parseFloat(order.provider_earning || 0).toFixed(2)}`}
+              />
               {order.stripe_payment_intent_id && (
-                <DetailRow label="Stripe PI" value={order.stripe_payment_intent_id} mono />
+                <DetailRow
+                  label="Stripe PI"
+                  value={order.stripe_payment_intent_id}
+                  mono
+                />
               )}
-              {order.delivered_at && <DetailRow label="Delivered" value={new Date(order.delivered_at).toLocaleString()} />}
-              {order.completed_at && <DetailRow label="Completed" value={new Date(order.completed_at).toLocaleString()} />}
+              {order.delivered_at && (
+                <DetailRow
+                  label="Delivered"
+                  value={new Date(order.delivered_at).toLocaleString()}
+                />
+              )}
+              {order.completed_at && (
+                <DetailRow
+                  label="Completed"
+                  value={new Date(order.completed_at).toLocaleString()}
+                />
+              )}
               {order.cancelled_at && (
                 <>
-                  <DetailRow label="Cancelled" value={new Date(order.cancelled_at).toLocaleString()} />
-                  {order.cancellation_reason && <DetailRow label="Reason" value={order.cancellation_reason} />}
+                  <DetailRow
+                    label="Cancelled"
+                    value={new Date(order.cancelled_at).toLocaleString()}
+                  />
+                  {order.cancellation_reason && (
+                    <DetailRow
+                      label="Reason"
+                      value={order.cancellation_reason}
+                    />
+                  )}
                 </>
               )}
             </div>
@@ -421,7 +591,10 @@ export default function AdminOrderDetailClient({ orderId }) {
               initialMessages={order.messages || []}
               files={order.files || []}
               onRefresh={fetchOrder}
-              currentUser={{ id: user?.id, name: user?.full_name || user?.email }}
+              currentUser={{
+                id: user?.id,
+                role: "admin"
+              }}
               readOnly={isTerminal}
             />
           </div>
@@ -432,8 +605,12 @@ export default function AdminOrderDetailClient({ orderId }) {
       {showCancelModal && (
         <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
           <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
-            <h3 className="text-lg font-bold text-gray-900 mb-1">Cancel Order</h3>
-            <p className="text-sm text-gray-400 mb-4">This action cannot be undone.</p>
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              Cancel Order
+            </h3>
+            <p className="text-sm text-gray-400 mb-4">
+              This action cannot be undone.
+            </p>
             <textarea
               value={cancelReason}
               onChange={(e) => setCancelReason(e.target.value)}
@@ -443,7 +620,10 @@ export default function AdminOrderDetailClient({ orderId }) {
             />
             <div className="flex gap-3 justify-end">
               <button
-                onClick={() => { setShowCancelModal(false); setCancelReason(""); }}
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setCancelReason("");
+                }}
                 className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
               >
                 Keep Order
@@ -453,60 +633,98 @@ export default function AdminOrderDetailClient({ orderId }) {
                 disabled={actionLoading === "cancel"}
                 className="px-4 py-2 text-sm bg-red-600 text-white rounded-lg hover:bg-red-700 disabled:opacity-50"
               >
-                {actionLoading === "cancel" ? "Cancelling..." : "Confirm Cancel"}
+                {actionLoading === "cancel"
+                  ? "Cancelling..."
+                  : "Confirm Cancel"}
               </button>
             </div>
           </div>
         </div>
       )}
+
+      {/* showAssignModal Modal */}
+      {showAssignModal && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
+          <div className="bg-white rounded-xl p-6 w-full max-w-md">
+            <h3 className="text-lg font-semibold mb-4">Assign Provider</h3>
+
+            <select
+              className="w-full border rounded-lg p-2 mb-4"
+              value={selectedProvider || ""}
+              onChange={(e) => setSelectedProvider(e.target.value)}
+            >
+              <option value="">Select Provider</option>
+
+              {providers.map((p) => (
+                <option key={p.id} value={p.id}>
+                  {p.name}
+                </option>
+              ))}
+            </select>
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setShowAssignModal(false)}
+                className="px-3 py-2 text-sm"
+              >
+                Cancel
+              </button>
+
+              <button
+                onClick={confirmAssignProvider}
+                className="bg-blue-600 text-white px-4 py-2 rounded"
+              >
+                Assign
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Deliver Modal */}
       {showDeliverModal && (
-      <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-        <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
+        <div className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="bg-white rounded-2xl shadow-2xl p-6 max-w-md w-full">
+            <h3 className="text-lg font-bold text-gray-900 mb-1">
+              Deliver Order
+            </h3>
 
-          <h3 className="text-lg font-bold text-gray-900 mb-1">
-            Deliver Order
-          </h3>
+            <p className="text-sm text-gray-400 mb-4">
+              Send a delivery message to the customer.
+            </p>
 
-          <p className="text-sm text-gray-400 mb-4">
-            Send a delivery message to the customer.
-          </p>
+            <textarea
+              value={deliveryMessage}
+              onChange={(e) => setDeliveryMessage(e.target.value)}
+              placeholder="Write delivery message..."
+              rows={4}
+              className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
+            />
 
-          <textarea
-            value={deliveryMessage}
-            onChange={(e) => setDeliveryMessage(e.target.value)}
-            placeholder="Write delivery message..."
-            rows={4}
-            className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm mb-4 focus:outline-none focus:ring-2 focus:ring-blue-100 focus:border-blue-300"
-          />
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowDeliverModal(false);
+                  setDeliveryMessage("");
+                }}
+                className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
+              >
+                Cancel
+              </button>
 
-          <div className="flex gap-3 justify-end">
-
-            <button
-              onClick={() => {
-                setShowDeliverModal(false);
-                setDeliveryMessage("");
-              }}
-              className="px-4 py-2 text-sm text-gray-500 hover:text-gray-700"
-            >
-              Cancel
-            </button>
-
-            <button
-              onClick={handleDeliver}
-              disabled={actionLoading === "deliver"}
-              className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
-            >
-              {actionLoading === "deliver"
-                ? "Delivering..."
-                : "Confirm Delivery"}
-            </button>
-
+              <button
+                onClick={handleDeliver}
+                disabled={actionLoading === "deliver"}
+                className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+              >
+                {actionLoading === "deliver"
+                  ? "Delivering..."
+                  : "Confirm Delivery"}
+              </button>
+            </div>
           </div>
-
         </div>
-      </div>
-    )}
+      )}
     </div>
   );
 }

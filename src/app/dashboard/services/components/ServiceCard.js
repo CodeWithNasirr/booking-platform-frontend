@@ -5,6 +5,7 @@ import { useApp } from "@/contexts/AppContext";
 import { MoreVertical, DollarSign, Clock } from "lucide-react";
 import { DropdownMenu } from "./DropdownMenu";
 
+
 export function ServiceCard({
   service,
   viewMode,
@@ -19,7 +20,6 @@ export function ServiceCard({
   const isDeleted = viewMode === "deleted";
   const { t, isRTL } = useApp();
   const buttonRef = useRef(null);
-
   /* ===============================
      Order Type Badge (i18n)
      =============================== */
@@ -29,14 +29,14 @@ export function ServiceCard({
         color: "bg-blue-100 text-blue-700",
         label: t("orderType.booking"),
       },
-      milestone: {
+      order: {
         color: "bg-purple-100 text-purple-700",
-        label: t("orderType.milestone"),
+        label: t("orderType.order"),
       },
-      hybrid: {
-        color: "bg-orange-100 text-orange-700",
-        label: t("orderType.hybrid"),
-      },
+      // hybrid: {
+      //   color: "bg-orange-100 text-orange-700",
+      //   label: t("orderType.hybrid"),
+      // },
     };
 
     return types[service.orderType] || types.booking;
