@@ -80,6 +80,10 @@ export default {
   "availability.start": "وقت البدء",
   "availability.end": "وقت الانتهاء",
 
+  "schedule.title": "جدولى",
+  "schedule.subtitle": "حدد توافرك لجلسات مكالمات الفيديو. هذا سيحدد متى يمكن للعملاء حجز مواعيد معك عبر الإنترنت.",
+  "schedule.saved": "تم حفظ الجدول بنجاح",
+
   // =====================
   // COVERAGE TAB
   // =====================

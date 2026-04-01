@@ -54,6 +54,7 @@ export default{
   // =====================
   "tenant.services": "Services",
   "tenant.providers": "Providers",
+  "tenant.mySchedule": "My Schedule",
   "tenant.bookings": "Bookings",
   "tenant.calendar": "Calendar",
   "tenant.customers": "Customers",

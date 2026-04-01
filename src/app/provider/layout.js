@@ -4,6 +4,12 @@ export const metadata = {
   description: 'Service Provider Panel',
 };
 
+import ProviderStatusGuard from '@/components/provider/ProviderStatusGuard';
+
 export default function ProviderLayout({ children }) {
-  return children; // DashboardLayout handles the wrapper
+  return (
+    <ProviderStatusGuard>
+      {children}
+    </ProviderStatusGuard>
+  );
 }

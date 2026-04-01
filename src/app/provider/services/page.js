@@ -11,6 +11,7 @@ import {
   useServiceRequests 
 } from './hooks/useProviderServices';
 
+import { useProviderServices } from './hooks/useProviderServices';
 
 export default function ServicesPage() {
   const router = useRouter();
@@ -18,25 +19,42 @@ export default function ServicesPage() {
   const [showRequestModal, setShowRequestModal] = useState(false);
 
   // Fetch data from backend using hooks that internally use useApp
-  const { 
-    services: myServices = [], // Default to empty array to prevent undefined
-    loading: myServicesLoading, 
-    error: myServicesError,
-    disableService 
-  } = useMyServices();
+  // const { 
+  //   services: myServices = [], // Default to empty array to prevent undefined
+  //   loading: myServicesLoading, 
+  //   error: myServicesError,
+  //   disableService 
+  // } = useMyServices();
 
-  const { 
-    services: availableServices = [], // Default to empty array
-    loading: availableLoading, 
-    error: availableError,
-    enableService 
-  } = useAvailableServices();
+  // const { 
+  //   services: availableServices = [], // Default to empty array
+  //   loading: availableLoading, 
+  //   error: availableError,
+  //   enableService 
+  // } = useAvailableServices();
 
-  const { 
-    requests = [], // Default to empty array
-    loading: requestsLoading, 
-    error: requestsError 
-  } = useServiceRequests();
+  const {
+    myServices,
+    availableServices,
+    requests, // ✅ ADD THIS
+
+    enableService,
+    disableService,
+
+    myServicesLoading,
+    availableLoading,
+    requestsLoading,
+
+    myServicesError,
+    availableError,
+    requestsError,
+  } = useProviderServices();
+
+  // const { 
+  //   requests = [], // Default to empty array
+  //   loading: requestsLoading, 
+  //   error: requestsError 
+  // } = useServiceRequests();
 
   // Stats calculation with safe defaults
   const digitalCount = myServices.filter(s => 

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState } from "react";
-import { resolveTranslated } from "../utils/lang";
-import { useTenantLang } from "../utils/TenantLangContext";
+import { resolveTranslated } from "../../templates/utils/lang";
+import { useTenantLang } from "../../templates/utils/TenantLangContext";
 
 export default function PricingTable({ data }) {
   const { lang } = useTenantLang();

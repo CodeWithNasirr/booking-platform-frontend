@@ -45,6 +45,27 @@ export default function OrderChatPanel({
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
+
+  // At the top of OrderChatPanel, add this helper:
+  const markRead = useCallback(async () => {
+    if (!orderId || !tenantId) return;
+    try {
+      await authFetch(`/api/v1/orders/${orderId}/mark_read/`, tenantId, {
+        method: 'POST',
+      });
+    } catch {
+      // silent — badge will just stay until next poll
+    }
+  }, [orderId, tenantId, authFetch]);
+
+  // Call it on mount and when messages are fetched:
+  useEffect(() => {
+    markRead();
+  }, [markRead]);
+
+  // Also call after sending a message (sender's own status advances):
+  // Inside your send message handler, after the message is sent:
+  // await markRead();
  
   // ─── Fetch messages from backend on mount + when orderId changes ───
   const fetchMessages = useCallback(async () => {
@@ -107,6 +128,7 @@ export default function OrderChatPanel({
     } catch (err) {
       setError(err.message || "Failed to send message.");
     } finally {
+      await markRead();
       setSending(false);
     }
   }, [messageText, sending, authFetch, orderId, tenantId, onRefresh]);

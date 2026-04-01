@@ -8,6 +8,11 @@ import {
   Package,
   Users,
   Calendar,
+  CalendarDays,
+  CalendarCheck,
+  LogOut,
+  Clock,
+  ShoppingBag,
   UsersRound,
   DollarSign,
   Globe,
@@ -16,8 +21,6 @@ import {
   MessageSquare,
   Zap,
   ExternalLink,
-  LogOut,
-  ShoppingBag,
 } from "lucide-react";
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
@@ -25,6 +28,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const router = useRouter();
   const { t, logout, isRTL, tenants, activeTenant } = useApp();
   const { hasFeature, loading: planLoading } = usePlan();
+
+  const tenant = tenants.find(t => t.id === activeTenant);
   
   const go = (page) => {
 
@@ -54,10 +59,19 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
 
     { key: "tenant-dashboard", label: t("dashboard.title"), icon: LayoutDashboard },
     { key: "tenant-services", label: t("tenant.services"), icon: Package },
-    { key: "tenant-providers", label: t("tenant.providers"), icon: Users },
-    { key: "tenant-bookings", label: t("tenant.bookings"), icon: Calendar },
+ 
+
+    ...(tenant?.has_providers
+      ? [{ key: "tenant-providers", label: t("tenant.providers"), icon: Users }]
+      : [{ key: "tenant-schedule", label: t("tenant.mySchedule") || "My Schedule", icon: Clock  }]
+    ),
+
+    // { key: "tenant-providers", label: t("tenant.providers"), icon: Users },
+
+
+    { key: "tenant-bookings", label: t("tenant.bookings"), icon: CalendarCheck  },
     { key: "tenant-orders", label: "Orders", icon: ShoppingBag },
-    { key: "tenant-calendar", label: t("tenant.calendar"), icon: Calendar },
+    { key: "tenant-calendar", label: t("tenant.calendar"), icon: CalendarDays  },
     { key: "tenant-customers", label: t("tenant.customers"), icon: UsersRound },
     { key: "tenant-finance", label: t("tenant.finance"), icon: DollarSign },
     { key: "tenant-website", label: t("tenant.website"), icon: Globe },

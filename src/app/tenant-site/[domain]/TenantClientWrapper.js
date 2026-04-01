@@ -20,7 +20,7 @@ import TenantLangProvider from "../contexts/TenantLangContext";
 
 
 // Site context for accessing site data throughout the app
-const TenantSiteContext = createContext(null);
+export const TenantSiteContext = createContext(null);
 
 export function useTenantSite() {
   const ctx = useContext(TenantSiteContext);

@@ -39,6 +39,7 @@ export default {
   // =====================
   "tenant.services": "الخدمات",
   "tenant.providers": "المزودون",
+  "tenant.mySchedule": "جدولي",
   "tenant.bookings": "الحجوزات",
   "tenant.calendar": "التقويم",
   "tenant.customers": "العملاء",

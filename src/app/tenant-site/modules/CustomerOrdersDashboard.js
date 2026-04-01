@@ -147,6 +147,7 @@ export default function CustomerOrdersDashboard({
 
   // ─── Orders state ───
   const [orders, setOrders] = useState([]);
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
@@ -472,9 +473,24 @@ export default function CustomerOrdersDashboard({
                 >
                   <div className="flex justify-between items-start">
                     <div>
-                      <h3 className="font-semibold">{order.service_name || "Service"}</h3>
-                      <p className="text-sm text-gray-500">#{order.order_number}</p>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold">
+                          {order.service_name || "Service"}
+                        </h3>
+
+                        {/* ✅ Unread badge */}
+                        {order.unread_count > 0 && (
+                          <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-bold">
+                            {order.unread_count > 9 ? "9+" : order.unread_count}
+                          </span>
+                        )}
+                      </div>
+
+                      <p className="text-sm text-gray-500">
+                        #{order.order_number}
+                      </p>
                     </div>
+                   
                     <StatusBadge status={order.status} />
                   </div>
                   <div className="mt-3 flex justify-between text-sm text-gray-500">

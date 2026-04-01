@@ -290,6 +290,13 @@ function ProviderOrderCard({ order, theme, lang, isRTL, actionLoading, onAccept,
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1 flex-wrap">
             <span className="font-bold text-gray-900">{order.order_number}</span>
+            {/* Unread badge */}
+            {order.unread_count > 0 && (
+              <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-blue-500 text-white text-[10px] font-bold">
+                {order.unread_count > 9 ? '9+' : order.unread_count}
+              </span>
+            )}
+            
             <span className={`px-2 py-0.5 text-xs font-medium rounded-full ${status.color}`}>
               {status.icon} {status.label}
             </span>

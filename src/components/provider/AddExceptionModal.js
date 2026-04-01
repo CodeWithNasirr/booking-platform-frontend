@@ -1,69 +1,109 @@
 'use client';
 
-import { X, Plus } from 'lucide-react';
+import { useState } from 'react';
+import { X, Calendar } from 'lucide-react';
 
-export default function AddExceptionModal({ onClose }) {
+export default function AddExceptionModal({ onClose, onSave }) {
+  const [date, setDate] = useState('');
+  const [isAvailable, setIsAvailable] = useState(false);
+  const [reason, setReason] = useState('');
+  const [loading, setLoading] = useState(false);
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    await onSave({ date, is_available: isAvailable, reason });
+    setLoading(false);
+  };
+
+  // Get tomorrow's date for min attribute
+  const tomorrow = new Date();
+  tomorrow.setDate(tomorrow.getDate() + 1);
+  const minDate = tomorrow.toISOString().split('T')[0];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-sm">
-      <div className="bg-white rounded-[12px] shadow-xl w-full max-w-[510px] relative p-4 md:p-6">
-        <button onClick={onClose} className="absolute right-4 top-4 p-1 hover:bg-gray-100 rounded-lg">
-          <X size={20} className="text-[#1A1A1A]" />
-        </button>
-
-        <div className="mb-6">
-          <h2 className="text-[18px] text-[#1a1a1a] font-semibold mb-1">Add Exception</h2>
-          <p className="text-[14px] text-[#6c6c7c]">Block specific dates or set special hours for certain days</p>
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
+      <div className="bg-white rounded-[16px] w-full max-w-md p-6">
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-xl font-bold text-[#101828]">Add Exception</h2>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-full">
+            <X size={20} />
+          </button>
         </div>
 
-        <form className="flex flex-col gap-4" onSubmit={(e) => e.preventDefault()}>
-          <div className="flex flex-col gap-2">
-            <label className="text-[14px] text-[#1a1a1a] font-medium">Exception Type *</label>
-            <select className="h-[40px] rounded-[12px] border border-[#e5e7eb] px-3 bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-[#800020]/20">
-              <option>Full Day Off</option>
-              <option>Partial Availability</option>
-            </select>
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
+          <div>
+            <label className="block text-[14px] font-medium text-[#364153] mb-2">
+              Date
+            </label>
+            <div className="relative">
+              <Calendar className="absolute left-3 top-1/2 -translate-y-1/2 size-5 text-[#4a5565]" />
+              <input
+                type="date"
+                required
+                min={minDate}
+                value={date}
+                onChange={(e) => setDate(e.target.value)}
+                className="w-full h-[44px] pl-10 pr-4 rounded-[12px] border border-[#e5e7eb] focus:border-[#800020] focus:outline-none"
+              />
+            </div>
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-[14px] text-[#1a1a1a] font-medium">Title *</label>
-            <input 
-              type="text" 
-              placeholder="e.g., Vacation, Holiday, Special Event"
-              className="bg-[#f8f9fa] h-[40px] rounded-[10px] px-3 text-[14px] border border-transparent focus:border-[#800020] focus:outline-none"
+          <div>
+            <label className="block text-[14px] font-medium text-[#364153] mb-2">
+              Availability
+            </label>
+            <div className="flex gap-4">
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="availability"
+                  checked={!isAvailable}
+                  onChange={() => setIsAvailable(false)}
+                  className="accent-[#800020]"
+                />
+                <span className="text-[14px]">Day Off (Unavailable)</span>
+              </label>
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="availability"
+                  checked={isAvailable}
+                  onChange={() => setIsAvailable(true)}
+                  className="accent-[#800020]"
+                />
+                <span className="text-[14px]">Available (Special Hours)</span>
+              </label>
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[14px] font-medium text-[#364153] mb-2">
+              Reason (Optional)
+            </label>
+            <input
+              type="text"
+              placeholder="e.g., Vacation, Public Holiday"
+              value={reason}
+              onChange={(e) => setReason(e.target.value)}
+              className="w-full h-[44px] px-4 rounded-[12px] border border-[#e5e7eb] focus:border-[#800020] focus:outline-none"
             />
           </div>
 
-          <div className="flex flex-col gap-2">
-            <label className="text-[14px] text-[#1a1a1a] font-medium">Description</label>
-            <textarea 
-              rows={2}
-              placeholder="Optional description..."
-              className="bg-[#f8f9fa] rounded-[10px] p-3 text-[14px] border border-transparent focus:border-[#800020] focus:outline-none resize-none"
-            />
-          </div>
-
-          <div className="flex flex-col gap-2">
-            <label className="text-[14px] text-[#1a1a1a] font-medium">Date *</label>
-            <input 
-              type="date" 
-              className="h-[40px] rounded-[12px] border border-[#e5e7eb] px-3 bg-white text-[14px] focus:outline-none focus:ring-2 focus:ring-[#800020]/20"
-            />
-          </div>
-
-          <div className="flex gap-3 justify-end pt-2">
-            <button 
+          <div className="flex gap-3 mt-4">
+            <button
               type="button"
               onClick={onClose}
-              className="bg-white border border-[rgba(0,0,0,0.08)] h-[40px] px-6 rounded-[10px] text-[14px] font-medium hover:bg-gray-50"
+              className="flex-1 h-[44px] rounded-[12px] border border-[#e5e7eb] text-[#4a5565] font-medium hover:bg-gray-50"
             >
               Cancel
             </button>
-            <button 
+            <button
               type="submit"
-              className="bg-[#800020] h-[40px] px-6 rounded-[10px] text-white text-[14px] font-medium hover:bg-[#600018] flex items-center gap-2"
+              disabled={loading || !date}
+              className="flex-1 h-[44px] rounded-[12px] bg-[#800020] text-white font-medium hover:bg-[#600018] disabled:opacity-50"
             >
-              <Plus size={16} />
-              Add Exception
+              {loading ? 'Saving...' : 'Add Exception'}
             </button>
           </div>
         </form>

@@ -1,10 +1,11 @@
+// providers/lib/api.js
 import Cookies from 'js-cookie'
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
 
 
 // API Helper with cookie-based auth
-const authFetch = async (url,tenantId, options = {}) => {
+export const authFetch = async (url,tenantId, options = {}) => {
   const token = Cookies.get('access_token')
   if (!tenantId) throw new Error('Tenant not ready')
 

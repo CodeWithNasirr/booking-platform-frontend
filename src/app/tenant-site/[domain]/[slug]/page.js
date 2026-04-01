@@ -12,24 +12,33 @@ import LayoutRenderer from '../LayoutRenderer';
 
 // Generate metadata for SEO
 export async function generateMetadata({ params }) {
-  const { domain, slug } = await params;
-  
-  const { page, error } = await fetchPage(domain, slug);
-  
+  const { domain, slug } = params;
+
+  const [siteResult, pageResult] = await Promise.all([
+    fetchSite(domain),
+    fetchPage(domain, slug),
+  ]);
+
+  const { site } = siteResult;
+  const { page, error } = pageResult;
+
   if (error || !page) {
-    return {
-      title: 'Page Not Found',
-    };
+    return { title: "Page Not Found" };
   }
-  
-  // Resolve title (handle multilingual)
-  const title = typeof page.title === 'object' 
-    ? page.title.en || Object.values(page.title)[0] 
-    : page.title;
-  
+
+  const title =
+    typeof page.title === "object"
+      ? page.title.en || Object.values(page.title)[0]
+      : page.title;
+
   return {
     title: page.seo_title || title,
-    description: page.seo_description || '',
+    description: page.seo_description || "",
+
+    // 🔥 ADD THIS
+    icons: {
+      icon: site?.tenant_favicon || "/favicon.ico",
+    },
   };
 }
 
@@ -44,6 +53,7 @@ export default async function TenantPage({ params }) {
   
   const { site, theme, sections, error: siteError } = siteResult;
   const { page, error: pageError } = pageResult;
+
   
   // Handle errors
   if (siteError || !site?.is_published) {

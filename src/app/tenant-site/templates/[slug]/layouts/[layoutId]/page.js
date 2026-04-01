@@ -107,10 +107,12 @@ export default async function TemplateLayoutPreviewPage({ params }) {
   // ============================================
   // SUCCESS: RENDER USING SHARED COMPONENTS
   // ============================================
-  const sections = layout?.sections || [];
+  const sections = (layout?.sections || []).filter(
+    (s) => s.section_type !== "module"
+  );
 
   return (
-    <LayoutClientWrapper theme={themeDefaults}>
+    <LayoutClientWrapper theme={themeDefaults} site={{ template }}>
       {/* Preview banner (only shown on template previews) */}
       <PreviewBanner template={template} layout={layout} />
 

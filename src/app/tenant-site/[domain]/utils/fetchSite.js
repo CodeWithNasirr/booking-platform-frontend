@@ -153,7 +153,7 @@ export async function fetchSite(domain) {
 export async function fetchPage(domain, slug = "") {
   const headers = {
     "Content-Type": "application/json",
-    "X-Tenant-Domain": domain,
+    // "X-Tenant-Domain": domain,
   };
 
   try {

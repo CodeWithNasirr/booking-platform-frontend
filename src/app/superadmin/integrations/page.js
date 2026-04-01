@@ -1,7 +1,8 @@
-import React, { useState } from 'react';
-import SuperAdminLayout from '../../components/super-admin/SuperAdminLayout';
+// app/superadmin/integrations/page.js
+'use client'
+
+import { useState } from 'react'
 import {
-  Key,
   CreditCard,
   Mail,
   MessageSquare,
@@ -13,40 +14,26 @@ import {
   CheckCircle,
   AlertCircle,
   ExternalLink,
-} from 'lucide-react';
-import { Button } from '../../components/ui/button';
-import { Card } from '../../components/ui/card';
-import { Input } from '../../components/ui/input';
-import { Label } from '../../components/ui/label';
-import { Badge } from '../../components/ui/badge';
-import { Switch } from '../../components/ui/switch';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '../../components/ui/tabs';
+} from 'lucide-react'
+import SuperAdminLayout from "@/components/superadmin/SuperAdminLayout"
 
-interface IntegrationsPageProps {
-  onNavigate: (page: string, data?: any) => void;
-}
+export default function IntegrationsPage() {
+  const [showKeys, setShowKeys] = useState({})
+  const [fieldValues, setFieldValues] = useState({})
+  const [activeTab, setActiveTab] = useState('payment')
 
-export default function IntegrationsPage({ onNavigate }: IntegrationsPageProps) {
-  const [showKeys, setShowKeys] = useState<{ [key: string]: boolean }>({});
-  const [fieldValues, setFieldValues] = useState<{ [key: string]: string }>({});
+  const toggleKeyVisibility = (key) => {
+    setShowKeys((prev) => ({ ...prev, [key]: !prev[key] }))
+  }
 
-  const toggleKeyVisibility = (key: string) => {
-    setShowKeys((prev) => ({ ...prev, [key]: !prev[key] }));
-  };
+  const handleFieldChange = (integrationId, fieldKey, value) => {
+    setFieldValues((prev) => ({ ...prev, [`${integrationId}-${fieldKey}`]: value }))
+  }
 
-  const handleFieldChange = (integrationId: string, fieldKey: string, value: string) => {
-    setFieldValues((prev) => ({ ...prev, [`${integrationId}-${fieldKey}`]: value }));
-  };
-
-  const getFieldValue = (integrationId: string, fieldKey: string, defaultValue: string) => {
-    const key = `${integrationId}-${fieldKey}`;
-    return fieldValues[key] !== undefined ? fieldValues[key] : defaultValue;
-  };
-
-  const maskKey = (key: string, show: boolean) => {
-    if (show) return key;
-    return '•'.repeat(32);
-  };
+  const getFieldValue = (integrationId, fieldKey, defaultValue) => {
+    const key = `${integrationId}-${fieldKey}`
+    return fieldValues[key] !== undefined ? fieldValues[key] : defaultValue
+  }
 
   const integrations = {
     payment: [
@@ -156,63 +143,79 @@ export default function IntegrationsPage({ onNavigate }: IntegrationsPageProps) 
         ],
       },
     ],
-  };
+  }
 
-  const breadcrumbs = [{ label: 'Integrations' }];
+  const breadcrumbs = [{ label: 'Integrations' }]
 
-  const renderIntegrationCard = (integration: any) => {
-    const Icon = integration.icon;
-    const isActive = integration.status === 'active';
+  const tabs = [
+    { id: 'payment', label: 'Payment Gateways' },
+    // { id: 'maps', label: 'Maps & Location' },
+    { id: 'email', label: 'Email Services' },
+    { id: 'sms', label: 'SMS & Messaging' },
+    { id: 'security', label: 'Security' },
+  ]
+
+  const renderIntegrationCard = (integration) => {
+    const Icon = integration.icon
+    const isActive = integration.status === 'active'
 
     return (
-      <Card key={integration.id} className="p-6 border-gray-200 rounded-xl">
+      <div key={integration.id} className="bg-white rounded-xl border border-gray-200 p-6 shadow-sm">
         <div className="flex items-start justify-between mb-4">
           <div className="flex items-center gap-4">
             <div className={`w-12 h-12 rounded-xl bg-gradient-to-br ${integration.color} flex items-center justify-center`}>
               <Icon className="w-6 h-6 text-white" />
             </div>
             <div>
-              <h3 className="text-lg text-gray-900">{integration.name}</h3>
+              <h3 className="text-lg font-semibold text-gray-900">{integration.name}</h3>
               <p className="text-sm text-gray-600">{integration.description}</p>
             </div>
           </div>
           <div className="flex items-center gap-3">
-            <Badge
-              className={`${
-                isActive
-                  ? 'bg-green-100 text-green-700'
-                  : 'bg-gray-100 text-gray-700'
-              } border-0`}
-            >
+            <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium border ${
+              isActive
+                ? 'bg-green-100 text-green-700 border-green-200'
+                : 'bg-gray-100 text-gray-700 border-gray-200'
+            }`}>
               {isActive ? (
                 <>
-                  <CheckCircle className="w-3 h-3 mr-1" />
+                  <CheckCircle className="w-3 h-3" />
                   Active
                 </>
               ) : (
                 <>
-                  <AlertCircle className="w-3 h-3 mr-1" />
+                  <AlertCircle className="w-3 h-3" />
                   Inactive
                 </>
               )}
-            </Badge>
-            <Switch checked={isActive} />
+            </span>
+            {/* Toggle Switch */}
+            <button
+              onClick={() => {}}
+              className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
+                isActive ? 'bg-green-500' : 'bg-gray-300'
+              }`}
+            >
+              <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                isActive ? 'translate-x-6' : 'translate-x-1'
+              }`} />
+            </button>
           </div>
         </div>
 
         <div className="space-y-4">
-          {integration.fields.map((field: any) => (
+          {integration.fields.map((field) => (
             <div key={field.key}>
-              <Label htmlFor={field.key} className="text-sm text-gray-700 mb-2 block">
+              <label htmlFor={field.key} className="text-sm font-medium text-gray-700 mb-2 block">
                 {field.label}
-              </Label>
+              </label>
               <div className="relative">
-                <Input
+                <input
                   id={field.key}
                   type={showKeys[`${integration.id}-${field.key}`] ? 'text' : 'password'}
                   value={getFieldValue(integration.id, field.key, field.value)}
                   placeholder={`Enter ${field.label.toLowerCase()}`}
-                  className="pr-10 rounded-lg"
+                  className="w-full px-3 py-2 bg-white border border-gray-300 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500 pr-10"
                   onChange={(e) => handleFieldChange(integration.id, field.key, e.target.value)}
                 />
                 <button
@@ -232,28 +235,26 @@ export default function IntegrationsPage({ onNavigate }: IntegrationsPageProps) 
         </div>
 
         <div className="mt-6 pt-6 border-t border-gray-200 flex gap-2">
-          <Button variant="outline" className="flex-1 rounded-xl">
+          <button className="flex-1 px-4 py-2 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
             Test Connection
-          </Button>
-          <Button className="flex-1 bg-[#3A7BFF] hover:bg-[#2D63D9] rounded-xl">
-            <Save className="w-4 h-4 mr-2" />
+          </button>
+          <button className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 text-white rounded-xl text-sm font-medium transition-colors flex items-center justify-center gap-2">
+            <Save className="w-4 h-4" />
             Save
-          </Button>
+          </button>
         </div>
-      </Card>
-    );
-  };
+      </div>
+    )
+  }
 
   return (
     <SuperAdminLayout
-      currentPage="super-admin-integrations"
-      onNavigate={onNavigate}
       title="Global Integrations"
       description="Manage API keys and third-party integrations"
       breadcrumbs={breadcrumbs}
     >
       {/* Warning Banner */}
-      <Card className="p-4 mb-6 border-orange-200 bg-orange-50 rounded-xl">
+      <div className="bg-orange-50 border border-orange-200 rounded-xl p-4 mb-6">
         <div className="flex items-start gap-3">
           <AlertCircle className="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" />
           <div>
@@ -265,83 +266,113 @@ export default function IntegrationsPage({ onNavigate }: IntegrationsPageProps) 
             </p>
           </div>
         </div>
-      </Card>
+      </div>
 
-      <Tabs defaultValue="payment" className="space-y-6">
-        <TabsList className="bg-white border border-gray-200 p-1 rounded-xl">
-          <TabsTrigger value="payment" className="rounded-lg">Payment Gateways</TabsTrigger>
-          <TabsTrigger value="maps" className="rounded-lg">Maps & Location</TabsTrigger>
-          <TabsTrigger value="email" className="rounded-lg">Email Services</TabsTrigger>
-          <TabsTrigger value="sms" className="rounded-lg">SMS & Messaging</TabsTrigger>
-          <TabsTrigger value="security" className="rounded-lg">Security</TabsTrigger>
-        </TabsList>
+      {/* Tabs */}
+      <div className="space-y-6">
+        <div className="bg-white border border-gray-200 p-1 rounded-xl inline-flex flex-wrap gap-1">
+          {tabs.map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setActiveTab(tab.id)}
+              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+                activeTab === tab.id
+                  ? 'bg-gray-100 text-gray-900'
+                  : 'text-gray-600 hover:text-gray-900 hover:bg-gray-50'
+              }`}
+            >
+              {tab.label}
+            </button>
+          ))}
+        </div>
 
-        <TabsContent value="payment" className="space-y-6">
-          <div>
-            <h3 className="text-xl text-gray-900 mb-2">Payment Gateways</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Configure payment processing for all tenants
-            </p>
+        {/* Tab Content */}
+        {activeTab === 'payment' && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Payment Gateways</h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Configure payment processing for all tenants
+              </p>
+            </div>
+            <div className="space-y-4">
+              {integrations.payment.map(renderIntegrationCard)}
+            </div>
           </div>
-          {integrations.payment.map(renderIntegrationCard)}
-        </TabsContent>
+        )}
 
-        <TabsContent value="maps" className="space-y-6">
-          <div>
-            <h3 className="text-xl text-gray-900 mb-2">Maps & Location Services</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Configure mapping and geolocation services
-            </p>
+        {/* {activeTab === 'maps' && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Maps & Location Services</h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Configure mapping and geolocation services
+              </p>
+            </div>
+            <div className="space-y-4">
+              {integrations.maps.map(renderIntegrationCard)}
+            </div>
           </div>
-          {integrations.maps.map(renderIntegrationCard)}
-        </TabsContent>
+        )} */}
 
-        <TabsContent value="email" className="space-y-6">
-          <div>
-            <h3 className="text-xl text-gray-900 mb-2">Email Services</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Configure transactional email providers
-            </p>
+        {activeTab === 'email' && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Email Services</h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Configure transactional email providers
+              </p>
+            </div>
+            <div className="space-y-4">
+              {integrations.email.map(renderIntegrationCard)}
+            </div>
           </div>
-          {integrations.email.map(renderIntegrationCard)}
-        </TabsContent>
+        )}
 
-        <TabsContent value="sms" className="space-y-6">
-          <div>
-            <h3 className="text-xl text-gray-900 mb-2">SMS & Messaging</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Configure SMS and messaging services
-            </p>
+        {activeTab === 'sms' && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">SMS & Messaging</h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Configure SMS and messaging services
+              </p>
+            </div>
+            <div className="space-y-4">
+              {integrations.sms.map(renderIntegrationCard)}
+            </div>
           </div>
-          {integrations.sms.map(renderIntegrationCard)}
-        </TabsContent>
+        )}
 
-        <TabsContent value="security" className="space-y-6">
-          <div>
-            <h3 className="text-xl text-gray-900 mb-2">Security Services</h3>
-            <p className="text-sm text-gray-600 mb-6">
-              Configure security and anti-spam services
-            </p>
+        {activeTab === 'security' && (
+          <div className="space-y-6">
+            <div>
+              <h3 className="text-xl font-semibold text-gray-900 mb-2">Security Services</h3>
+              <p className="text-sm text-gray-600 mb-6">
+                Configure security and anti-spam services
+              </p>
+            </div>
+            <div className="space-y-4">
+              {integrations.security.map(renderIntegrationCard)}
+            </div>
           </div>
-          {integrations.security.map(renderIntegrationCard)}
-        </TabsContent>
-      </Tabs>
+        )}
+      </div>
 
       {/* Documentation Link */}
-      <Card className="p-6 border-gray-200 rounded-xl mt-6">
-        <div className="flex items-center justify-between">
+      <div className="bg-white border border-gray-200 rounded-xl p-6 mt-6">
+        <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
           <div>
-            <h3 className="text-lg text-gray-900 mb-1">Need help?</h3>
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Need help?</h3>
             <p className="text-sm text-gray-600">
               Check out our integration documentation for setup guides
             </p>
           </div>
-          <Button variant="outline" className="rounded-xl">
-            <ExternalLink className="w-4 h-4 mr-2" />
+          <button className="inline-flex items-center justify-center gap-2 px-4 py-2 border border-gray-300 rounded-xl text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors">
+            <ExternalLink className="w-4 h-4" />
             View Documentation
-          </Button>
+          </button>
         </div>
-      </Card>
+      </div>
     </SuperAdminLayout>
-  );
+  )
 }

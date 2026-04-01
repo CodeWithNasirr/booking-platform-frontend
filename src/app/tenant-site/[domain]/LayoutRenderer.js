@@ -15,6 +15,9 @@ export default function LayoutRenderer({
   rtlEnabled = false,
 
 }) {
+
+  console.log("site received site:", site);
+
   const { language, isRTL } = useTenantLang();
   const themeConfig = useTenantTheme();
   // console.log("Rendering Layout with sections:", sections, site);
@@ -43,7 +46,7 @@ export default function LayoutRenderer({
       {/* ================= HEADER ================= */}
       {HeaderComponent && headerSection && (
         <HeaderComponent
-          data={resolveTranslatedContent(mapHeaderData(headerSection.content), language)}
+          data={resolveTranslatedContent(mapHeaderData(headerSection.content,site), language)}
           lang={language}
           theme={themeConfig}
         />
@@ -203,11 +206,11 @@ function SectionRenderer({ section, language, themeConfig, site }) {
 // DATA NORMALIZATION FUNCTIONS
 // =============================================================================
 
-export function mapHeaderData(raw) {
+export function mapHeaderData(raw, site) {
   if (!raw) return {};
   return {
     variant: raw.variant || "default",
-    logo_url: raw.logo?.image_url || null,
+    logo_url: raw.logo?.image_url || site?.tenant_logo || null,
     logo_text: raw.logo?.text || null,
     navigation: raw.nav_links || [],
     cta_button: raw.cta_button?.text || null,

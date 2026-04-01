@@ -79,6 +79,10 @@ export default {
   "availability.start": "Start Time",
   "availability.end": "End Time",
 
+  "schedule.title": "My Schedule",
+  "schedule.subtitle": "Set your availability for video call sessions. This will determine when clients can book appointments with you online.",
+  "schedule.saved": "Schedule saved successfully",
+
   // =====================
   // COVERAGE TAB
   // =====================

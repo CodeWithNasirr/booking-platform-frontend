@@ -1,6 +1,6 @@
 'use client';
 
-import { useState } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { 
   User, 
   Briefcase, 
@@ -16,32 +16,256 @@ import {
   Phone,
   MapPin,
   Save,
-  X
+  X,
+  Loader2
 } from 'lucide-react';
 import DashboardLayout from '@/components/provider/DashboardLayout';
+import { useApp } from '@/contexts/AppContext';
+import Cookies from 'js-cookie';
+import { toast } from 'react-hot-toast';
 
 export default function ProfilePage() {
   const [activeTab, setActiveTab] = useState('profile');
-  const [services, setServices] = useState([
-    { id: 1, name: 'Haircut & Style', duration: '45 min', price: '$85', enabled: true },
-    { id: 2, name: 'Hair Coloring', duration: '90 min', price: '$120', enabled: true },
-    { id: 3, name: 'Beard Trim', duration: '20 min', price: '$25', enabled: false }
-  ]);
-
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
+  
+  // Profile data
+  const [profile, setProfile] = useState({
+    full_name: '',
+    email: '',
+    phone: '',
+    profession: '',
+    bio: '',
+    location: ''
+  });
+  
+  // Stats
+  const [stats, setStats] = useState({
+    rating: 0,
+    total_reviews: 0,
+    completed_jobs: 0,
+    success_rate: 0
+  });
+  
+  // Services
+  const [services, setServices] = useState([]);
+  const [availableServices, setAvailableServices] = useState([]);
+  
+  // Notifications
   const [notifications, setNotifications] = useState({
-    newBookings: true,
-    bookingConfirmations: true,
-    orderUpdates: false,
+    new_bookings: true,
+    booking_confirmations: true,
+    order_updates: false,
     messages: true,
     promotions: false,
-    serviceRequests: true
+    service_requests: true
   });
 
-  const toggleService = (id) => {
-    setServices(services.map(s => 
-      s.id === id ? { ...s, enabled: !s.enabled } : s
-    ));
+  const { activeTenant } = useApp();
+  const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api';
+
+  const getAuthHeaders = useCallback(() => ({
+    'Authorization': `Bearer ${Cookies.get("access_token")}`,
+    'Content-Type': 'application/json',
+    'X-Tenant': activeTenant || '',
+  }), [activeTenant]);
+
+  // Fetch all profile data on mount
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      try {
+        setLoading(true);
+        
+        // Fetch profile
+        const profileRes = await fetch(`${API_BASE}/api/v1/providers/profile/me/`, {
+          headers: getAuthHeaders()
+        });
+        if (profileRes.ok) {
+          const profileData = await profileRes.json();
+          setProfile({
+            full_name: profileData.full_name || '',
+            email: profileData.email || '',
+            phone: profileData.phone || '',
+            profession: profileData.profession || '',
+            bio: profileData.bio || '',
+            location: '' // Add to model if needed
+          });
+        }
+        
+        // Fetch stats
+        const statsRes = await fetch(`${API_BASE}/api/v1/providers/profile/stats/`, {
+          headers: getAuthHeaders()
+        });
+        if (statsRes.ok) {
+          setStats(await statsRes.json());
+        }
+        
+        // Fetch services
+        const servicesRes = await fetch(`${API_BASE}/api/v1/providers/services/`, {
+          headers: getAuthHeaders()
+        });
+        if (servicesRes.ok) {
+          setServices(await servicesRes.json());
+        }
+        
+        // Fetch notifications
+        const notifRes = await fetch(`${API_BASE}/api/v1/providers/notifications/`, {
+          headers: getAuthHeaders()
+        });
+        if (notifRes.ok) {
+          setNotifications(await notifRes.json());
+        }
+        
+      } catch (err) {
+        toast.error('Failed to load profile data');
+      } finally {
+        setLoading(false);
+      }
+    };
+    
+    fetchProfileData();
+  }, []); // Empty deps - only on mount
+
+  const handleSaveProfile = async () => {
+    setSaving(true);
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/providers/profile/update/`, {
+        method: 'PATCH',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(profile)
+      });
+      
+      if (!response.ok) throw new Error('Failed to update profile');
+      
+      toast.success('Profile updated successfully');
+    } catch (err) {
+      toast.error(err.message);
+    } finally {
+      setSaving(false);
+    }
   };
+
+  const handleToggleService = async (serviceId) => {
+    try {
+      const response = await fetch(
+        `${API_BASE}/api/v1/providers/services/${serviceId}/toggle/`,
+        {
+          method: 'POST',
+          headers: getAuthHeaders()
+        }
+      );
+      
+      if (!response.ok) throw new Error('Failed to toggle service');
+      
+      const data = await response.json();
+      
+      // Update local state
+      setServices(services.map(s => 
+        s.id === serviceId ? { ...s, is_active: !s.is_active } : s
+      ));
+      
+      toast.success(data.detail);
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleAddService = async (serviceId) => {
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/providers/services/add/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify({ service_id: serviceId })
+      });
+      
+      if (!response.ok) throw new Error('Failed to add service');
+      
+      const data = await response.json();
+      setServices([...services, data.service]);
+      toast.success('Service added successfully');
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleSaveNotifications = async () => {
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/providers/notifications/`, {
+        method: 'PUT',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(notifications)
+      });
+      
+      if (!response.ok) throw new Error('Failed to save notifications');
+      
+      toast.success('Notification preferences saved');
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleChangePassword = async (e) => {
+    e.preventDefault();
+    const formData = new FormData(e.target);
+    
+    const data = {
+      current_password: formData.get('current_password'),
+      new_password: formData.get('new_password'),
+      confirm_password: formData.get('confirm_password')
+    };
+    
+    if (data.new_password !== data.confirm_password) {
+      toast.error('New passwords do not match');
+      return;
+    }
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/providers/security/`, {
+        method: 'POST',
+        headers: getAuthHeaders(),
+        body: JSON.stringify(data)
+      });
+      
+      if (!response.ok) {
+        const err = await response.json();
+        throw new Error(err.detail || 'Failed to change password');
+      }
+      
+      toast.success('Password changed successfully');
+      e.target.reset();
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (!confirm('Are you sure? This cannot be undone.')) return;
+    
+    try {
+      const response = await fetch(`${API_BASE}/api/v1/providers/security/`, {
+        method: 'DELETE',
+        headers: getAuthHeaders()
+      });
+      
+      if (!response.ok) throw new Error('Failed to delete account');
+      
+      toast.success('Account deleted. Redirecting...');
+      // Redirect to logout or home
+      window.location.href = '/';
+    } catch (err) {
+      toast.error(err.message);
+    }
+  };
+
+  if (loading) {
+    return (
+      <DashboardLayout pageName="Profile">
+        <div className="flex items-center justify-center h-96">
+          <Loader2 className="size-8 animate-spin text-[#800020]" />
+        </div>
+      </DashboardLayout>
+    );
+  }
 
   const tabs = [
     { id: 'profile', label: 'Profile Information', icon: User },
@@ -50,10 +274,34 @@ export default function ProfilePage() {
     { id: 'security', label: 'Security', icon: Shield },
   ];
 
-  const stats = [
-    { icon: Star, label: 'Rating', value: '4.9/5.0', subtext: '156 reviews', color: 'text-[#f59e0b]', bg: 'bg-[#fffbeb]', border: 'border-[#fef3c7]' },
-    { icon: CheckCircle, label: 'Completed', value: '487', subtext: 'Total jobs', color: 'text-[#2463eb]', bg: 'bg-[#eff6ff]', border: 'border-[#dbeafe]' },
-    { icon: ShieldCheck, label: 'Success Rate', value: '98%', subtext: 'Completion', color: 'text-[#16a34a]', bg: 'bg-[#f0fdf4]', border: 'border-[#bbf7d0]' }
+  const statCards = [
+    { 
+      icon: Star, 
+      label: 'Rating', 
+      value: `${stats.rating}/5.0`, 
+      subtext: `${stats.total_reviews} reviews`, 
+      color: 'text-[#f59e0b]', 
+      bg: 'bg-[#fffbeb]', 
+      border: 'border-[#fef3c7]' 
+    },
+    { 
+      icon: CheckCircle, 
+      label: 'Completed', 
+      value: stats.completed_jobs.toString(), 
+      subtext: 'Total jobs', 
+      color: 'text-[#2463eb]', 
+      bg: 'bg-[#eff6ff]', 
+      border: 'border-[#dbeafe]' 
+    },
+    { 
+      icon: ShieldCheck, 
+      label: 'Success Rate', 
+      value: `${stats.success_rate}%`, 
+      subtext: 'Completion', 
+      color: 'text-[#16a34a]', 
+      bg: 'bg-[#f0fdf4]', 
+      border: 'border-[#bbf7d0]' 
+    }
   ];
 
   return (
@@ -70,7 +318,9 @@ export default function ProfilePage() {
           <div className="flex flex-col md:flex-row items-start md:items-center gap-4 md:gap-6">
             <div className="relative shrink-0">
               <div className="bg-gradient-to-b from-[#800020] to-[#600018] rounded-[16px] size-20 md:size-24 flex items-center justify-center">
-                <span className="text-2xl md:text-[32px] text-white font-bold">SP</span>
+                <span className="text-2xl md:text-[32px] text-white font-bold">
+                  {profile.full_name.split(' ').map(n => n[0]).join('').toUpperCase() || 'SP'}
+                </span>
               </div>
               <button className="absolute bottom-0 right-0 bg-[#2463eb] rounded-[8px] size-8 flex items-center justify-center border-2 border-white hover:bg-[#1d4ed8] transition-colors">
                 <Camera size={16} className="text-white" />
@@ -80,8 +330,12 @@ export default function ProfilePage() {
             <div className="flex-1 w-full">
               <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2 mb-4">
                 <div>
-                  <h2 className="text-lg md:text-[20px] text-[#101828] font-semibold leading-[28px] mb-1">Service Provider</h2>
-                  <p className="text-[14px] text-[#4a5565] leading-[20px]">Service Provider • Hair Stylist</p>
+                  <h2 className="text-lg md:text-[20px] text-[#101828] font-semibold leading-[28px] mb-1">
+                    {profile.full_name || 'Service Provider'}
+                  </h2>
+                  <p className="text-[14px] text-[#4a5565] leading-[20px]">
+                    {profile.profession || 'Service Provider'} • {profile.email}
+                  </p>
                 </div>
                 <div className="bg-[#dcfce7] h-8 px-4 rounded-[10px] border border-[#bbf7d0] flex items-center w-fit">
                   <span className="text-[14px] text-[#166534] font-medium">Active</span>
@@ -89,7 +343,7 @@ export default function ProfilePage() {
               </div>
 
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 md:gap-4">
-                {stats.map((stat, idx) => (
+                {statCards.map((stat, idx) => (
                   <div key={idx} className={`${stat.bg} rounded-[12px] p-3 md:p-4 border ${stat.border}`}>
                     <div className="flex items-center gap-2 mb-2">
                       <stat.icon size={16} className={stat.color} />
@@ -143,7 +397,8 @@ export default function ProfilePage() {
                       <User className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#99A1AF]" />
                       <input
                         type="text"
-                        defaultValue="Service Provider"
+                        value={profile.full_name}
+                        onChange={(e) => setProfile({...profile, full_name: e.target.value})}
                         className="w-full h-[40px] pl-10 pr-4 rounded-[10px] border border-[#e5e7eb] text-[14px] text-[#101828] focus:outline-none focus:ring-2 focus:ring-[#800020]/20"
                       />
                     </div>
@@ -154,8 +409,9 @@ export default function ProfilePage() {
                       <Mail className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#99A1AF]" />
                       <input
                         type="email"
-                        defaultValue="provider@demo.com"
-                        className="w-full h-[40px] pl-10 pr-4 rounded-[10px] border border-[#e5e7eb] text-[14px] text-[#101828] focus:outline-none focus:ring-2 focus:ring-[#800020]/20"
+                        value={profile.email}
+                        readOnly
+                        className="w-full h-[40px] pl-10 pr-4 rounded-[10px] border border-[#e5e7eb] text-[14px] text-[#4a5565] bg-gray-50"
                       />
                     </div>
                   </div>
@@ -165,7 +421,8 @@ export default function ProfilePage() {
                       <Phone className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#99A1AF]" />
                       <input
                         type="tel"
-                        defaultValue="+1 (555) 123-4567"
+                        value={profile.phone}
+                        onChange={(e) => setProfile({...profile, phone: e.target.value})}
                         className="w-full h-[40px] pl-10 pr-4 rounded-[10px] border border-[#e5e7eb] text-[14px] text-[#101828] focus:outline-none focus:ring-2 focus:ring-[#800020]/20"
                       />
                     </div>
@@ -176,32 +433,38 @@ export default function ProfilePage() {
                       <Briefcase className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#99A1AF]" />
                       <input
                         type="text"
-                        defaultValue="Hair Stylist"
+                        value={profile.profession}
+                        onChange={(e) => setProfile({...profile, profession: e.target.value})}
                         className="w-full h-[40px] pl-10 pr-4 rounded-[10px] border border-[#e5e7eb] text-[14px] text-[#101828] focus:outline-none focus:ring-2 focus:ring-[#800020]/20"
                       />
                     </div>
                   </div>
                   <div className="flex flex-col gap-2 md:col-span-2">
-                    <label className="text-[14px] text-[#364153] leading-[20px] font-medium">Location</label>
-                    <div className="relative">
-                      <MapPin className="absolute left-3 top-1/2 -translate-y-1/2 size-4 text-[#99A1AF]" />
-                      <input
-                        type="text"
-                        defaultValue="New York, NY"
-                        className="w-full h-[40px] pl-10 pr-4 rounded-[10px] border border-[#e5e7eb] text-[14px] text-[#101828] focus:outline-none focus:ring-2 focus:ring-[#800020]/20"
-                      />
-                    </div>
+                    <label className="text-[14px] text-[#364153] leading-[20px] font-medium">Bio</label>
+                    <textarea
+                      value={profile.bio}
+                      onChange={(e) => setProfile({...profile, bio: e.target.value})}
+                      rows={4}
+                      className="w-full p-4 rounded-[10px] border border-[#e5e7eb] text-[14px] text-[#101828] focus:outline-none focus:ring-2 focus:ring-[#800020]/20 resize-none"
+                    />
                   </div>
                 </div>
               </div>
 
               <div className="flex gap-3 justify-end pt-4 border-t border-[#f3f4f6]">
-                <button className="bg-white border border-[rgba(0,0,0,0.08)] h-[40px] px-6 rounded-[10px] flex items-center gap-2 text-[14px] font-medium hover:bg-gray-50 transition-colors">
+                <button 
+                  onClick={() => window.location.reload()}
+                  className="bg-white border border-[rgba(0,0,0,0.08)] h-[40px] px-6 rounded-[10px] flex items-center gap-2 text-[14px] font-medium hover:bg-gray-50 transition-colors"
+                >
                   <X size={16} />
                   Cancel
                 </button>
-                <button className="bg-[#800020] h-[40px] px-6 rounded-[10px] flex items-center gap-2 text-white text-[14px] font-medium hover:bg-[#600018] transition-colors">
-                  <Save size={16} />
+                <button 
+                  onClick={handleSaveProfile}
+                  disabled={saving}
+                  className="bg-[#800020] h-[40px] px-6 rounded-[10px] flex items-center gap-2 text-white text-[14px] font-medium hover:bg-[#600018] transition-colors disabled:opacity-50"
+                >
+                  {saving ? <Loader2 size={16} className="animate-spin" /> : <Save size={16} />}
                   Save Changes
                 </button>
               </div>
@@ -215,7 +478,10 @@ export default function ProfilePage() {
                   <h3 className="text-[16px] md:text-[18px] text-[#101828] font-semibold leading-[24px]">My Services</h3>
                   <p className="text-[14px] text-[#4a5565] leading-[20px]">Manage the services you offer</p>
                 </div>
-                <button className="bg-[#800020] h-[40px] px-4 rounded-[10px] flex items-center justify-center gap-2 text-white text-[14px] font-medium hover:bg-[#600018] transition-colors w-full sm:w-auto">
+                <button 
+                  onClick={() => setActiveTab('add-service')}
+                  className="bg-[#800020] h-[40px] px-4 rounded-[10px] flex items-center justify-center gap-2 text-white text-[14px] font-medium hover:bg-[#600018] transition-colors w-full sm:w-auto"
+                >
                   <Plus size={18} />
                   Add Service
                 </button>
@@ -228,17 +494,17 @@ export default function ProfilePage() {
                       <label className="relative inline-flex items-center cursor-pointer shrink-0">
                         <input
                           type="checkbox"
-                          checked={service.enabled}
-                          onChange={() => toggleService(service.id)}
+                          checked={service.is_active}
+                          onChange={() => handleToggleService(service.id)}
                           className="sr-only peer"
                         />
-                        <div className={`w-11 h-6 rounded-full peer transition-colors ${service.enabled ? 'bg-[#800020]' : 'bg-gray-200'}`}>
-                          <div className={`absolute top-0.5 left-0.5 bg-white w-5 h-5 rounded-full transition-transform ${service.enabled ? 'translate-x-5' : ''}`} />
+                        <div className={`w-11 h-6 rounded-full peer transition-colors ${service.is_active ? 'bg-[#800020]' : 'bg-gray-200'}`}>
+                          <div className={`absolute top-0.5 left-0.5 bg-white w-5 h-5 rounded-full transition-transform ${service.is_active ? 'translate-x-5' : ''}`} />
                         </div>
                       </label>
                       <div>
                         <h4 className="text-[16px] text-[#101828] font-medium leading-[24px]">{service.name}</h4>
-                        <p className="text-[14px] text-[#4a5565] leading-[20px]">{service.duration} • {service.price}</p>
+                        <p className="text-[14px] text-[#4a5565] leading-[20px]">{service.duration} • {service.price_display}</p>
                       </div>
                     </div>
                     <button className="bg-white border border-[rgba(0,0,0,0.08)] h-9 px-4 rounded-[10px] flex items-center gap-2 text-[14px] font-medium hover:bg-gray-50 transition-colors w-full sm:w-auto justify-center">
@@ -247,6 +513,41 @@ export default function ProfilePage() {
                     </button>
                   </div>
                 ))}
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'add-service' && (
+            <div className="flex flex-col gap-6">
+              <div className="flex items-center gap-4 mb-4">
+                <button 
+                  onClick={() => setActiveTab('services')}
+                  className="text-[#4a5565] hover:text-[#101828]"
+                >
+                  ← Back
+                </button>
+                <h3 className="text-[16px] md:text-[18px] text-[#101828] font-semibold leading-[24px]">Add New Service</h3>
+              </div>
+              
+              <div className="flex flex-col gap-3">
+                {availableServices.length === 0 ? (
+                  <p className="text-[#4a5565]">No additional services available</p>
+                ) : (
+                  availableServices.map((service) => (
+                    <div key={service.id} className="bg-white border border-[#e5e7eb] rounded-[12px] p-4 flex items-center justify-between">
+                      <div>
+                        <h4 className="text-[16px] text-[#101828] font-medium">{service.name}</h4>
+                        <p className="text-[14px] text-[#4a5565]">{service.duration_minutes} min • From ${service.base_price}</p>
+                      </div>
+                      <button 
+                        onClick={() => handleAddService(service.id)}
+                        className="bg-[#800020] h-9 px-4 rounded-[10px] text-white text-[14px] font-medium hover:bg-[#600018]"
+                      >
+                        Add
+                      </button>
+                    </div>
+                  ))
+                )}
               </div>
             </div>
           )}
@@ -260,12 +561,12 @@ export default function ProfilePage() {
 
               <div className="flex flex-col">
                 {Object.entries({
-                  newBookings: { title: 'New Booking Requests', desc: 'Get notified when customers book your services' },
-                  bookingConfirmations: { title: 'Booking Confirmations', desc: 'Receive confirmation when bookings are confirmed' },
-                  orderUpdates: { title: 'Order Updates', desc: 'Stay updated on order status changes' },
+                  new_bookings: { title: 'New Booking Requests', desc: 'Get notified when customers book your services' },
+                  booking_confirmations: { title: 'Booking Confirmations', desc: 'Receive confirmation when bookings are confirmed' },
+                  order_updates: { title: 'Order Updates', desc: 'Stay updated on order status changes' },
                   messages: { title: 'New Messages', desc: 'Get notified about new customer messages' },
                   promotions: { title: 'Promotions & Tips', desc: 'Receive marketing tips and promotional offers' },
-                  serviceRequests: { title: 'Service Requests', desc: 'Get notified when admin approves new services' }
+                  service_requests: { title: 'Service Requests', desc: 'Get notified when admin approves new services' }
                 }).map(([key, { title, desc }]) => (
                   <div key={key} className="flex items-center justify-between py-4 border-b border-[#f3f4f6] last:border-0">
                     <div>
@@ -276,7 +577,11 @@ export default function ProfilePage() {
                       <input
                         type="checkbox"
                         checked={notifications[key]}
-                        onChange={() => setNotifications({...notifications, [key]: !notifications[key]})}
+                        onChange={() => {
+                          const updated = {...notifications, [key]: !notifications[key]};
+                          setNotifications(updated);
+                          handleSaveNotifications();
+                        }}
                         className="sr-only peer"
                       />
                       <div className={`w-11 h-6 rounded-full peer transition-colors ${notifications[key] ? 'bg-[#800020]' : 'bg-gray-200'}`}>
@@ -295,11 +600,13 @@ export default function ProfilePage() {
                 <h3 className="text-[16px] md:text-[18px] text-[#101828] font-semibold leading-[24px] mb-4">Change Password</h3>
                 <p className="text-[14px] text-[#4a5565] leading-[20px] mb-6">Update your password to keep your account secure</p>
                 
-                <div className="flex flex-col gap-4">
+                <form onSubmit={handleChangePassword} className="flex flex-col gap-4">
                   <div className="flex flex-col gap-2">
                     <label className="text-[14px] text-[#364153] leading-[20px] font-medium">Current Password</label>
                     <input
+                      name="current_password"
                       type="password"
+                      required
                       placeholder="Enter current password"
                       className="h-[40px] px-4 rounded-[10px] border border-[#e5e7eb] text-[14px] text-[#101828] focus:outline-none focus:ring-2 focus:ring-[#800020]/20"
                     />
@@ -307,7 +614,10 @@ export default function ProfilePage() {
                   <div className="flex flex-col gap-2">
                     <label className="text-[14px] text-[#364153] leading-[20px] font-medium">New Password</label>
                     <input
+                      name="new_password"
                       type="password"
+                      required
+                      minLength={8}
                       placeholder="Enter new password"
                       className="h-[40px] px-4 rounded-[10px] border border-[#e5e7eb] text-[14px] text-[#101828] focus:outline-none focus:ring-2 focus:ring-[#800020]/20"
                     />
@@ -315,21 +625,23 @@ export default function ProfilePage() {
                   <div className="flex flex-col gap-2">
                     <label className="text-[14px] text-[#364153] leading-[20px] font-medium">Confirm New Password</label>
                     <input
+                      name="confirm_password"
                       type="password"
+                      required
                       placeholder="Confirm new password"
                       className="h-[40px] px-4 rounded-[10px] border border-[#e5e7eb] text-[14px] text-[#101828] focus:outline-none focus:ring-2 focus:ring-[#800020]/20"
                     />
                   </div>
-                </div>
-              </div>
 
-              <div className="flex gap-3 pt-4">
-                <button className="bg-white border border-[rgba(0,0,0,0.08)] h-[40px] px-6 rounded-[10px] text-[14px] font-medium hover:bg-gray-50 transition-colors">
-                  Cancel
-                </button>
-                <button className="bg-[#800020] h-[40px] px-6 rounded-[10px] text-white text-[14px] font-medium hover:bg-[#600018] transition-colors">
-                  Update Password
-                </button>
+                  <div className="flex gap-3 pt-4">
+                    <button type="button" className="bg-white border border-[rgba(0,0,0,0.08)] h-[40px] px-6 rounded-[10px] text-[14px] font-medium hover:bg-gray-50 transition-colors">
+                      Cancel
+                    </button>
+                    <button type="submit" className="bg-[#800020] h-[40px] px-6 rounded-[10px] text-white text-[14px] font-medium hover:bg-[#600018] transition-colors">
+                      Update Password
+                    </button>
+                  </div>
+                </form>
               </div>
 
               <div className="pt-6 border-t border-[#f3f4f6]">
@@ -339,7 +651,10 @@ export default function ProfilePage() {
                     <h4 className="text-[14px] text-[#101828] font-medium leading-[20px] mb-1">Delete Account</h4>
                     <p className="text-[14px] text-[#4a5565] leading-[20px]">Once deleted, your account cannot be recovered</p>
                   </div>
-                  <button className="bg-red-600 text-white h-[40px] px-4 rounded-[10px] text-[14px] font-medium hover:bg-red-700 transition-colors whitespace-nowrap">
+                  <button 
+                    onClick={handleDeleteAccount}
+                    className="bg-red-600 text-white h-[40px] px-4 rounded-[10px] text-[14px] font-medium hover:bg-red-700 transition-colors whitespace-nowrap"
+                  >
                     Delete Account
                   </button>
                 </div>

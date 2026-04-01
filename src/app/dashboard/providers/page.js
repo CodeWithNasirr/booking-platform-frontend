@@ -57,7 +57,7 @@ export default function ProvidersPage() {
 
   useEffect(() => {
     if (!loadingUser && !user) {
-      router.push("/login");
+      router.push("/auth/login");
     }
   }, [loadingUser, router,user]);
 

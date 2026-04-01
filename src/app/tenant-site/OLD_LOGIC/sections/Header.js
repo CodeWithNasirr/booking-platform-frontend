@@ -2,9 +2,9 @@
 
 import { useState, useEffect } from "react";
 import { Menu, X, ChevronDown } from "lucide-react";
-import { resolveTranslated } from "../utils/lang";
-import { useTenantLang } from "../utils/TenantLangContext";
-import TenantLanguageSwitcher from "../utils/LanguageSwitcher";
+import { resolveTranslated } from "../../templates/utils/lang";
+import { useTenantLang } from "../../templates/utils/TenantLangContext";
+import TenantLanguageSwitcher from "../../templates/utils/LanguageSwitcher";
 /**
  * HEADER SECTION
  * Renders navigation with logo, links, and CTA button

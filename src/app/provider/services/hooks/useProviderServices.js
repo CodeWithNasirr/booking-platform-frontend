@@ -286,28 +286,42 @@ export function useProviderServices() {
   const available = useAvailableServices();
   const requests = useServiceRequests();
 
+  // 🔥 GLOBAL REFRESH
+  const refreshAll = async () => {
+    await Promise.all([
+      myServices.refetch(),
+      available.refetch(),
+    ]);
+  };
+
+  // 🔥 ENABLE
+  const enable = async (serviceId) => {
+    const ok = await available.enableService(serviceId);
+    if (ok) await refreshAll();
+    return ok;
+  };
+
+  // 🔥 DISABLE
+  const disable = async (serviceId) => {
+    const ok = await myServices.disableService(serviceId);
+    if (ok) await refreshAll();
+    return ok;
+  };
+
   return {
-    myServices: {
-      services: myServices.services,
-      loading: myServices.loading,
-      error: myServices.error,
-      refetch: myServices.refetch,
-      disableService: myServices.disableService,
-    },
-    available: {
-      services: available.services,
-      loading: available.loading,
-      error: available.error,
-      refetch: available.refetch,
-      enableService: available.enableService,
-    },
-    requests: {
-      requests: requests.requests,
-      loading: requests.loading,
-      error: requests.error,
-      refetch: requests.refetch,
-      submitRequest: requests.submitRequest,
-    },
-    isLoading: myServices.loading || available.loading || requests.loading,
+    myServices: myServices.services,
+    availableServices: available.services,
+    requests: requests.requests,
+
+    myServicesLoading: myServices.loading,
+    availableLoading: available.loading,
+    requestsLoading: requests.loading,
+
+    myServicesError: myServices.error,
+    availableError: available.error,
+    requestsError: requests.error,
+
+    enableService: enable,
+    disableService: disable,
   };
 }

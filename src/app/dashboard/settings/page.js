@@ -31,8 +31,8 @@ import BillingSettings from '@/components/dashboard/billing/BillingSettings'
 const tabs = [
   { key: 'business', label: 'Business Info', icon: Building2 },
   { key: 'billing', label: 'Billing & Plan', icon: CreditCard },
-  { key: 'team', label: 'Team Members', icon: Users },
-  { key: 'roles', label: 'Roles & Permissions', icon: Shield },
+  // { key: 'team', label: 'Team Members', icon: Users },
+  // { key: 'roles', label: 'Roles & Permissions', icon: Shield },
   { key: 'domain', label: 'Domain & Branding', icon: Globe },
   { key: 'language', label: 'Language & Region', icon: Languages },
   { key: 'notifications', label: 'Notifications', icon: Bell },
@@ -373,7 +373,7 @@ export default function TenantSettingsPage() {
           )}
 
           {/* Team Members Tab */}
-          {activeTab === 'team' && (
+          {/* {activeTab === 'team' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -419,10 +419,10 @@ export default function TenantSettingsPage() {
                 ))}
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Roles & Permissions Tab */}
-          {activeTab === 'roles' && (
+          {/* {activeTab === 'roles' && (
             <div className="space-y-6">
               <div className="flex items-center justify-between">
                 <div>
@@ -456,7 +456,7 @@ export default function TenantSettingsPage() {
                 ))}
               </div>
             </div>
-          )}
+          )} */}
 
           {/* Domain & Branding Tab */}
           {activeTab === 'domain' && (

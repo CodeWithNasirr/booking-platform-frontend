@@ -31,7 +31,7 @@
 import React, { createContext, useContext, useState, useEffect } from "react";
 import Cookies from "js-cookie";
 import { translations } from "../translations";
-
+import { useRouter } from "next/navigation";
 const AppContext = createContext(undefined);
 
 export function useApp() {
@@ -41,7 +41,7 @@ export function useApp() {
 }
 
 export function AppProvider({ children }) {
-
+  const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
   const [language, setLanguage] = useState("en");
   const [user, setUser] = useState(null);
@@ -199,6 +199,7 @@ export function AppProvider({ children }) {
           Cookies.remove("access_token");
           Cookies.remove("refresh_token");
           Cookies.remove("active_tenant");
+          router.push("/auth/login");
           setUser(null);
           setTenants([]);
           setActiveTenant(null);

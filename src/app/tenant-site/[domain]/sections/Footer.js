@@ -6,7 +6,7 @@ import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTrans
 export default function Footer({ data, lang: propLang }) {
   const { language, isRTL } = useTenantLang();
   const lang = propLang || language;
-
+  // console.log("Footer data ", data);
   const {
     logo,
     business_name,
@@ -21,10 +21,19 @@ export default function Footer({ data, lang: propLang }) {
 
   const resolvedTagline = resolveTranslated(tagline, lang);
   const resolvedCopyright = resolveTranslated(copyright, lang);
+  // const resolvedColumns = columns.map(col => ({
+  //   ...col,
+  //   title: resolveTranslated(col.title, lang),
+  //   links: resolveTranslatedArray(col.links || [], lang, ["label", "href"]),
+  // }));
   const resolvedColumns = columns.map(col => ({
     ...col,
     title: resolveTranslated(col.title, lang),
-    links: resolveTranslatedArray(col.links || [], lang, ["label", "href"]),
+    links: resolveTranslatedArray(col.links || [], lang, ["label", "href", "url"]).map(link => ({
+      ...link,
+      // normalise: accept either href or url from the API
+      href: link.href || link.url || "#",
+    })),
   }));
 
   /* ================= OLD BACKGROUND LOGIC ================= */
@@ -35,22 +44,41 @@ export default function Footer({ data, lang: propLang }) {
   let borderClass = "border-[color:var(--color-border)]";
 
   if (background === "dark") {
-    bgStyle = { backgroundColor: "var(--color-dark-bg)" };
+    // ↓ add #0F172A fallback so it works even without styles.css in scope
+    bgStyle = { backgroundColor: "var(--color-dark-bg, #0F172A)" };
     textClass = "text-white";
     mutedClass = "text-white/70";
     borderClass = "border-white/20";
   }
 
   if (background === "light") {
-    bgStyle = { backgroundColor: "var(--color-background)" };
+    bgStyle = { backgroundColor: "var(--color-background, #FFFFFF)" };
   }
 
   if (background === "gradient") {
-    bgStyle = { backgroundColor: "var(--color-primary)" };
+    bgStyle = { backgroundColor: "var(--color-primary, #3B82F6)" };
     textClass = "text-white";
     mutedClass = "text-white/70";
     borderClass = "border-white/20";
   }
+
+  // if (background === "dark") {
+  //   bgStyle = { backgroundColor: "var(--color-dark-bg)" };
+  //   textClass = "text-white";
+  //   mutedClass = "text-white/70";
+  //   borderClass = "border-white/20";
+  // }
+
+  // if (background === "light") {
+  //   bgStyle = { backgroundColor: "var(--color-background)" };
+  // }
+
+  // if (background === "gradient") {
+  //   bgStyle = { backgroundColor: "var(--color-primary)" };
+  //   textClass = "text-white";
+  //   mutedClass = "text-white/70";
+  //   borderClass = "border-white/20";
+  // }
 
   return (
     <footer style={bgStyle} className={isRTL ? "rtl" : ""}>

@@ -1,7 +1,7 @@
 "use client";
 
-import { resolveTranslated } from "../utils/lang";
-import { useTenantLang } from "../utils/TenantLangContext";
+import { resolveTranslated } from "../../templates/utils/lang";
+import { useTenantLang } from "../../templates/utils/TenantLangContext";
 
 export default function Testimonials({ data }) {
   const { lang } = useTenantLang();

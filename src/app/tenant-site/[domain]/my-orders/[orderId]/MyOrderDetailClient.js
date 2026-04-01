@@ -108,7 +108,7 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
   const footerSection = footer ? [footer] : [];
 
   const [order, setOrder] = useState(null);
-  console.log(order,"customer")
+  // console.log(order,"customer")
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
