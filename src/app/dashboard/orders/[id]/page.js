@@ -1,11 +1,16 @@
 // src/app/dashboard/orders/[id]/page.js
 import AdminOrderDetailClient from "./AdminOrderDetailClient";
+import TenantPermissionGate from "@/components/dashboard/TenantPermissionGate";
 
 export const metadata = { title: "Order Detail | Dashboard" };
 
 export default async function OrderDetailPage({ params }) {
   const { id } = await params;
-  return <AdminOrderDetailClient orderId={id} />;
+  return (
+       <TenantPermissionGate permission="orders.view">
+          <AdminOrderDetailClient orderId={id} />
+        </TenantPermissionGate>
+  )
 }
 
 // "use client";

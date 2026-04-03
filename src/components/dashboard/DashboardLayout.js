@@ -1,3 +1,4 @@
+// src/components/dashboard/DashboardLayout.js  (UPDATED with RBAC)
 "use client";
 
 import { useState, useEffect } from "react";
@@ -5,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import useBlockBackNavigation from "@/lib/useBlockBackNavigation";
 import { PlanProvider } from "@/contexts/PlanContext";
+import { TenantRBACProvider } from "@/contexts/TenantRBACContext";
 import Sidebar from "./Sidebar";
 import { Toaster } from "react-hot-toast";
 import Topbar from "./Topbar";
@@ -24,7 +26,7 @@ export default function DashboardLayout({ children }) {
   // Onboarding guard
   useEffect(() => {
     if (!requiresOnboarding || !tenants?.length) return;
-    const active = tenants.find(t => t.id === activeTenant) || tenants[0];
+    const active = tenants.find((t) => t.id === activeTenant) || tenants[0];
     router.replace(`/auth/onboarding?step=${active?.onboarding_step || 1}`);
   }, [requiresOnboarding, tenants, activeTenant, router]);
 
@@ -32,24 +34,27 @@ export default function DashboardLayout({ children }) {
 
   return (
     <PlanProvider>
-      <div className="flex h-screen bg-background">
-        <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+      {/* ── TenantRBACProvider wraps everything inside PlanProvider ── */}
+      <TenantRBACProvider>
+        <div className="flex h-screen bg-background">
+          <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-        <div className="flex-1 flex flex-col overflow-hidden">
-          <Topbar setSidebarOpen={setSidebarOpen} />
-          <main className="flex-1 overflow-y-auto p-6 space-y-6">
-            {children}
-            <Toaster position="top-right" />
-          </main>
+          <div className="flex-1 flex flex-col overflow-hidden">
+            <Topbar setSidebarOpen={setSidebarOpen} />
+            <main className="flex-1 overflow-y-auto p-6 space-y-6">
+              {children}
+              <Toaster position="top-right" />
+            </main>
+          </div>
+
+          {sidebarOpen && (
+            <div
+              className="fixed inset-0 bg-black/50 lg:hidden"
+              onClick={() => setSidebarOpen(false)}
+            />
+          )}
         </div>
-
-        {sidebarOpen && (
-          <div
-            className="fixed inset-0 bg-black/50 lg:hidden"
-            onClick={() => setSidebarOpen(false)}
-          />
-        )}
-      </div>
+      </TenantRBACProvider>
     </PlanProvider>
   );
 }

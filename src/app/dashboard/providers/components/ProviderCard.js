@@ -16,12 +16,15 @@ import { useApp } from "@/contexts/AppContext";
 
 export default function ProviderCard({
   provider,
+  canEdit,
+  canDelete,
   onEdit,
   onToggleActive,
   onDelete,
 }) {
   const { t, isRTL } = useApp();
   const [menuOpen, setMenuOpen] = useState(false);
+  const hasAnyAction = canEdit || canDelete;
 
   const getInitials = (name) =>
     name
@@ -65,12 +68,14 @@ export default function ProviderCard({
 
             {/* Menu */}
             <div className="relative">
+              {hasAnyAction && (
               <button
                 onClick={() => setMenuOpen(!menuOpen)}
                 className="p-2 rounded-lg hover:bg-rose-50 transition-colors"
               >
                 <MoreVertical className="w-4 h-4 text-gray-500" />
               </button>
+              )}
 
               {menuOpen && (
                 <>
@@ -83,6 +88,7 @@ export default function ProviderCard({
                   ${isRTL ? "left-0" : "right-0"}
                 `}
                   >
+                   
                     <button
                       onClick={() => {
                         onEdit(provider);
@@ -93,7 +99,8 @@ export default function ProviderCard({
                       <Edit className="w-4 h-4 text-rose-700" />
                       {t("provider.edit")}
                     </button>
-
+                   
+                
                     <button
                       onClick={() => {
                         onToggleActive(provider.id);

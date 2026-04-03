@@ -6,6 +6,9 @@ import { RotateCcw, Trash2, Edit, Copy, Eye } from "lucide-react";
 
 export function DropdownMenu({
   viewMode,
+  canCreate,
+  canEdit,
+  canDelete,
   onEdit,
   onDuplicate,
   onToggleActive,
@@ -107,6 +110,7 @@ export function DropdownMenu({
         </>
       ) : (
         <>
+        {canEdit && (
           <button
             onClick={() => {
               onEdit();
@@ -117,6 +121,9 @@ export function DropdownMenu({
             <Edit className="w-4 h-4" />
             {t("services.buttons.edit")}
           </button>
+        )}
+
+        {canCreate && (
           <button
             onClick={() => {
               onDuplicate();
@@ -127,6 +134,9 @@ export function DropdownMenu({
             <Copy className="w-4 h-4" />
             {t("services.buttons.duplicate")}
           </button>
+        )}
+
+        {canEdit && (
           <button
             onClick={() => {
               onToggleActive();
@@ -137,7 +147,10 @@ export function DropdownMenu({
             <Eye className="w-4 h-4" />
             {isActive ? t("services.buttons.deactivate") : t("services.buttons.activate")}
           </button>
+          )}
+
           <div className="border-t my-1" />
+        {canDelete && (
           <button
             onClick={() => {
               onDelete();
@@ -148,6 +161,7 @@ export function DropdownMenu({
             <Trash2 className="w-4 h-4" />
             {t("services.buttons.moveToBin")}
           </button>
+          )}
         </>
       )}
     </div>

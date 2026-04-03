@@ -145,6 +145,7 @@ const getPaymentConfig = (t) => ({
 });
 
 export default function BookingRow({
+  hasAnyAction,
   booking,
   menuOpenId,
   setMenuOpenId,
@@ -363,12 +364,14 @@ export default function BookingRow({
       {/* Actions */}
       <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? 'text-left' : 'text-right'}`}>
         <div className="relative inline-block">
-          <button
-            onClick={() => setMenuOpenId(menuOpenId === booking.id ? null : booking.id)}
-            className="p-2 rounded-lg hover:bg-gray-100 transition"
-          >
-            <MoreVertical className="w-4 h-4" />
+          {hasAnyAction && (
+            <button
+              onClick={() => setMenuOpenId(menuOpenId === booking.id ? null : booking.id)}
+              className="p-2 rounded-lg hover:bg-gray-100 transition"
+            >
+              <MoreVertical className="w-4 h-4" />
           </button>
+          )}
 
           {menuOpenId === booking.id && (
             <>

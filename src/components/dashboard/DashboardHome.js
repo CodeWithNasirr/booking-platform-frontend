@@ -31,6 +31,10 @@ import useBlockBackNavigation from "@/lib/useBlockBackNavigation";
 import { getTenantWebsiteUrl } from "@/lib/tenantUrl";
 import Cookies from "js-cookie";
 
+import { useTenantPermission } from "@/lib/useTenantPermission";
+
+
+
 export default function DashboardHome() {
   const [stats, setStats] = useState(null);
   const [revenueData, setRevenueData] = useState([]);
@@ -40,6 +44,12 @@ export default function DashboardHome() {
   const [lastUpdated, setLastUpdated] = useState(null);
 
   const token = Cookies.get("access_token");
+
+  const { allowed: canViewServices } = useTenantPermission("services.view");
+  const { allowed: canViewBookings } = useTenantPermission("bookings.view");
+  const { allowed: canViewProviders } = useTenantPermission("providers.view");
+
+  const { allowed: canViewCalendar } = useTenantPermission("calendar.view");
 
   const router = useRouter();
   const {
@@ -378,11 +388,14 @@ export default function DashboardHome() {
             {loading && <Loader2 className="w-5 h-5 animate-spin text-gray-400" />}
           </div>
 
+          {canViewBookings && (
           <Link href="/dashboard/bookings">
             <Button variant="outline" size="sm">
              {t("dashboard.viewAll")}
             </Button>
           </Link>
+          )}
+
         </div>
 
         <div className="space-y-4">
@@ -462,29 +475,35 @@ export default function DashboardHome() {
 
       {/* ================= QUICK ACTIONS ================= */}
       <div className="grid grid-cols-1 sm:grid-cols-3 gap-6">
-        <Link href="/dashboard/services" className="p-5 sm:p-6 rounded-xl bg-white border border-gray-200 hover:shadow-lg text-center active:scale-[0.98] transition group">
-          <div className="w-12 h-12 rounded-xl bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center mx-auto mb-3 transition">
-            <Package className="w-8 h-8 text-[#8B1E3F]" />
-          </div>
-          <div className="font-medium text-gray-900"> {t("dashboard.manageServices")}</div>
+        {canViewServices && (
+          <Link href="/dashboard/services" className="p-5 sm:p-6 rounded-xl bg-white border border-gray-200 hover:shadow-lg text-center active:scale-[0.98] transition group">
+            <div className="w-12 h-12 rounded-xl bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center mx-auto mb-3 transition">
+              <Package className="w-8 h-8 text-[#8B1E3F]" />
+            </div>
+            <div className="font-medium text-gray-900"> {t("dashboard.manageServices")}</div>
           <div className="text-sm text-gray-600">{t("dashboard.manageServicesDesc")}</div>
         </Link>
+        )}
 
-        <Link href="/dashboard/providers" className="p-5 sm:p-6 rounded-xl bg-white border border-gray-200 hover:shadow-lg text-center active:scale-[0.98] transition group">
-          <div className="w-12 h-12 rounded-xl bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center mx-auto mb-3 transition">
-            <UsersRound className="w-8 h-8 text-[#8B1E3F]" />
-          </div>
-          <div className="font-medium text-gray-900">{t("dashboard.manageStaff")}</div>
-          <div className="text-sm text-gray-600">{t("dashboard.manageStaffDesc")}</div>
-        </Link>
+        {canViewProviders && (
+          <Link href="/dashboard/providers" className="p-5 sm:p-6 rounded-xl bg-white border border-gray-200 hover:shadow-lg text-center active:scale-[0.98] transition group">
+            <div className="w-12 h-12 rounded-xl bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center mx-auto mb-3 transition">
+              <UsersRound className="w-8 h-8 text-[#8B1E3F]" />
+            </div>
+            <div className="font-medium text-gray-900">{t("dashboard.manageStaff")}</div>
+            <div className="text-sm text-gray-600">{t("dashboard.manageStaffDesc")}</div>
+          </Link>
+        )}
 
-        <Link href="/dashboard/calendar" className="p-5 sm:p-6 rounded-xl bg-white border border-gray-200 hover:shadow-lg text-center active:scale-[0.98] transition group">
-          <div className="w-12 h-12 rounded-xl bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center mx-auto mb-3 transition">
-            <Calendar className="w-8 h-8 text-[#8B1E3F]" />
-          </div>
-          <div className="font-medium text-gray-900"> {t("dashboard.viewCalendar")}</div>
-          <div className="text-sm text-gray-600">{t("dashboard.viewCalendarDesc")}</div>
-        </Link>
+        {canViewCalendar && (
+          <Link href="/dashboard/calendar" className="p-5 sm:p-6 rounded-xl bg-white border border-gray-200 hover:shadow-lg text-center active:scale-[0.98] transition group">
+            <div className="w-12 h-12 rounded-xl bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center mx-auto mb-3 transition">
+              <Calendar className="w-8 h-8 text-[#8B1E3F]" />
+            </div>
+            <div className="font-medium text-gray-900"> {t("dashboard.viewCalendar")}</div>
+            <div className="text-sm text-gray-600">{t("dashboard.viewCalendarDesc")}</div>
+          </Link>
+        )}
       </div>
     </div>
   );

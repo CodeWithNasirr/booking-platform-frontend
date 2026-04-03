@@ -24,7 +24,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import OrderChatPanel from "@/components/orders/OrderChatPanel";
-
+import { useTenantPermission } from "@/lib/useTenantPermission";
 // ─── Status config ───
 
 const STATUS_CONFIG = {
@@ -87,6 +87,9 @@ const ACTION_STYLES = {
 export default function AdminOrderDetailClient({ orderId }) {
   const router = useRouter();
   const { activeTenant, user } = useApp();
+
+  const { allowed: canView } = useTenantPermission("orders.view");
+  const { allowed: canManage } = useTenantPermission("orders.manage");
   
   const isAgency = activeTenant?.has_providers === true;
   const tenantId = activeTenant?.id || activeTenant;
@@ -108,6 +111,8 @@ export default function AdminOrderDetailClient({ orderId }) {
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [providers, setProviders] = useState([]);
   const [selectedProvider, setSelectedProvider] = useState(null);
+
+ 
 
   // ─── Fetch order detail ───
   const fetchOrder = useCallback(async () => {
@@ -259,6 +264,7 @@ export default function AdminOrderDetailClient({ orderId }) {
 
   // ─── Action dispatcher ───
   const handleAction = (actionDef) => {
+    if (!canManage) return;
 
     if (actionDef.action === "cancel") {
       setShowCancelModal(true);
@@ -391,7 +397,7 @@ export default function AdminOrderDetailClient({ orderId }) {
           {actions.length > 0 && (
             <div className="bg-white rounded-xl border border-gray-200 p-4">
               <div className="flex flex-wrap gap-2">
-                {actions.map((a, i) => (
+               {canManage && actions.map((a, i) => (
                   <button
                     key={i}
                     onClick={() => handleAction(a)}
@@ -584,6 +590,7 @@ export default function AdminOrderDetailClient({ orderId }) {
         {/* ═══ RIGHT COLUMN (4/12) — Chat Panel ═══ */}
         <div className="col-span-12 lg:col-span-4">
           <div className="lg:sticky lg:top-6">
+          
             <OrderChatPanel
               orderId={orderId}
               tenantId={tenantId}
@@ -597,6 +604,7 @@ export default function AdminOrderDetailClient({ orderId }) {
               }}
               readOnly={isTerminal}
             />
+           
           </div>
         </div>
       </div>

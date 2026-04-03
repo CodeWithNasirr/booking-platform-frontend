@@ -15,6 +15,7 @@ import { authFetch } from "./lib/api";
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
+import { useTenantPermission } from "@/lib/useTenantPermission";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -36,6 +37,10 @@ const ALL_STATUSES = Object.keys(STATUS_CONFIG);
 
 export default function AdminOrdersClient() {
   const router = useRouter();
+
+
+  const { allowed: canView } = useTenantPermission("orders.view");
+  const { allowed: canManage } = useTenantPermission("orders.manage");
 
   const { t, activeTenant } = useApp();
     // Handle both object and string tenant ID
@@ -100,6 +105,7 @@ export default function AdminOrdersClient() {
 
   // ─── Navigate to detail (SPA — no full reload) ───
   const handleOrderClick = (orderId) => {
+    if (!canManage) return;
     router.push(`/dashboard/orders/${orderId}`);
   };
 

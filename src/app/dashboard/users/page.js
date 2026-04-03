@@ -1,12 +1,12 @@
 // /app/dashboard/services/page.js
 
 import TenantPermissionGate from "@/components/dashboard/TenantPermissionGate";
-import FinancePage from "./FinancePage";
+import TenantUsersPage from "./TenantUsersPage";
 
 export default function Page() {
   return (
-    <TenantPermissionGate permission="finance.view">
-      <FinancePage />
+    <TenantPermissionGate permission="members.view">
+      <TenantUsersPage />
     </TenantPermissionGate>
   );
 }

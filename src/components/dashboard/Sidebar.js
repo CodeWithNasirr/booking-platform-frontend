@@ -1,18 +1,15 @@
+// src/components/dashboard/Sidebar.js  (UPDATED with RBAC)
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { usePlan } from "@/contexts/PlanContext";
+import { useTenantRBAC } from "@/contexts/TenantRBACContext";
 import {
   LayoutDashboard,
   Package,
   Users,
   Calendar,
-  CalendarDays,
-  CalendarCheck,
-  LogOut,
-  Clock,
-  ShoppingBag,
   UsersRound,
   DollarSign,
   Globe,
@@ -21,6 +18,8 @@ import {
   MessageSquare,
   Zap,
   ExternalLink,
+  LogOut,
+  ShoppingBag,
 } from "lucide-react";
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
@@ -28,73 +27,62 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const router = useRouter();
   const { t, logout, isRTL, tenants, activeTenant } = useApp();
   const { hasFeature, loading: planLoading } = usePlan();
+  const { canSeeSidebarItem, loading: rbacLoading } = useTenantRBAC();
 
-  const tenant = tenants.find(t => t.id === activeTenant);
-  
   const go = (page) => {
-
-    // Dashboard should go to /dashboard (not /dashboard/dashboard)
     if (page === "tenant-dashboard") {
       router.push("/dashboard");
       return;
     }
 
-
     if (page === "tenant-website") {
-      const tenant = tenants.find(t => t.id === activeTenant) || tenants[0];
+      const tenant = tenants.find((t) => t.id === activeTenant) || tenants[0];
       if (!tenant?.primary_domain?.domain) return;
-
       const domain = tenant.primary_domain.domain;
       document.cookie = `active_tenant_domain=${domain}; path=/`;
       router.push(`/tenant-site/editor?domain=${domain}`);
       return;
     }
 
-    // router.push("/dashboard/" + page.replace("tenant-", ""));
-    // All other tenant pages
     router.push(`/dashboard/${page.replace("tenant-", "")}`);
   };
 
   const menuItems = [
-
     { key: "tenant-dashboard", label: t("dashboard.title"), icon: LayoutDashboard },
     { key: "tenant-services", label: t("tenant.services"), icon: Package },
- 
-
-    ...(tenant?.has_providers
-      ? [{ key: "tenant-providers", label: t("tenant.providers"), icon: Users }]
-      : [{ key: "tenant-schedule", label: t("tenant.mySchedule") || "My Schedule", icon: Clock  }]
-    ),
-
-    // { key: "tenant-providers", label: t("tenant.providers"), icon: Users },
-
-
-    { key: "tenant-bookings", label: t("tenant.bookings"), icon: CalendarCheck  },
+    { key: "tenant-providers", label: t("tenant.providers"), icon: Users },
+    { key: "tenant-bookings", label: t("tenant.bookings"), icon: Calendar },
     { key: "tenant-orders", label: "Orders", icon: ShoppingBag },
-    { key: "tenant-calendar", label: t("tenant.calendar"), icon: CalendarDays  },
+    { key: "tenant-users", label: "Team Members", icon: UsersRound },
+    { key: "tenant-calendar", label: t("tenant.calendar"), icon: Calendar },
     { key: "tenant-customers", label: t("tenant.customers"), icon: UsersRound },
     { key: "tenant-finance", label: t("tenant.finance"), icon: DollarSign },
     { key: "tenant-website", label: t("tenant.website"), icon: Globe },
-    // ── Feature-gated items ──
     {
       key: "tenant-analytics",
       label: t("tenant.analytics"),
       icon: BarChart3,
-      featureCode: "analytics",  // <-- gated
+      featureCode: "analytics", // plan-gated
     },
-    // { key: "tenant-analytics", label: t("tenant.analytics"), icon: BarChart3 },
-    { key: "tenant-chat", label: t("tenant.chat"), icon: MessageSquare },
+    // { key: "tenant-chat", label: t("tenant.chat"), icon: MessageSquare },
     { key: "tenant-integrations", label: t("tenant.integrations"), icon: Zap },
     { key: "tenant-marketing-integrations", label: t("tenant.marketing"), icon: ExternalLink },
     { key: "tenant-settings", label: t("tenant.settings"), icon: Settings },
-
   ];
-  
-  // Filter items based on plan features
+
+  // ── Two-layer gating: Plan features + RBAC permissions ──
   const visibleItems = menuItems.filter((item) => {
-    if (!item.featureCode) return true; // no gate = always visible
-    if (planLoading) return true;        // show while loading
-    return hasFeature(item.featureCode);
+    // 1. Plan feature gate (e.g., analytics requires Professional plan)
+    if (item.featureCode) {
+      if (planLoading) return true; // show while loading
+      if (!hasFeature(item.featureCode)) return false;
+    }
+
+    // 2. RBAC permission gate (e.g., sub_admin without bookings.view)
+    if (rbacLoading) return true; // show while loading
+    if (!canSeeSidebarItem(item.key)) return false;
+
+    return true;
   });
 
   return (
@@ -105,7 +93,6 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       transition-transform duration-300`}
     >
       <div className="flex flex-col h-full">
-
         {/* Logo */}
         <div className="p-6 border-b border-gray-200">
           <div className="flex items-center gap-2">
@@ -123,16 +110,15 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
           {visibleItems.map((item) => {
             const Icon = item.icon;
-          const route =
-            item.key === "tenant-dashboard"
-              ? "/dashboard"
-              : `/dashboard/${item.key.replace("tenant-", "")}`;
+            const route =
+              item.key === "tenant-dashboard"
+                ? "/dashboard"
+                : `/dashboard/${item.key.replace("tenant-", "")}`;
 
-          const isActive =
-            item.key === "tenant-dashboard"
-              ? pathname === "/dashboard"
-              : pathname === route || pathname.startsWith(route + "/");
-
+            const isActive =
+              item.key === "tenant-dashboard"
+                ? pathname === "/dashboard"
+                : pathname === route || pathname.startsWith(route + "/");
 
             return (
               <button

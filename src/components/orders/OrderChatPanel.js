@@ -24,6 +24,8 @@
  */
 
 import { useState, useRef, useEffect, useCallback } from "react";
+import { useTenantPermission } from "@/lib/useTenantPermission";
+import TenantPermissionGate from "@/components/dashboard/TenantPermissionGate";
 
 export default function OrderChatPanel({
   orderId,
@@ -44,6 +46,9 @@ export default function OrderChatPanel({
 
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
+
+  const { allowed: canViewChat } = useTenantPermission("chat.view");
+  const { allowed: canRespond } = useTenantPermission("chat.respond");
 
 
   // At the top of OrderChatPanel, add this helper:
@@ -103,6 +108,7 @@ export default function OrderChatPanel({
 
   // ─── Send message: POST /orders/{id}/messages/ ───
   const handleSend = useCallback(async () => {
+    if (!canRespond) return; // 🔥 RBAC ENFORCEMENT
     if (!messageText.trim() || sending) return;
 
     try {
@@ -136,6 +142,7 @@ export default function OrderChatPanel({
   // ─── Upload file: POST /orders/{id}/upload_file/ ───
   const handleFileUpload = useCallback(
     async (e) => {
+      if (!canRespond) return;
       const file = e.target.files?.[0];
       if (!file) return;
 
@@ -169,11 +176,14 @@ export default function OrderChatPanel({
 
   // ─── Key handler ───
   const handleKeyDown = (e) => {
+    if (!canRespond) return;
     if (e.key === "Enter" && !e.shiftKey) {
       e.preventDefault();
       handleSend();
     }
   };
+
+  if (!canViewChat) return null;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 flex flex-col h-full min-h-[480px] max-h-[calc(100vh-200px)]">
@@ -289,7 +299,7 @@ export default function OrderChatPanel({
           )}
 
           {/* Input area */}
-          {!readOnly && (
+          {!readOnly && canRespond && (
             <div className="border-t border-gray-100 p-3 shrink-0">
               <div className="flex items-end gap-2">
                 {/* File upload button */}
@@ -327,7 +337,7 @@ export default function OrderChatPanel({
                 {/* Send button */}
                 <button
                   onClick={handleSend}
-                  disabled={sending || !messageText.trim()}
+                  disabled={sending || !messageText.trim() || !canRespond}
                   className="shrink-0 w-9 h-9 flex items-center justify-center rounded-xl bg-blue-600 text-white hover:bg-blue-700 disabled:opacity-30 disabled:hover:bg-blue-600 transition-colors"
                 >
                   {sending ? (
@@ -396,11 +406,11 @@ export default function OrderChatPanel({
           )}
 
           {/* Upload button in files tab */}
-          {!readOnly && (
+          {!readOnly && canRespond && (
             <div className="mt-3 pt-3 border-t border-gray-100">
               <button
                 onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
+                disabled={uploading || !canRespond}
                 className="w-full py-2.5 border-2 border-dashed border-gray-200 rounded-xl text-sm text-gray-400 hover:text-gray-600 hover:border-gray-300 transition-colors disabled:opacity-50"
               >
                 {uploading ? "Uploading..." : "+ Upload file"}

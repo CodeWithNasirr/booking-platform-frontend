@@ -5,11 +5,13 @@ export const metadata = {
 };
 
 import ProviderStatusGuard from '@/components/provider/ProviderStatusGuard';
-
+import { TenantRBACProvider } from "@/contexts/TenantRBACContext";
 export default function ProviderLayout({ children }) {
   return (
+    <TenantRBACProvider>
     <ProviderStatusGuard>
       {children}
     </ProviderStatusGuard>
+    </TenantRBACProvider>
   );
 }

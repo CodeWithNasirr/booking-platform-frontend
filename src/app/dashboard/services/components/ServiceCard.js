@@ -8,6 +8,9 @@ import { DropdownMenu } from "./DropdownMenu";
 
 export function ServiceCard({
   service,
+  canCreate,
+  canEdit,
+  canDelete,
   viewMode,
   menuOpenId,
   setMenuOpenId,
@@ -20,6 +23,10 @@ export function ServiceCard({
   const isDeleted = viewMode === "deleted";
   const { t, isRTL } = useApp();
   const buttonRef = useRef(null);
+
+  const hasAnyAction = canEdit || canDelete || canCreate;
+
+
   /* ===============================
      Order Type Badge (i18n)
      =============================== */
@@ -112,20 +119,25 @@ export function ServiceCard({
             Actions
            =============================== */}
         <div className="relative">
-          <button
-            ref={buttonRef}
-            onClick={(e) => {
-              e.stopPropagation();
-              setMenuOpenId(menuOpenId === service.id ? null : service.id);
-            }}
-            className="p-2 rounded-lg hover:bg-gray-100"
-          >
-            <MoreVertical className="w-4 h-4" />
-          </button>
+          {hasAnyAction && (
+            <button
+              ref={buttonRef}
+              onClick={(e) => {
+                e.stopPropagation();
+                setMenuOpenId(menuOpenId === service.id ? null : service.id);
+              }}
+              className="p-2 rounded-lg hover:bg-gray-100"
+            >
+              <MoreVertical className="w-4 h-4" />
+            </button>
+          )}
 
           {menuOpenId === service.id && (
             <DropdownMenu
               viewMode={viewMode}
+              canCreate={canCreate}
+              canEdit={canEdit}
+              canDelete={canDelete}
               onEdit={() => onEdit(service)}
               onDuplicate={() => onDuplicate(service)}
               onToggleActive={() => onToggleActive(service)}

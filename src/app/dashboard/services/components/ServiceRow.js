@@ -7,6 +7,9 @@ import { DropdownMenu } from "./DropdownMenu";
 
 export function ServiceRow({
   service,
+  canCreate,
+  canEdit,
+  canDelete,
   viewMode,
   menuOpenId,
   setMenuOpenId,
@@ -20,6 +23,8 @@ export function ServiceRow({
   const { t, isRTL } = useApp();
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
+  const hasAnyAction = canEdit || canDelete || canCreate;
+
 
   const getOrderTypeColor = (type) => {
     const colors = {
@@ -85,6 +90,7 @@ export function ServiceRow({
 
       <td className={`px-6 py-4 whitespace-nowrap ${isRTL ? "text-left" : "text-right"}`}>
         <div className="relative inline-block" ref={menuRef}>
+        {hasAnyAction && (
           <button
             ref={buttonRef}
             onClick={(e) => {
@@ -95,11 +101,15 @@ export function ServiceRow({
           >
             <MoreVertical className="w-4 h-4" />
           </button>
+            )}
 
           {menuOpenId === service.id && (
             <DropdownMenu
               onClose={() => setMenuOpenId(null)}
               viewMode={viewMode}
+              canCreate={canCreate}
+              canEdit={canEdit}
+              canDelete={canDelete}
               onEdit={() => {
                 onEdit(service);
                 setMenuOpenId(null);

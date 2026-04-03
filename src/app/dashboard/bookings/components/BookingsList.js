@@ -10,6 +10,7 @@ import {
 } from 'lucide-react';
 
 export default function BookingsList({
+  hasAnyAction,
   bookings,
   loading,
   onView,
@@ -114,6 +115,7 @@ export default function BookingsList({
           <tbody className="bg-white divide-y divide-gray-200">
             {bookings.map((booking) => (
               <BookingRow
+                hasAnyAction={hasAnyAction} 
                 key={booking.id}
                 booking={booking}
                 menuOpenId={menuOpenId}
