@@ -51,6 +51,7 @@ export function AppProvider({ children }) {
   const [tenants, setTenants] = useState([]);
   const [requiresOnboarding, setRequiresOnboarding] = useState(false);
   const [tenantTimezone, setTenantTimezone] = useState("UTC");
+  const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
   
   // ---------------- HYDRATION ----------------
@@ -114,12 +115,12 @@ export function AppProvider({ children }) {
           return;
         }
 
-        let res = await fetch("http://lvh.me:8000/api/v1/auth/me/", {
+        let res = await fetch(`${BACKEND_URL}/api/v1/auth/me/`, {
           headers: { Authorization: `Bearer ${access}` },
         });
           
         if (res.status === 401 && refresh) {
-          const refreshRes = await fetch("http://lvh.me:8000/api/v1/auth/token/refresh/", {
+          const refreshRes = await fetch(`${BACKEND_URL}/api/v1/auth/token/refresh/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
             body: JSON.stringify({ refresh }),
@@ -130,7 +131,7 @@ export function AppProvider({ children }) {
             Cookies.set("access_token", refreshData.access);
             access = refreshData.access;
 
-            res = await fetch("http://lvh.me:8000/api/v1/auth/me/", {
+            res = await fetch(`${BACKEND_URL}/api/v1/auth/me/`, {
               headers: { Authorization: `Bearer ${access}` },
             });
           } else {
