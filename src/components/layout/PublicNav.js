@@ -15,9 +15,9 @@ export default function PublicNav() {
   const pathname = usePathname();
   const navItems = [
     { key: "/", label: t("nav.home") },
-    { key: "/features", label: t("nav.features") },
+    { key: "/public/features", label: t("nav.features") },
     { key: "/public/pricing", label: t("nav.pricing") },
-    { key: "/contact", label: t("nav.contact") },
+    { key: "/public/contact", label: t("nav.contact") },
   ];
 
   const navigate = (path) => {
