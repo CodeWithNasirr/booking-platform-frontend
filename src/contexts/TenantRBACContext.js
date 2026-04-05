@@ -66,6 +66,8 @@ export function TenantRBACProvider({ children }) {
             "X-Tenant": activeTenant,
             "Content-Type": "application/json",
           },
+          credentials: "include", 
+
         });
 
         if (!res.ok) throw new Error("RBAC fetch failed");

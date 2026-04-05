@@ -52,21 +52,21 @@ export function PlanProvider({ children }) {
             Authorization: `Bearer ${token}`,
             "X-Tenant": activeTenant,
           },
-          credentials: "include", // 🔥 REQUIRED
+          credentials: "include", 
         }),
         fetch(`${API_URL}/api/v1/plan-usage/`, {
           headers: {
             Authorization: `Bearer ${token}`,
             "X-Tenant": activeTenant,
           },
-          credentials: "include", // 🔥 REQUIRED
+          credentials: "include", 
         }).catch(() => null), // Usage endpoint is optional
       ]);
 
       if (featuresRes.ok) {
         const data = await featuresRes.json();
         setFeatures(data.features || {});
-        console.log(data,"SSSS")
+        // console.log(data,"SSSS")
         setPlanName(data.plan_name);
         setPlanTier(data.plan_tier);
       }
