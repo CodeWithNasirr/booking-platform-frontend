@@ -72,7 +72,16 @@ export function TenantRBACProvider({ children }) {
 
         if (!res.ok) throw new Error("RBAC fetch failed");
 
-        const data = await res.json();
+        const text = await res.text();
+
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (err) {
+          console.error("❌ RBAC returned HTML:", text);
+          setMembership(null);
+          return;
+        }
         console.log("TenantRBAC data:", data);
         if (!cancelled) setMembership(data);
       } catch (err) {
