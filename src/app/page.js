@@ -1,7 +1,7 @@
 "use client";
 
 import PublicNav from "@/components/layout/PublicNav";
-import { LandingHome } from "./public/page";
+import { LandingHome } from "@/components/landing/LandingHome";
 
 export default function HomePage() {
   return (
