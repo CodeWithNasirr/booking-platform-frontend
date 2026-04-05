@@ -100,7 +100,6 @@ export function AppProvider({ children }) {
     document.documentElement.lang = language;
   }, [hydrated, language, isRTL]);
 
-  // ---------------- LOAD USER ----------------
   useEffect(() => {
     if (!hydrated) return;
 
@@ -115,15 +114,17 @@ export function AppProvider({ children }) {
           return;
         }
 
-        const res = await fetch(`${BACKEND_URL}/api/v1/auth/me/`, {
+        // 👉 FIRST REQUEST
+        let response = await fetch(`${BACKEND_URL}/api/v1/auth/me/`, {
           headers: {
             Authorization: `Bearer ${access}`,
             "X-Tenant": Cookies.get("active_tenant"),
           },
-          credentials: "include", // 🔥 REQUIRED
+          credentials: "include",
         });
-          
-        if (res.status === 401 && refresh) {
+
+        // 👉 REFRESH TOKEN FLOW
+        if (response.status === 401 && refresh) {
           const refreshRes = await fetch(`${BACKEND_URL}/api/v1/auth/token/refresh/`, {
             method: "POST",
             headers: { "Content-Type": "application/json" },
@@ -131,13 +132,21 @@ export function AppProvider({ children }) {
           });
 
           const refreshData = await refreshRes.json();
+
           if (refreshRes.ok) {
             Cookies.set("access_token", refreshData.access);
             access = refreshData.access;
 
-            res = await fetch(`${BACKEND_URL}/api/v1/auth/me/`, {
-              headers: { Authorization: `Bearer ${access}` },
+            // 🔥 NEW VARIABLE (IMPORTANT)
+            const retryRes = await fetch(`${BACKEND_URL}/api/v1/auth/me/`, {
+              headers: {
+                Authorization: `Bearer ${access}`,
+                "X-Tenant": Cookies.get("active_tenant"),
+              },
+              credentials: "include",
             });
+
+            response = retryRes;
           } else {
             Cookies.remove("access_token");
             Cookies.remove("refresh_token");
@@ -147,21 +156,32 @@ export function AppProvider({ children }) {
           }
         }
 
-        const data = await res.json();
+        // 🔥 SAFE PARSE
+        const text = await response.text();
+
+        let data;
+        try {
+          data = JSON.parse(text);
+        } catch (err) {
+          console.error("❌ Non-JSON /auth/me response:", text);
+          setUser(null);
+          return;
+        }
+
         console.log("User data loaded:", data);
 
-        if (res.ok) {
+        if (response.ok) {
           setUser(data.user);
           setTenants(data.tenants);
           setRequiresOnboarding(data.requires_onboarding);
 
-          // AUTO-SELECT tenant from backend if provided
           if (data.active_tenant) {
             Cookies.set("active_tenant", data.active_tenant);
             setActiveTenant(data.active_tenant);
           }
         }
-      } catch {
+      } catch (err) {
+        console.error("Load user error:", err);
         setUser(null);
       }
 
@@ -170,7 +190,6 @@ export function AppProvider({ children }) {
 
     load();
   }, [hydrated]);
-  // console.log(tenants,"Tenants from AppContext");
 
   // ---------------- CONTEXT ----------------
   return (
