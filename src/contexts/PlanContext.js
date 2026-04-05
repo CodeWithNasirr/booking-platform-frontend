@@ -59,13 +59,14 @@ export function PlanProvider({ children }) {
             Authorization: `Bearer ${token}`,
             "X-Tenant": activeTenant,
           },
+          credentials: "include", // 🔥 REQUIRED
         }).catch(() => null), // Usage endpoint is optional
       ]);
 
       if (featuresRes.ok) {
         const data = await featuresRes.json();
         setFeatures(data.features || {});
-        // console.log(data,"SSSS")
+        console.log(data,"SSSS")
         setPlanName(data.plan_name);
         setPlanTier(data.plan_tier);
       }
