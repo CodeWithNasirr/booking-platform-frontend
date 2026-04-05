@@ -217,7 +217,7 @@ export default function TenantLogin() {
                 />
                 <span className="text-sm text-gray-700">{t("auth.rememberMe")}</span>
               </label>
-              <Link href="/forgot-password" className="text-sm text-primary hover:underline">
+              <Link href="/auth/forgot-password" className="text-sm text-primary hover:underline">
                 {t("auth.forgotPassword")}
               </Link>
             </div>

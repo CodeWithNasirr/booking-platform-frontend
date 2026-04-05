@@ -120,7 +120,7 @@ return (
                         text-lg px-8 rounded-xl shadow-lg shadow-primary/20"
               >
 
-                <Link href="/signup">
+                <Link href="/public/signup">
                   {t("landing.startTrial")}
                   <ArrowRight className={`w-5 h-5 ml-2 ${isRTL ? "rotate-180" : ""}`} />
                 </Link>
