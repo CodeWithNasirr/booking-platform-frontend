@@ -115,8 +115,12 @@ export function AppProvider({ children }) {
           return;
         }
 
-        let res = await fetch(`${BACKEND_URL}/api/v1/auth/me/`, {
-          headers: { Authorization: `Bearer ${access}` },
+        const res = await fetch(`${BACKEND_URL}/api/v1/auth/me/`, {
+          headers: {
+            Authorization: `Bearer ${access}`,
+            "X-Tenant": Cookies.get("active_tenant"),
+          },
+          credentials: "include", // 🔥 REQUIRED
         });
           
         if (res.status === 401 && refresh) {

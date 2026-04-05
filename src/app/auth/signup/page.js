@@ -70,17 +70,16 @@ export default function RegisterWizard({ searchParams }) {
 
   /* ── REDIRECT IF ALREADY ONBOARDING ── */
   useEffect(() => {
-    if (!requiresOnboarding) return;
+  if (requiresOnboarding === undefined) return;
 
+  if (requiresOnboarding) {
     const tenant =
       tenants?.find((t) => t.id === activeTenant) || tenants?.[0];
 
     const step = tenant ? tenant.onboarding_step || 1 : 1;
-    const url = `/auth/onboarding?step=${step}`;
-
-    if (window.location.pathname.startsWith("/auth/onboarding")) return;
-    router.replace(url);
-  }, [requiresOnboarding, tenants, activeTenant, router]);
+    router.replace(`/auth/onboarding?step=${step}`);
+  }
+}, [requiresOnboarding, tenants, activeTenant]);
 
   /* ── RESEND TIMER ── */
   useEffect(() => {
@@ -190,7 +189,7 @@ export default function RegisterWizard({ searchParams }) {
       selectTenant(data.tenant.id);
     }
 
-    window.location.href = `/auth/onboarding?step=${data.tenant.onboarding_step || 1}`;
+    router.push(`/auth/onboarding?step=${data.tenant.onboarding_step || 1}`);
   };
 
   /* ── RESEND CODE ── */

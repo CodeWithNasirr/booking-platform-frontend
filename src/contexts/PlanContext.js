@@ -52,6 +52,7 @@ export function PlanProvider({ children }) {
             Authorization: `Bearer ${token}`,
             "X-Tenant": activeTenant,
           },
+          credentials: "include", // 🔥 REQUIRED
         }),
         fetch(`${API_URL}/api/v1/plan-usage/`, {
           headers: {
