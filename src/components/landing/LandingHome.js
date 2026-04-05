@@ -132,7 +132,7 @@ return (
                 asChild
                 className="text-lg px-8 rounded-xl border-2"
               >
-                <Link href="/features">{t("landing.viewDemo")}</Link>
+                <Link href="/public/features">{t("landing.viewDemo")}</Link>
               </Button>
             </div>
 
@@ -334,14 +334,14 @@ return (
 
         <div className="flex flex-col sm:flex-row gap-4 justify-center">
           <Button size="lg" asChild className="bg-primary hover:bg-primary/90 text-lg px-8 rounded-xl">
-            <Link href="/signup">
+            <Link href="/public/signup">
               {t("landing.cta.getStarted")}
               <ArrowRight className={`w-5 h-5 ml-2 ${isRTL ? "rotate-180" : ""}`} />
             </Link>
           </Button>
 
           <Button size="lg" asChild className="bg-primary hover:bg-primary/90 text-lg px-8 rounded-xl">
-            <Link href="/contact">{t("landing.cta.contact")}</Link>
+            <Link href="/public/contact">{t("landing.cta.contact")}</Link>
           </Button>
         </div>
       </div>
