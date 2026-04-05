@@ -78,7 +78,7 @@ export default function PublishingPage() {
           headers: {
             "Content-Type": "application/json",
             "X-Tenant": TenantID,
-            ...(token && { Authorization: `Bearer ${token}` }),
+            ...(token && { Authorization: `Bearer ${token}`, credentials: "include" }),
           },
         }
       );

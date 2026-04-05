@@ -44,6 +44,8 @@ export default function AvailabilityPage() {
       setLoading(true);
       const response = await fetch(`${API_BASE}/api/v1/providers/my-availability/`, {
         headers: getAuthHeaders(),
+      credentials: "include",
+
       });
 
       if (!response.ok) throw new Error('Failed to fetch availability');
@@ -64,6 +66,7 @@ export default function AvailabilityPage() {
     try {
       const response = await fetch(`${API_BASE}/api/v1/providers/my-exceptions/`, {
         headers: getAuthHeaders(),
+      credentials: "include",
       });
 
       if (!response.ok) throw new Error('Failed to fetch exceptions');
@@ -87,6 +90,7 @@ export default function AvailabilityPage() {
       const response = await fetch(`${API_BASE}/api/v1/providers/update-availability/`, {
         method: 'POST',
         headers: getAuthHeaders(),
+      credentials: "include",
         body: JSON.stringify({ days: updatedDays }),
       });
 
@@ -153,6 +157,8 @@ export default function AvailabilityPage() {
       const response = await fetch(`${API_BASE}/api/v1/providers/add-exception/`, {
         method: 'POST',
         headers: getAuthHeaders(),
+        credentials: "include",
+
         body: JSON.stringify(exceptionData),
       });
 
@@ -173,6 +179,8 @@ export default function AvailabilityPage() {
       const response = await fetch(`${API_BASE}/api/v1/providers/delete-exception/?exception_id=${exceptionId}`, {
         method: 'DELETE',
         headers: getAuthHeaders(),
+        credentials: "include",
+
       });
 
       if (!response.ok) throw new Error('Failed to delete');

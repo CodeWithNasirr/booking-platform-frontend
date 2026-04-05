@@ -25,6 +25,8 @@ function headers(tenantId) {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     "X-Tenant": tenantId,
+    credentials: "include",
+
   };
 }
 

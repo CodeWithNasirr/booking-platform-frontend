@@ -163,6 +163,7 @@ export default function OnboardingWizard({ tenant }) {
           Authorization: `Bearer ${token}`,
           "X-Tenant": tenantState.id,
         },
+        credentials: "include",
       })
         .then((res) => res.json())
         .then((data) => {
@@ -396,7 +397,8 @@ export default function OnboardingWizard({ tenant }) {
 
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`,
-      { method: "POST", headers, body }
+      { method: "POST", headers, body, credentials: "include" }
+
     );
 
     const json = await res.json();

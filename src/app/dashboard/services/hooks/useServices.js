@@ -70,6 +70,8 @@ export function useServices() {
         "X-Tenant": tenantId,
         ...(options.headers || {}),
       },
+      credentials: "include",
+
     });
 
     if (!res.ok) {

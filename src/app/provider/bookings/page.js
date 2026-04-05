@@ -57,6 +57,8 @@ export default function BookingsPage() {
 
       const response = await fetch(`${API_BASE}/api/v1/bookings/`, {
         headers: getAuthHeaders(),
+        credentials: "include",
+
       });
 
       if (!response.ok) {
@@ -217,6 +219,8 @@ export default function BookingsPage() {
       const response = await fetch(`${API_BASE}/api/v1/bookings/${booking.bookingId}/cancel/`, {
         method: 'POST',
         headers: getAuthHeaders(),
+        credentials: "include",
+
         body: JSON.stringify({ reason: 'Cancelled by provider' })
       });
 

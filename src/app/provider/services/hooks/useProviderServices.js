@@ -18,6 +18,8 @@ export const authFetch = async (path, tenantId, options = {}) => {
     "X-Tenant": tenantId,
     ...(token && { Authorization: `Bearer ${token}` }),
     ...(options.headers || {}),
+    credentials: "include",
+    
   };
 
   if (!isFormData) {

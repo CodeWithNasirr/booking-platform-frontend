@@ -49,6 +49,7 @@ export async function apiFetch(
         "X-Tenant": activeTenant,
         ...options.headers,
       },
+      credentials: "include",
     });
 
   let res = await makeRequest(token);

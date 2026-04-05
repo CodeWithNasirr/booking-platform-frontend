@@ -22,6 +22,8 @@ export default function BasicInfoTab({ form, setForm, editing }) {
         "X-Tenant": activeTenant,
         ...(options.headers || {}),
       },
+      credentials: "include",
+      
     });
 
     if (!res.ok) {

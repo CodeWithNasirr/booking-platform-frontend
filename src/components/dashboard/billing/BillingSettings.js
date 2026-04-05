@@ -37,6 +37,8 @@ export default function BillingSettings() {
     Authorization: `Bearer ${token}`,
     "X-Tenant": activeTenant,
     "Content-Type": "application/json",
+    credentials: "include",
+
   };
 
   // ── Check URL for checkout result ──

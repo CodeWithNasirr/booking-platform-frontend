@@ -23,6 +23,8 @@ async function refreshAccessToken() {
   const res = await fetch(`${API}/api/v1/auth/token/refresh/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
+
     body: JSON.stringify({ refresh }),
   });
 
@@ -50,6 +52,8 @@ async function platformFetch(endpoint, options = {}) {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
+        credentials: "include",
+
       },
     });
 
@@ -87,6 +91,8 @@ export async function platformLogin(email, password) {
   const res = await fetch(`${API}/api/v1/platform/auth/login/`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
+    credentials: "include",
+
     body: JSON.stringify({ email, password }),
   });
 
