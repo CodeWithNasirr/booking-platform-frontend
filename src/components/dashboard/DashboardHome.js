@@ -76,6 +76,8 @@ export default function DashboardHome() {
         "X-Tenant": tenantId,
         ...(options.headers || {}),
       },
+    credentials: "include", 
+
     });
   };
 
