@@ -12,8 +12,83 @@
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-console.log("🔥 API_BASE:", API_BASE);
-console.log("🔥 Fetching:", `${API_BASE}/api/v1/website/tenant/${domain}/full/`);
+/**
+ * Fetch complete tenant site data by domain
+ * 
+ * @param {string} domain - Subdomain or custom domain
+ * @returns {Promise<Object>} - { site, theme, sections, pages, error }
+ */
+// export async function fetchSite(domain) {
+//   const headers = {
+//     "Content-Type": "application/json",
+//     // "X-Tenant-Domain": domain,
+//   };
+
+//   try {
+//     // Fetch all data in parallel
+//     const [siteRes, layoutRes, themeRes, pagesRes] = await Promise.all([
+//       fetch(`${API_BASE}/api/v1/website/tenant/${domain}/`, { 
+//         headers,
+//         cache: "no-store", // SSR - always fresh
+//       }),
+//       fetch(`${API_BASE}/api/v1/website/tenant/${domain}/layout/`, { 
+//         headers,
+//         cache: "no-store",
+//       }),
+//       fetch(`${API_BASE}/api/v1/website/tenant/${domain}/theme/`, { 
+//         headers,
+//         cache: "no-store",
+//       }),
+//       fetch(`${API_BASE}/api/v1/website/tenant/${domain}/pages/`, { 
+//         headers,
+//         cache: "no-store",
+//       }),
+//     ]);
+
+//     // Check for errors
+//     if (!siteRes.ok) {
+//       const errorData = await siteRes.json().catch(() => ({}));
+//       return {
+//         site: null,
+//         theme: null,
+//         sections: [],
+//         pages: [],
+//         error: errorData.detail || `Site not found: ${domain}`,
+//         status: siteRes.status,
+//       };
+//     }
+
+//     // Parse responses
+//     const site = await siteRes.json();
+//     const layout = layoutRes.ok ? await layoutRes.json() : { layout_json: [] };
+//     const theme = themeRes.ok ? await themeRes.json() : {};
+//     const pages = pagesRes.ok ? await pagesRes.json() : [];
+
+//     // Extract sections from layout
+//     const sections = layout.layout_json || layout.sections || [];
+
+//     return {
+//       site,
+//       theme,
+//       sections,
+//       pages: Array.isArray(pages) ? pages : pages.results || [],
+//       error: null,
+//       status: 200,
+//     };
+//   } catch (error) {
+//     console.error("[fetchSite] Error:", error);
+//     return {
+//       site: null,
+//       theme: null,
+//       sections: [],
+//       pages: [],
+//       error: error.message || "Failed to fetch site data",
+//       status: 500,
+//     };
+//   }
+// }
+
+
 
 export async function fetchSite(domain) {
   try {
@@ -25,10 +100,10 @@ export async function fetchSite(domain) {
           // "X-Tenant-Domain": domain,
         },
         cache: "no-store", // SSR
-
+        credentials: "include",
       }
     );
-    console.log(`[fetchSite] Response for domain "${domain}":`, res.status);
+
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
       return {
@@ -87,7 +162,7 @@ export async function fetchPage(domain, slug = "") {
     const pageSlug = slug || "home";
     const res = await fetch(
       `${API_BASE}/api/v1/website/tenant/${domain}/pages/${pageSlug}/`,
-      { headers, cache: "no-store" }
+      { headers, cache: "no-store" , credentials: "include" }
     );
 
     if (!res.ok) {
@@ -116,7 +191,7 @@ export async function fetchTheme(domain) {
           "Content-Type": "application/json",
           "X-Tenant-Domain": domain,
         },
-
+        credentials: "include",
         
         cache: "no-store",
       }

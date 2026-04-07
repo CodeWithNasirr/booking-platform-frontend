@@ -189,11 +189,12 @@ function SectionRenderer({ section, language, themeConfig, site }) {
   }
 
   const resolvedContent = resolveTranslatedContent(normalizedContent, language);
-
+  const safeData = JSON.parse(JSON.stringify(resolvedContent));
+  
   return (
     <section className="section-wrapper">
       <Component
-        data={resolvedContent}
+        data={safeData}
         lang={language}
         theme={themeConfig}
         domain={site?.subdomain || site?.custom_domain}
