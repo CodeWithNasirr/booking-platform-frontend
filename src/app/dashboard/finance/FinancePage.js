@@ -54,6 +54,8 @@ async function fetchWithAuth(endpoint, activeTenant, options = {}) {
       "X-Tenant": activeTenant,
       ...options.headers,
     },
+    credentials: "include",
+
   });
 
   let data = null;

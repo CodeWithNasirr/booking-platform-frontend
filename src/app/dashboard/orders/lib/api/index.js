@@ -14,6 +14,7 @@ export const authFetch = async (path, tenantId, options = {}) => {
     Authorization: token ? `Bearer ${token}` : '',
     'X-Tenant': tenantId,
     ...(options.headers || {}),
+
   };
 
   if (!isFormData) {
@@ -23,6 +24,8 @@ export const authFetch = async (path, tenantId, options = {}) => {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
+    credentials: "include",
+
   });
 
   let data = null;

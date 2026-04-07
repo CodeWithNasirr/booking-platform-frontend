@@ -25,7 +25,6 @@ function headers(tenantId) {
     "Content-Type": "application/json",
     ...(token ? { Authorization: `Bearer ${token}` } : {}),
     "X-Tenant": tenantId,
-    credentials: "include",
 
   };
 }
@@ -33,11 +32,25 @@ function headers(tenantId) {
 // ── Helper ──────────────────────────────────────────────────────
 
 async function apiCall(url, options = {}) {
-  const res = await fetch(url, options);
-  const data = await res.json().catch(() => ({}));
+  const res = await fetch(url, {
+    ...options,
+    credentials: "include", // ✅ here
+  });
+
+  let data = null;
+  const contentType = res.headers.get("content-type");
+
+  if (contentType?.includes("application/json")) {
+    data = await res.json();
+  } else {
+    const text = await res.text();
+    console.error("❌ Non-JSON response:", text);
+  }
 
   if (!res.ok) {
-    const error = new Error(data.detail || data.message || "Request failed");
+    const error = new Error(
+      data?.detail || data?.message || "Request failed"
+    );
     error.status = res.status;
     error.data = data;
     throw error;
@@ -51,6 +64,7 @@ async function apiCall(url, options = {}) {
 export async function fetchTenantSettings(tenantId) {
   return apiCall(`${API}/api/v1/tenant/settings/`, {
     headers: headers(tenantId),
+    
   });
 }
 

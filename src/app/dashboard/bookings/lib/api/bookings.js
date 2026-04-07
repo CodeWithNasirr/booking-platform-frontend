@@ -241,6 +241,8 @@ export async function getGuestBookings(tenantId, token) {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    credentials: "include",
+
   });
 }
 
