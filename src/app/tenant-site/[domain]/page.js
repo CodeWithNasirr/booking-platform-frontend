@@ -54,7 +54,7 @@ export default async function TenantHomePage(props ) {
       </div>
     );
   }
-  // console.log(site,"SSSSSSSSSSSSSSS")
+
   // Check if site is published
   if (!site.is_published) {
     return (
@@ -96,6 +96,7 @@ export default async function TenantHomePage(props ) {
       theme={mergedTheme}
       site={site}
       rtlEnabled={rtlEnabled}
+      domain={domain}
     />
   );
 }

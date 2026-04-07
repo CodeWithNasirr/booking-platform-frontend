@@ -103,6 +103,7 @@ export default async function TenantPage({ params }) {
       sections={fullSections} 
       language={site.default_language} 
       site={site}
+      domain={domain}
     />
   );
 }

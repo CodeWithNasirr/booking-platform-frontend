@@ -6,27 +6,22 @@ import { useTenantLang } from "../contexts/TenantLangContext";
 import { useTenantTheme } from "../contexts/TenantThemeContext";
 import { resolveTranslatedContent } from "./utils/resolveTranslated";
 import { useParams } from "next/navigation";
-import { useApp } from "@/contexts/AppContext";
+
 export default function LayoutRenderer({
   sections = [],
   template = {},
   theme = {},
   site = {},
   rtlEnabled = false,
-
+  domain = "",          // ← ADD THIS PROP
 }) {
-
-  // console.log("site received site:", site);
-
   const { language, isRTL } = useTenantLang();
   const themeConfig = useTenantTheme();
-  // console.log("Rendering Layout with sections:", sections, site);
-  // Separate structural sections
+
   const headerSection = sections.find((s) => s.section_type === "header");
-  const heroSection = sections.find((s) => s.section_type === "hero");
+  const heroSection   = sections.find((s) => s.section_type === "hero");
   const footerSection = sections.find((s) => s.section_type === "footer");
 
-  // Get content sections (excluding header, hero, footer)
   const contentSections = sections
     .filter(
       (s) =>
@@ -36,44 +31,55 @@ export default function LayoutRenderer({
     )
     .sort((a, b) => (a.order || 0) - (b.order || 0));
 
-  // Get structural components
   const HeaderComponent = headerSection ? mapSectionToComponent("header") : null;
-  const HeroComponent = heroSection ? mapSectionToComponent("hero") : null;
+  const HeroComponent   = heroSection   ? mapSectionToComponent("hero")   : null;
   const FooterComponent = footerSection ? mapSectionToComponent("footer") : null;
+
+  // ← derive a reliable domain string from the prop first, then site fields
+  const resolvedDomain =
+    domain ||
+    site?.subdomain ||
+    site?.custom_domain ||
+    site?.tenant_slug ||
+    "";
 
   return (
     <div className="tenant-site-layout" dir={isRTL ? "rtl" : "ltr"}>
-      {/* ================= HEADER ================= */}
       {HeaderComponent && headerSection && (
         <HeaderComponent
-          data={resolveTranslatedContent(mapHeaderData(headerSection.content,site), language)}
+          data={resolveTranslatedContent(
+            mapHeaderData(headerSection.content, site),
+            language
+          )}
           lang={language}
           theme={themeConfig}
         />
       )}
 
-      {/* ================= HERO ================= */}
       {HeroComponent && heroSection && (
         <section className="relative">
           <HeroComponent
-            data={resolveTranslatedContent(mapHeroData(heroSection.content), language)}
+            data={resolveTranslatedContent(
+              mapHeroData(heroSection.content),
+              language
+            )}
             lang={language}
             theme={themeConfig}
           />
         </section>
       )}
 
-      {/* ================= CONTENT SECTIONS ================= */}
-        {/* {contentSections.length === 0 && !heroSection && ( */}
-
       <main>
-         {contentSections.length === 0 && !heroSection && !headerSection && !footerSection && (
-          <div className="min-h-[50vh] flex items-center justify-center bg-gray-50">
-            <div className="text-center p-8">
-              <p className="text-gray-500">No content sections configured yet.</p>
+        {contentSections.length === 0 &&
+          !heroSection &&
+          !headerSection &&
+          !footerSection && (
+            <div className="min-h-[50vh] flex items-center justify-center bg-gray-50">
+              <div className="text-center p-8">
+                <p className="text-gray-500">No content sections configured yet.</p>
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
         {contentSections.map((section, idx) => (
           <SectionRenderer
@@ -82,11 +88,11 @@ export default function LayoutRenderer({
             language={language}
             themeConfig={themeConfig}
             site={site}
+            domain={resolvedDomain}   // ← pass it down
           />
         ))}
       </main>
 
-      {/* ================= FOOTER ================= */}
       {FooterComponent && footerSection && (
         <FooterComponent
           data={resolveTranslatedContent(footerSection.content, language)}
@@ -99,20 +105,15 @@ export default function LayoutRenderer({
 }
 
 // =============================================================================
-// SECTION RENDERER - Handles both regular sections AND modules
+// SECTION RENDERER
 // =============================================================================
 
-function SectionRenderer({ section, language, themeConfig, site }) {
+function SectionRenderer({ section, language, themeConfig, site, domain }) {  // ← accept domain
   const params = useParams();
-  // const { activeTenant } = useApp();
 
-  const isModule = section.section_type === "module";
-  // console.log("ROUTE PARAMS:", params);
-
-  // Get module_key from section content or directly from section
+  const isModule  = section.section_type === "module";
   const moduleKey = section.module_key || section.content?.module_key;
-  
-  // Get the component
+
   const Component = mapSectionToComponent(
     section.section_type,
     isModule ? moduleKey : null
@@ -122,7 +123,7 @@ function SectionRenderer({ section, language, themeConfig, site }) {
     if (process.env.NODE_ENV === "development") {
       return (
         <div className="p-4 bg-yellow-50 border-b border-yellow-200 text-yellow-800 text-sm">
-          ⚠️ Unknown {isModule ? "module" : "section"}: 
+          ⚠️ Unknown {isModule ? "module" : "section"}:{" "}
           <code>{isModule ? moduleKey : section.section_type}</code>
         </div>
       );
@@ -130,26 +131,23 @@ function SectionRenderer({ section, language, themeConfig, site }) {
     return null;
   }
 
-  // ========== HANDLE MODULES ==========
+  // ── MODULES ──────────────────────────────────────────────────────────────
   if (isModule) {
     const moduleSettings = section.settings || section.content?.settings || {};
-    
-    // 👇 BOOKING SHORTCUT SUPPORT
     const moduleData =
       moduleKey === "booking"
         ? {
-            preselected_service_slug: params?.serviceSlug || null,
-            booking_id: params?.bookingId || null,
+            preselected_service_slug: params?.serviceSlug ?? null,
+            booking_id: params?.bookingId ?? null,
           }
         : {};
 
     return (
       <section className="section-wrapper module-wrapper">
         <Component
-          data = {moduleData}
+          data={moduleData}
           settings={moduleSettings}
-          // tenantId={activeTenant}
-          domain={site?.subdomain || site?.custom_domain}
+          domain={domain}          // ← use resolved domain
           lang={language}
           theme={themeConfig}
         />
@@ -157,10 +155,9 @@ function SectionRenderer({ section, language, themeConfig, site }) {
     );
   }
 
-  // ========== HANDLE REGULAR SECTIONS ==========
+  // ── REGULAR SECTIONS ─────────────────────────────────────────────────────
   let normalizedContent = section.content;
 
-  // Apply normalization based on section type
   switch (section.section_type) {
     case "services":
       normalizedContent = mapServicesSectionData(section.content);
@@ -190,18 +187,20 @@ function SectionRenderer({ section, language, themeConfig, site }) {
 
   const resolvedContent = resolveTranslatedContent(normalizedContent, language);
   const safeData = JSON.parse(JSON.stringify(resolvedContent));
-  
+
   return (
     <section className="section-wrapper">
       <Component
         data={safeData}
         lang={language}
         theme={themeConfig}
-        domain={site?.subdomain || site?.custom_domain}
+        domain={domain}           // ← use resolved domain
       />
     </section>
   );
 }
+
+
 
 // =============================================================================
 // DATA NORMALIZATION FUNCTIONS

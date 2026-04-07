@@ -100,7 +100,6 @@ export async function fetchSite(domain) {
           // "X-Tenant-Domain": domain,
         },
         cache: "no-store", // SSR
-        credentials: "include",
       }
     );
 
@@ -157,12 +156,11 @@ export async function fetchPage(domain, slug = "") {
     // "X-Tenant-Domain": domain,
   };
 
-
   try {
     const pageSlug = slug || "home";
     const res = await fetch(
       `${API_BASE}/api/v1/website/tenant/${domain}/pages/${pageSlug}/`,
-      { headers, cache: "no-store" , credentials: "include" }
+      { headers, cache: "no-store" }
     );
 
     if (!res.ok) {
@@ -191,8 +189,6 @@ export async function fetchTheme(domain) {
           "Content-Type": "application/json",
           "X-Tenant-Domain": domain,
         },
-        credentials: "include",
-        
         cache: "no-store",
       }
     );
@@ -221,8 +217,6 @@ export async function checkDomainExists(domain) {
       {
         method: "HEAD",
         headers: { "X-Tenant-Domain": domain },
-        credentials: "include",
-        
       }
     );
     return res.ok;
