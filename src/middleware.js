@@ -222,7 +222,7 @@ export async function middleware(req) {
   ) {
     // Strip port if present
     const cleanHost = host.includes(":") ? host.split(":")[0] : host;
-
+    console.log(`[middleware] Resolving custom domain: ${cleanHost}`);
     try {
       const res = await fetch(
         `${BACKEND_URL}/api/v1/public/resolve-domain/?domain=${encodeURIComponent(cleanHost)}`,
@@ -230,6 +230,7 @@ export async function middleware(req) {
           method: "GET",
           headers: { "Content-Type": "application/json" },
           signal: AbortSignal.timeout(3000),
+          credentials: "include",
         }
       );
 
@@ -238,7 +239,7 @@ export async function middleware(req) {
 
         if (data.resolved && data.is_verified) {
           // Domain is registered and verified → allow rewrite
-          tenantDomain = cleanHost;
+          tenantDomain = data.tenant_slug; // 🔥 IMPORTANT FIX
           resolvedTenantId = data.tenant_id;
           resolvedTenantSlug = data.tenant_slug;
         } else {
