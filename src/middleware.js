@@ -222,10 +222,15 @@ export async function middleware(req) {
   ) {
     // Strip port if present
     const cleanHost = host.includes(":") ? host.split(":")[0] : host;
-    console.log(`[middleware] Resolving custom domain: ${cleanHost}`);
+
+   
+    const domainForLookup = cleanHost.endsWith("." + MAIN_DOMAIN)
+      ? cleanHost.replace("." + MAIN_DOMAIN, "") // gptx.neoleap.ai → gptx
+      : cleanHost;
+
     try {
       const res = await fetch(
-        `${BACKEND_URL}/api/v1/public/resolve-domain/?domain=${encodeURIComponent(cleanHost)}`,
+        `${BACKEND_URL}/api/v1/public/resolve-domain/?domain=${encodeURIComponent(domainForLookup)}`,
         {
           method: "GET",
           headers: { "Content-Type": "application/json" },
@@ -255,13 +260,8 @@ export async function middleware(req) {
         );
       }
     } catch (err) {
-      // API error / timeout → still allow rewrite (graceful degradation)
-      // The tenant-site page will handle "domain not found" on its own
-      console.error(
-        `[middleware] resolve-domain failed for ${cleanHost}:`,
-        err.message
-      );
-      tenantDomain = cleanHost;
+      console.error(`[middleware] resolve-domain failed:`, err.message);
+      return NextResponse.redirect(new URL(`https://${MAIN_DOMAIN}`, req.url));
     }
   }
 
