@@ -16,7 +16,7 @@ export default function LayoutRenderer({
 
 }) {
 
-  console.log("site received site:", site);
+  // console.log("site received site:", site);
 
   const { language, isRTL } = useTenantLang();
   const themeConfig = useTenantTheme();

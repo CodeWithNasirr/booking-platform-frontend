@@ -69,7 +69,7 @@ export default function TenantUsersPage() {
       if (roleFilter) params.set('role', roleFilter)
       if (searchQuery) params.set('search', searchQuery)
 
-      const res = await fetch(`${API}/api/v1/tenant/members/?${params}`, { headers })
+      const res = await fetch(`${API}/api/v1/tenant/members/?${params}`, { headers, credentials: 'include' })
       const data = await res.json()
 
       setMembers(data.results || [])
@@ -109,6 +109,7 @@ export default function TenantUsersPage() {
       await fetch(`${API}/api/v1/tenant/members/${deleteMember.id}/delete/`, {
         method: 'DELETE',
         headers,
+        credentials: 'include',
       })
       setDeleteMember(null)
       fetchMembers()
@@ -123,6 +124,7 @@ export default function TenantUsersPage() {
       await fetch(`${API}/api/v1/tenant/members/${memberId}/reactivate/`, {
         method: 'POST',
         headers,
+        credentials: 'include',
       })
       fetchMembers()
     } catch (err) {
@@ -136,6 +138,7 @@ export default function TenantUsersPage() {
       const res = await fetch(`${API}/api/v1/tenant/members/${memberId}/resend-invite/`, {
         method: 'POST',
         headers,
+        credentials: 'include',
       })
       const data = await res.json()
       if (res.ok) {
