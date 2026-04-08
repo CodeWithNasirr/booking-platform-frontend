@@ -582,6 +582,7 @@ export default function ServicesSection({ data, lang: propLang, domain }) {
               "Content-Type": "application/json",
               "X-Tenant": domain,
             },
+            credentials: 'include',
           }
         );
 

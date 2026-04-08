@@ -67,6 +67,7 @@ function buildHeaders(domain, token, tokenType) {
 async function apiFetch(url, domain, token, tokenType, options = {}) {
   const res = await fetch(url, {
     ...options,
+    credentials: "include", 
     headers: {
       ...buildHeaders(domain, token, tokenType),
       ...(options.headers || {}),

@@ -26,7 +26,7 @@ function resolveToken() {
 function buildHeaders(domain, token, tokenType) {
   const headers = { "Content-Type": "application/json" };
   if (domain) headers["X-Tenant"] = domain;
-
+  
   if (token) {
     if (tokenType === "guest") {
       headers["X-Order-Token"] = token;
@@ -68,6 +68,7 @@ export default function MyOrdersClient({
 
       const res = await fetch(`${API_BASE}/api/v1/orders/my-orders/`, {
         headers: buildHeaders(domain, auth.token, auth.type),
+        credentials: 'include',
       });
 
       if (!res.ok) {

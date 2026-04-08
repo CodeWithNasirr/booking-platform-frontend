@@ -36,8 +36,12 @@ function apiHeaders(domain, token, isGuestToken) {
   return h;
 }
 
-async function apiCall(url, opts) {
-  const res = await fetch(url, opts);
+async function apiCall(url, opts = {}) {
+  const res = await fetch(url, {
+    ...opts,
+    credentials: "include", // 👈 add this
+  });
+
   if (!res.ok) {
     const err = new Error(`${res.status}`);
     err.status = res.status;
