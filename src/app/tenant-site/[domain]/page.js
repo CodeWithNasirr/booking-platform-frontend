@@ -14,7 +14,7 @@
 import { fetchSite } from "./utils/fetchSite";
 import LayoutRenderer from "./LayoutRenderer";
 import { notFound } from "next/navigation";
-
+export const dynamic = "force-dynamic";
 
 export default async function TenantHomePage(props ) {
   const { params } = props;       // params is a ReactPromise
@@ -44,12 +44,12 @@ export default async function TenantHomePage(props ) {
           <p className="text-gray-600 mb-6">
             {error || "Unable to load site. Please try again later."}
           </p>
-          <button
-            onClick={() => window.location.reload()}
-            className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700"
-          >
-            Retry
-          </button>
+         <a
+          href="."
+          className="px-6 py-3 bg-blue-600 text-white rounded-xl hover:bg-blue-700 inline-block"
+        >
+          Retry
+        </a>
         </div>
       </div>
     );

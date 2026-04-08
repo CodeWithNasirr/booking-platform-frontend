@@ -16,7 +16,7 @@ import { fetchSite, fetchTheme } from "./utils/fetchSite";
 import TenantClientWrapper from "./TenantClientWrapper";
 
 import "./styles.css"
-
+export const dynamic = "force-dynamic";
 export async function generateMetadata({ params }) {
   const resolved = await params; // unwrap params promise
   const domain = resolved.domain;
