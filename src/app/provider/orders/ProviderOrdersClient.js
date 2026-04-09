@@ -73,41 +73,41 @@ export default function ProviderOrdersClient() {
     );
   }
 
-  if (unauthorized === true) {
-    return (
-      <DashboardLayout pageName="My Orders">
-      <div className="max-w-lg mx-auto p-6 text-center">
-        <div className="text-5xl mb-4">🔒</div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">
-          {t(
-            { en: "Provider Login Required", ar: "تسجيل دخول مطلوب", ur: "لاگ ان ضروری ہے" },
-            language
-          )}
-        </h2>
-        <p className="text-gray-600 mb-6">
-          {t(
-            {
-              en: "Please log in to your provider account to manage orders.",
-              ar: "يرجى تسجيل الدخول إلى حسابك لإدارة الطلبات.",
-              ur: "آرڈرز کا انتظام کرنے کے لیے اپنے اکاؤنٹ میں لاگ ان کریں۔",
-            },
-            language
-          )}
-        </p>
-        <a
-          href="/auth/login"
-          className="px-6 py-3 text-white rounded-xl font-semibold inline-block"
-          style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
-        >
-          {t(
-            { en: "Log In", ar: "تسجيل الدخول", ur: "لاگ ان" },
-            language
-          )}
-        </a>
-      </div>
-      </DashboardLayout>
-    );
-  }
+  // if (unauthorized === true) {
+  //   return (
+  //     <DashboardLayout pageName="My Orders">
+  //     <div className="max-w-lg mx-auto p-6 text-center">
+  //       <div className="text-5xl mb-4">🔒</div>
+  //       <h2 className="text-xl font-bold text-gray-900 mb-2">
+  //         {t(
+  //           { en: "Provider Login Required", ar: "تسجيل دخول مطلوب", ur: "لاگ ان ضروری ہے" },
+  //           language
+  //         )}
+  //       </h2>
+  //       <p className="text-gray-600 mb-6">
+  //         {t(
+  //           {
+  //             en: "Please log in to your provider account to manage orders.",
+  //             ar: "يرجى تسجيل الدخول إلى حسابك لإدارة الطلبات.",
+  //             ur: "آرڈرز کا انتظام کرنے کے لیے اپنے اکاؤنٹ میں لاگ ان کریں۔",
+  //           },
+  //           language
+  //         )}
+  //       </p>
+  //       <a
+  //         href="/auth/login"
+  //         className="px-6 py-3 text-white rounded-xl font-semibold inline-block"
+  //         style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
+  //       >
+  //         {t(
+  //           { en: "Log In", ar: "تسجيل الدخول", ur: "لاگ ان" },
+  //           language
+  //         )}
+  //       </a>
+  //     </div>
+  //     </DashboardLayout>
+  //   );
+  // }
 
   return (
     <DashboardLayout pageName="My Orders">
