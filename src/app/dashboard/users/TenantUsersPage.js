@@ -70,6 +70,14 @@ export default function TenantUsersPage() {
       if (searchQuery) params.set('search', searchQuery)
 
       const res = await fetch(`${API}/api/v1/tenant/members/?${params}`, { headers, credentials: 'include' })
+      const contentType = res.headers.get("content-type")
+
+      if (!contentType || !contentType.includes("application/json")) {
+        const text = await res.text()
+        console.error("Non-JSON response:", text)
+        throw new Error("Server did not return JSON")
+      }
+
       const data = await res.json()
 
       setMembers(data.results || [])
