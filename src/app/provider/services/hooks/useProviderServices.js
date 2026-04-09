@@ -18,7 +18,6 @@ export const authFetch = async (path, tenantId, options = {}) => {
     "X-Tenant": tenantId,
     ...(token && { Authorization: `Bearer ${token}` }),
     ...(options.headers || {}),
-    credentials: "include",
     
   };
 
@@ -29,6 +28,8 @@ export const authFetch = async (path, tenantId, options = {}) => {
   const res = await fetch(`${API_BASE}${path}`, {
     ...options,
     headers,
+    credentials: "include",
+
   });
 
   let data = null;

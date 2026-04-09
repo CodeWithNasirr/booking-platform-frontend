@@ -78,7 +78,8 @@ export default function ProfilePage() {
         
         // Fetch profile
         const profileRes = await fetch(`${API_BASE}/api/v1/providers/profile/me/`, {
-          headers: getAuthHeaders()
+          headers: getAuthHeaders(),
+          credentials: "include"
         });
         if (profileRes.ok) {
           const profileData = await profileRes.json();
@@ -94,7 +95,8 @@ export default function ProfilePage() {
         
         // Fetch stats
         const statsRes = await fetch(`${API_BASE}/api/v1/providers/profile/stats/`, {
-          headers: getAuthHeaders()
+          headers: getAuthHeaders(),
+          credentials: "include"
         });
         if (statsRes.ok) {
           setStats(await statsRes.json());
@@ -102,7 +104,9 @@ export default function ProfilePage() {
         
         // Fetch services
         const servicesRes = await fetch(`${API_BASE}/api/v1/providers/services/`, {
-          headers: getAuthHeaders()
+          headers: getAuthHeaders(),
+          credentials: "include"
+
         });
         if (servicesRes.ok) {
           setServices(await servicesRes.json());
@@ -110,7 +114,9 @@ export default function ProfilePage() {
         
         // Fetch notifications
         const notifRes = await fetch(`${API_BASE}/api/v1/providers/notifications/`, {
-          headers: getAuthHeaders()
+          headers: getAuthHeaders(),
+          credentials: "include"
+
         });
         if (notifRes.ok) {
           setNotifications(await notifRes.json());
@@ -132,6 +138,8 @@ export default function ProfilePage() {
       const response = await fetch(`${API_BASE}/api/v1/providers/profile/update/`, {
         method: 'PATCH',
         headers: getAuthHeaders(),
+        credentials: "include",
+
         body: JSON.stringify(profile)
       });
       
@@ -151,7 +159,9 @@ export default function ProfilePage() {
         `${API_BASE}/api/v1/providers/services/${serviceId}/toggle/`,
         {
           method: 'POST',
-          headers: getAuthHeaders()
+          headers: getAuthHeaders(),
+          credentials: "include"
+
         }
       );
       
@@ -175,6 +185,8 @@ export default function ProfilePage() {
       const response = await fetch(`${API_BASE}/api/v1/providers/services/add/`, {
         method: 'POST',
         headers: getAuthHeaders(),
+        credentials: "include",
+
         body: JSON.stringify({ service_id: serviceId })
       });
       
@@ -193,6 +205,8 @@ export default function ProfilePage() {
       const response = await fetch(`${API_BASE}/api/v1/providers/notifications/`, {
         method: 'PUT',
         headers: getAuthHeaders(),
+        credentials: "include",
+
         body: JSON.stringify(notifications)
       });
       
@@ -223,6 +237,8 @@ export default function ProfilePage() {
       const response = await fetch(`${API_BASE}/api/v1/providers/security/`, {
         method: 'POST',
         headers: getAuthHeaders(),
+        credentials: "include",
+
         body: JSON.stringify(data)
       });
       
@@ -244,7 +260,9 @@ export default function ProfilePage() {
     try {
       const response = await fetch(`${API_BASE}/api/v1/providers/security/`, {
         method: 'DELETE',
-        headers: getAuthHeaders()
+        headers: getAuthHeaders(),
+        credentials: "include"
+
       });
       
       if (!response.ok) throw new Error('Failed to delete account');

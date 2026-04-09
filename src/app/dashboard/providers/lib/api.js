@@ -16,8 +16,9 @@ export const authFetch = async (url,tenantId, options = {}) => {
       'Authorization': token ? `Bearer ${token}` : '',
       'X-Tenant': tenantId,
       ...(options.headers || {}),
-      credentials: "include",
     },
+    credentials: "include",
+
   })
 
   if (!res.ok) {

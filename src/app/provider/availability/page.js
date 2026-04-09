@@ -44,7 +44,7 @@ export default function AvailabilityPage() {
       setLoading(true);
       const response = await fetch(`${API_BASE}/api/v1/providers/my-availability/`, {
         headers: getAuthHeaders(),
-      credentials: "include",
+        credentials: "include",
 
       });
 
