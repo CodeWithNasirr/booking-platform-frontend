@@ -30,6 +30,7 @@ function getHeaders(tenantId) {
 export async function fetchTemplates() {
   const res = await fetch(`${API_URL}/api/v1/website/templates/`, {
     headers: getHeaders(),
+    credentials: 'include',
   });
 
   if (!res.ok) {
@@ -46,6 +47,8 @@ export async function fetchTemplates() {
 export async function fetchTemplate(slug) {
   const res = await fetch(`${API_URL}/api/v1/website/templates/${slug}/`, {
     headers: getHeaders(),
+    credentials: 'include',
+
   });
 
   if (!res.ok) {
@@ -61,7 +64,7 @@ export async function fetchTemplate(slug) {
 export async function fetchTemplateLayout(slug, layoutId) {
   const res = await fetch(
     `${API_URL}/api/v1/website/templates/${slug}/layouts/${layoutId}/`,
-    { headers: getHeaders() }
+    { headers: getHeaders(), credentials: 'include' }
   );
 
   if (!res.ok) {
@@ -81,6 +84,8 @@ export async function fetchTemplateLayout(slug, layoutId) {
 export async function fetchTenantSite(tenantId) {
   const res = await fetch(`${API_URL}/api/v1/website/site/`, {
     headers: getHeaders(tenantId),
+    credentials: 'include',
+
   });
 
   if (!res.ok) {
@@ -96,6 +101,8 @@ export async function fetchTenantSite(tenantId) {
 export async function fetchTenantLayout(tenantId) {
   const res = await fetch(`${API_URL}/api/v1/website/layout/`, {
     headers: getHeaders(tenantId),
+    credentials: 'include',
+
   });
 
   if (!res.ok) {
@@ -112,6 +119,8 @@ export async function saveTenantLayout(tenantId, layoutData) {
   const res = await fetch(`${API_URL}/api/v1/website/layout/`, {
     method: "PATCH",
     headers: getHeaders(tenantId),
+    credentials: 'include',
+
     body: JSON.stringify({
       layout_json: {
         sections: layoutData.sections,
@@ -134,6 +143,8 @@ export async function saveTenantTheme(tenantId, themeConfig) {
   const res = await fetch(`${API_URL}/api/v1/website/site/theme/`, {
     method: "PATCH",
     headers: getHeaders(tenantId),
+    credentials: 'include',
+
     body: JSON.stringify({
       theme_config: themeConfig,
     }),
@@ -158,6 +169,8 @@ export async function saveTenantSiteConfig(tenantId, config) {
   const res = await fetch(`${API_URL}/api/v1/website/save/`, {
     method: "POST",
     headers: getHeaders(tenantId),
+    credentials: 'include',
+
     body: JSON.stringify({
       sections: sections || [],
       theme_config: theme_config || themeConfig || {},
@@ -257,6 +270,8 @@ export async function fetchTenantSiteFull(domain) {
 export async function fetchTenantPages(tenantId) {
   const res = await fetch(`${API_URL}/api/v1/website/pages/`, {
     headers: getHeaders(tenantId),
+    credentials: 'include',
+
   });
 
   if (!res.ok) {
@@ -274,6 +289,8 @@ export async function createTenantPage(tenantId, pageData) {
   const res = await fetch(`${API_URL}/api/v1/website/pages/`, {
     method: "POST",
     headers: getHeaders(tenantId),
+    credentials: 'include',
+
     body: JSON.stringify(pageData),
   });
 
@@ -292,6 +309,8 @@ export async function updateTenantPage(tenantId, pageId, pageData) {
   const res = await fetch(`${API_URL}/api/v1/website/pages/${pageId}/`, {
     method: "PATCH",
     headers: getHeaders(tenantId),
+    credentials: 'include',
+
     body: JSON.stringify(pageData),
   });
 
@@ -310,6 +329,8 @@ export async function deleteTenantPage(tenantId, pageId) {
   const res = await fetch(`${API_URL}/api/v1/website/pages/${pageId}/`, {
     method: "DELETE",
     headers: getHeaders(tenantId),
+    credentials: 'include',
+
   });
 
   if (!res.ok) {
@@ -330,6 +351,8 @@ export async function saveTenantPages(tenantId, pages) {
     method: "POST",
     headers: getHeaders(tenantId),
     body: JSON.stringify({ pages }),
+    credentials: 'include',
+
   });
 
   if (res.ok) {
@@ -374,6 +397,8 @@ export async function reorderTenantPages(tenantId, pageOrder) {
   const res = await fetch(`${API_URL}/api/v1/website/pages/reorder/`, {
     method: "POST",
     headers: getHeaders(tenantId),
+    credentials: 'include',
+
     body: JSON.stringify({ order: pageOrder }),
   });
 

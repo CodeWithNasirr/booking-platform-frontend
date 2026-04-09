@@ -35,7 +35,7 @@ export default function EditMemberModal({ member, onClose, onSuccess, headers, a
   // Fetch permissions for sub_admin
   useEffect(() => {
     if (roleForm.role === 'sub_admin') {
-      fetch(`${apiUrl}/api/v1/tenant/members/permissions/`, { headers })
+      fetch(`${apiUrl}/api/v1/tenant/members/permissions/`, { headers,credentials: 'include' })
         .then((r) => r.json())
         .then(setAvailablePermissions)
         .catch(console.error)
