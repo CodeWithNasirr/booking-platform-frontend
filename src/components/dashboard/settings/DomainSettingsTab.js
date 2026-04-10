@@ -1,7 +1,7 @@
 // src/components/dashboard/settings/DomainSettingsTab.js
 'use client'
 
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Globe, Edit2, Copy, Check, Link2, ExternalLink, Star,
   Shield, ShieldCheck, ShieldAlert, Trash2, Loader2,
@@ -10,28 +10,14 @@ import {
 } from 'lucide-react'
 import {
   linkCustomDomain, verifyDomain, setPrimaryDomain,
-  removeDomain, updateWebsiteSlug, checkDnsStatus,
+  removeDomain, updateWebsiteSlug, checkDnsStatus, checkSSLStatus,
 } from '@/lib/settingsApi'
 
-// ─── FAQ ────────────────────────────────────────────────────────
-
 const FAQ = [
-  {
-    q: 'What is a Domain?',
-    a: 'A domain is your website address (e.g., mybusiness.com). It\'s how customers find your booking site on the internet.',
-  },
-  {
-    q: 'Does it cost anything to switch to a custom Domain?',
-    a: 'Connecting your own domain to BookingPro is free on all paid plans. You only pay the domain registrar\'s renewal fee.',
-  },
-  {
-    q: 'How much time does it take for my custom Domain to work after finishing the setup?',
-    a: 'DNS changes typically propagate within 15 minutes to 48 hours. Most domains start working within 1-2 hours.',
-  },
-  {
-    q: 'Can I change or remove the linked Domain?',
-    a: 'Yes. You can unlink a custom domain at any time and revert to your free BookingPro subdomain.',
-  },
+  { q: 'What is a Domain?', a: 'A domain is your website address (e.g., mybusiness.com).' },
+  { q: 'Does it cost anything?', a: 'Connecting your domain is free on all paid plans.' },
+  { q: 'How long does it take?', a: 'DNS changes propagate in 5 minutes to 48 hours. Usually under 1 hour.' },
+  { q: 'Can I change or remove it?', a: 'Yes. Unlink anytime and revert to your free subdomain.' },
 ]
 
 const STATUS_CONFIG = {
@@ -40,8 +26,6 @@ const STATUS_CONFIG = {
   failed:   { label: 'Failed',   color: 'text-red-700 bg-red-50',      icon: XCircle },
   expired:  { label: 'Expired',  color: 'text-gray-700 bg-gray-50',    icon: Clock },
 }
-
-// ─── Main Component ─────────────────────────────────────────────
 
 export default function DomainSettingsTab({
   domains, websiteUrl, tenantSlug, branding, activeTenant,
@@ -54,11 +38,23 @@ export default function DomainSettingsTab({
   const [showLinkModal, setShowLinkModal] = useState(false)
   const [expandedFaq, setExpandedFaq] = useState(null)
   const [actionLoading, setActionLoading] = useState(null)
-  const [dnsModal, setDnsModal] = useState(null) // domain object for DNS status
+  const [dnsModal, setDnsModal] = useState(null)
+  const [verifyResult, setVerifyResult] = useState(null) // show verify errors inline
 
   const subdomain = domains?.find((d) => d.is_subdomain)
-  const customDomains = domains?.filter((d) => d.is_custom) || []
-  
+
+  // Auto-refresh SSL for verified domains
+  useEffect(() => {
+    const interval = setInterval(() => {
+      domains?.forEach(d => {
+        if (d.is_custom && d.is_verified && d.ssl_status && d.ssl_status !== 'active') {
+          checkSSLStatus(activeTenant, d.id).catch(() => {})
+        }
+      })
+    }, 15000)
+    return () => clearInterval(interval)
+  }, [domains, activeTenant])
+
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(websiteUrl || subdomain?.domain || '')
     setCopied(true)
@@ -72,56 +68,42 @@ export default function DomainSettingsTab({
       await updateWebsiteSlug(activeTenant, slugValue.trim())
       setEditingSlug(false)
       onDomainsChange?.()
-    } catch (err) {
-      alert(err.message)
-    } finally {
-      setSlugSaving(false)
-    }
+    } catch (err) { alert(err.message) }
+    finally { setSlugSaving(false) }
   }
 
   const handleVerify = async (domainId) => {
     setActionLoading(`verify-${domainId}`)
+    setVerifyResult(null)
     try {
       const result = await verifyDomain(activeTenant, domainId)
-      if (result.warning) alert(result.warning)
       onDomainsChange?.()
     } catch (err) {
-      if (err.status === 429) {
-        alert(`Rate limited. ${err.data?.detail || 'Please wait before retrying.'}`)
-      } else if (err.status === 422) {
-        alert(err.data?.help || err.message)
+      if (err.status === 422 && err.data) {
+        // Show structured error inline instead of alert
+        setVerifyResult({ domainId, ...err.data })
+      } else if (err.status === 429) {
+        alert(err.data?.detail || 'Rate limited. Please wait.')
       } else {
         alert(err.message)
       }
       onDomainsChange?.()
-    } finally {
-      setActionLoading(null)
-    }
+    } finally { setActionLoading(null) }
   }
 
   const handleSetPrimary = async (domainId) => {
     setActionLoading(`primary-${domainId}`)
-    try {
-      await setPrimaryDomain(activeTenant, domainId)
-      onDomainsChange?.()
-    } catch (err) {
-      alert(err.message)
-    } finally {
-      setActionLoading(null)
-    }
+    try { await setPrimaryDomain(activeTenant, domainId); onDomainsChange?.() }
+    catch (err) { alert(err.message) }
+    finally { setActionLoading(null) }
   }
 
   const handleRemove = async (domainId) => {
-    if (!confirm('Remove this domain? This action cannot be undone.')) return
+    if (!confirm('Remove this domain?')) return
     setActionLoading(`remove-${domainId}`)
-    try {
-      await removeDomain(activeTenant, domainId)
-      onDomainsChange?.()
-    } catch (err) {
-      alert(err.message)
-    } finally {
-      setActionLoading(null)
-    }
+    try { await removeDomain(activeTenant, domainId); onDomainsChange?.() }
+    catch (err) { alert(err.message) }
+    finally { setActionLoading(null) }
   }
 
   const handleCheckDns = async (domain) => {
@@ -142,12 +124,10 @@ export default function DomainSettingsTab({
           <div className="flex items-center gap-3">
             <div className="flex-1 flex items-center border border-gray-300 rounded-xl overflow-hidden">
               <span className="px-4 py-3 bg-gray-50 text-sm text-gray-500 border-r border-gray-200 whitespace-nowrap">https://</span>
-              <input
-                type="text" value={slugValue} autoFocus
+              <input type="text" value={slugValue} autoFocus
                 onChange={(e) => setSlugValue(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
-                className="flex-1 px-4 py-3 text-sm outline-none"
-              />
-              <span className="px-4 py-3 bg-gray-50 text-sm text-gray-500 border-l border-gray-200 whitespace-nowrap">.bookingpro.app</span>
+                className="flex-1 px-4 py-3 text-sm outline-none" />
+              <span className="px-4 py-3 bg-gray-50 text-sm text-gray-500 border-l border-gray-200 whitespace-nowrap">.neoleap.ai</span>
             </div>
             <button onClick={handleSaveSlug} disabled={slugSaving}
               className="px-4 py-3 rounded-xl bg-[#8B1E3F] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50">
@@ -183,7 +163,7 @@ export default function DomainSettingsTab({
             </div>
             <div>
               <p className="font-bold text-gray-900 mb-1">Link Existing Domain</p>
-              <p className="text-sm text-gray-500">You own a domain? You can link it here</p>
+              <p className="text-sm text-gray-500">You own a domain? Link it here</p>
             </div>
           </button>
           <a href={websiteUrl || '#'} target="_blank" rel="noopener noreferrer"
@@ -199,6 +179,59 @@ export default function DomainSettingsTab({
         </div>
       </Section>
 
+      {/* ═══ VERIFY ERROR PANEL (shown after failed verify) ═══ */}
+      {verifyResult?.errors?.length > 0 && (
+        <div className="rounded-xl border-2 border-red-200 bg-red-50/50 p-6 space-y-4">
+          <div className="flex items-center justify-between">
+            <h3 className="text-base font-bold text-red-900">DNS Issues Found</h3>
+            <button onClick={() => setVerifyResult(null)} className="p-1 hover:bg-red-100 rounded-lg">
+              <X className="w-4 h-4 text-red-400" />
+            </button>
+          </div>
+
+          {/* Checks grid */}
+          {verifyResult.checks && (
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-3">
+              <CheckBadge label="TXT Record" ok={verifyResult.checks.txt_verified} />
+              <CheckBadge label="CNAME Record" ok={verifyResult.checks.cname_correct} />
+              <CheckBadge label="No A Record" ok={!verifyResult.checks.a_record_present} bad={verifyResult.checks.a_record_present} />
+              <CheckBadge label="No AAAA Record" ok={!verifyResult.checks.aaaa_record_present} bad={verifyResult.checks.aaaa_record_present} />
+            </div>
+          )}
+
+          {/* Errors */}
+          {verifyResult.errors?.map((e, i) => (
+            <div key={i} className="flex gap-2 text-sm text-red-800">
+              <XCircle className="w-4 h-4 text-red-500 flex-shrink-0 mt-0.5" />
+              <span>{e}</span>
+            </div>
+          ))}
+
+          {/* Next steps */}
+          {verifyResult.next_steps?.length > 0 && (
+            <div className="bg-white rounded-xl p-4 border border-red-200">
+              <p className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-2">Steps to fix:</p>
+              <ol className="space-y-1.5">
+                {verifyResult.next_steps.map((step, i) => (
+                  <li key={i} className="flex gap-2 text-sm text-gray-700">
+                    <span className="text-xs font-bold text-[#8B1E3F] mt-0.5 w-4 flex-shrink-0">{i + 1}.</span>
+                    <span>{step}</span>
+                  </li>
+                ))}
+              </ol>
+            </div>
+          )}
+
+          {/* Warnings */}
+          {verifyResult.warnings?.map((w, i) => (
+            <div key={i} className="flex gap-2 text-sm text-amber-800 bg-amber-50 rounded-lg p-3 border border-amber-200">
+              <AlertCircle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+              <span>{w}</span>
+            </div>
+          ))}
+        </div>
+      )}
+
       {/* ═══ CONNECTED DOMAINS TABLE ═══ */}
       {domains?.length > 0 && (
         <Section icon={Shield} iconBg="bg-green-100" iconColor="text-green-600" title="Connected Domains"
@@ -210,12 +243,13 @@ export default function DomainSettingsTab({
                   <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Domain</th>
                   <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Type</th>
                   <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                  <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">CNAME</th>
+                  <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Routing</th>
                   <th className="text-right px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
                 {domains.map((d) => {
+                  console.log(d,"DADAD")
                   const vs = d.verification_status || (d.is_verified ? 'verified' : 'pending')
                   const statusCfg = STATUS_CONFIG[vs] || STATUS_CONFIG.pending
                   const StatusIcon = statusCfg.icon
@@ -229,6 +263,7 @@ export default function DomainSettingsTab({
                             <span className="px-2 py-0.5 text-[10px] font-bold rounded-full bg-amber-100 text-amber-700 border border-amber-200">PRIMARY</span>
                           )}
                         </div>
+                        
                         {d.verification_error && vs === 'failed' && (
                           <p className="text-xs text-red-500 mt-1 truncate max-w-xs">{d.verification_error}</p>
                         )}
@@ -243,10 +278,13 @@ export default function DomainSettingsTab({
                           <StatusIcon className="w-3.5 h-3.5" />
                           {statusCfg.label}
                         </span>
-                        {d.verification_attempts > 0 && vs !== 'verified' && (
-                          <p className="text-[10px] text-gray-400 mt-1">
-                            {d.verification_attempts} attempt{d.verification_attempts > 1 ? 's' : ''}
-                          </p>
+                        {d.is_custom && d.ssl_status && (
+                          <span className={`inline-flex items-center gap-1 text-[10px] mt-1 px-2 py-0.5 rounded-full ${
+                            d.ssl_status === 'active' ? 'bg-green-100 text-green-700' : 'bg-amber-100 text-amber-700'
+                          }`}>
+                            <ShieldCheck className="w-3 h-3" />
+                            SSL: {d.ssl_status}
+                          </span>
                         )}
                       </td>
                       <td className="px-6 py-4">
@@ -258,17 +296,27 @@ export default function DomainSettingsTab({
                           </span>
                         ) : (
                           <span className="flex items-center gap-1 text-xs text-amber-600 font-medium">
-                            <AlertCircle className="w-3 h-3" /> Not set
+                            <AlertCircle className="w-3 h-3" /> Pending
                           </span>
                         )}
                       </td>
                       <td className="px-6 py-4">
                         <div className="flex items-center justify-end gap-1.5">
-                          {d.is_custom && (
-                            <button onClick={() => handleCheckDns(d)} title="Check DNS"
-                              className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50 transition-colors">
-                              <Eye className="w-3.5 h-3.5" />
-                            </button>
+                          {d.is_custom  && (
+                            <>
+                              <button onClick={() => handleCheckDns(d)} title="DNS Status"
+                                className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50">
+                                <Eye className="w-3.5 h-3.5" />
+                              </button>
+                              <button onClick={async () => {
+                                setActionLoading(`ssl-${d.id}`)
+                                try { await checkSSLStatus(activeTenant, d.id); onDomainsChange?.() }
+                                catch (err) { alert(err.message) }
+                                finally { setActionLoading(null) }
+                              }} className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50" title="Check SSL">
+                                {actionLoading === `ssl-${d.id}` ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ShieldCheck className="w-3.5 h-3.5" />}
+                              </button>
+                            </>
                           )}
                           {d.is_custom && !d.is_verified && (
                             <button onClick={() => handleVerify(d.id)}
@@ -351,7 +399,9 @@ export default function DomainSettingsTab({
   )
 }
 
-// ─── Section Wrapper ────────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// Small Components
+// ═══════════════════════════════════════════════════════════════
 
 function Section({ icon: Icon, iconBg, iconColor, title, badge, children }) {
   return (
@@ -370,11 +420,40 @@ function Section({ icon: Icon, iconBg, iconColor, title, badge, children }) {
   )
 }
 
-// ─── DNS Status Modal ───────────────────────────────────────────
+function CheckBadge({ label, ok, bad }) {
+  return (
+    <div className={`flex items-center gap-2 px-3 py-2 rounded-lg border text-sm font-medium ${
+      bad ? 'bg-red-50 border-red-200 text-red-700'
+        : ok ? 'bg-green-50 border-green-200 text-green-700'
+        : 'bg-gray-50 border-gray-200 text-gray-500'
+    }`}>
+      {bad ? <XCircle className="w-4 h-4" />
+        : ok ? <CheckCircle2 className="w-4 h-4" />
+        : <Clock className="w-4 h-4" />}
+      <span className="text-xs">{label}</span>
+    </div>
+  )
+}
+
+function StatusRow({ label, ok, detail }) {
+  return (
+    <div className={`flex items-center gap-3 p-3 rounded-xl border ${ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
+      {ok ? <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" /> : <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
+      <div>
+        <p className={`text-sm font-medium ${ok ? 'text-green-900' : 'text-red-900'}`}>{label}</p>
+        <p className={`text-xs ${ok ? 'text-green-700' : 'text-red-700'}`}>{detail}</p>
+      </div>
+    </div>
+  )
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DNS Status Modal (now shows A/AAAA checks)
+// ═══════════════════════════════════════════════════════════════
 
 function DnsStatusModal({ domain, onClose }) {
   const result = domain.result
-  const dnsCheck = result?.dns_check
+  const dns = result?.dns_check
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
@@ -391,35 +470,60 @@ function DnsStatusModal({ domain, onClose }) {
           {domain.loading ? (
             <div className="flex items-center justify-center py-12">
               <Loader2 className="w-6 h-6 animate-spin text-[#8B1E3F]" />
-              <span className="ml-3 text-sm text-gray-500">Checking DNS records...</span>
+              <span className="ml-3 text-sm text-gray-500">Checking DNS…</span>
             </div>
           ) : domain.error ? (
             <div className="p-4 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">{domain.error}</div>
-          ) : dnsCheck ? (
+          ) : dns ? (
             <>
-              {/* TXT Status */}
-              <StatusRow label="TXT Verification" ok={dnsCheck.txt_found}
-                detail={dnsCheck.txt_found ? 'Ownership token found' : 'Token not found in TXT records'} />
-              {/* CNAME Status */}
-              <StatusRow label="CNAME Record" ok={dnsCheck.cname_correct}
-                detail={dnsCheck.cname_found
-                  ? `Points to: ${dnsCheck.details?.cname?.target || 'unknown'}`
+              {/* 4 checks */}
+              <StatusRow label="TXT Verification" ok={dns.checks?.txt_verified ?? dns.txt_found}
+                detail={dns.checks?.txt_verified || dns.txt_found ? 'Ownership token found' : 'Token not found'} />
+              <StatusRow label="CNAME Record" ok={dns.checks?.cname_correct ?? dns.cname_correct}
+                detail={dns.details?.cname?.found
+                  ? `Points to: ${dns.details.cname.target || 'unknown'}`
                   : 'No CNAME record found'} />
-              {/* Warnings */}
-              {dnsCheck.warnings?.map((w, i) => (
-                <div key={i} className="flex gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
-                  <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
-                  <p className="text-xs text-amber-700">{w}</p>
-                </div>
-              ))}
-              {/* Errors */}
-              {dnsCheck.errors?.map((e, i) => (
-                <div key={i} className="flex gap-2 p-3 rounded-xl bg-red-50 border border-red-200">
+              <StatusRow label="A Record (should be absent)"
+                ok={!(dns.checks?.a_record_present ?? dns.details?.a_record?.found)}
+                detail={dns.details?.a_record?.found
+                  ? `Found: ${dns.details.a_record.addresses?.join(', ')} — REMOVE THIS`
+                  : 'None found (good)'} />
+              <StatusRow label="AAAA Record (should be absent)"
+                ok={!(dns.checks?.aaaa_record_present ?? dns.details?.aaaa_record?.found)}
+                detail={dns.details?.aaaa_record?.found
+                  ? `Found: ${dns.details.aaaa_record.addresses?.join(', ')} — REMOVE THIS`
+                  : 'None found (good)'} />
+
+              {/* Overall */}
+              <div className={`p-3 rounded-xl border text-center text-sm font-bold ${
+                dns.dns_ready ? 'bg-green-50 border-green-200 text-green-700' : 'bg-red-50 border-red-200 text-red-700'
+              }`}>
+                {dns.dns_ready ? '✅ DNS Ready — Click Verify' : '❌ DNS Not Ready — Fix issues above'}
+              </div>
+
+              {/* Errors + Warnings + Next Steps */}
+              {dns.errors?.map((e, i) => (
+                <div key={`e${i}`} className="flex gap-2 p-3 rounded-xl bg-red-50 border border-red-200">
                   <XCircle className="w-4 h-4 text-red-600 flex-shrink-0 mt-0.5" />
                   <p className="text-xs text-red-700">{e}</p>
                 </div>
               ))}
-              {/* Expected Records */}
+              {dns.warnings?.map((w, i) => (
+                <div key={`w${i}`} className="flex gap-2 p-3 rounded-xl bg-amber-50 border border-amber-200">
+                  <AlertCircle className="w-4 h-4 text-amber-600 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-700">{w}</p>
+                </div>
+              ))}
+              {dns.next_steps?.length > 0 && (
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <p className="text-xs font-bold text-gray-500 uppercase mb-2">Fix steps:</p>
+                  {dns.next_steps.map((s, i) => (
+                    <p key={i} className="text-xs text-gray-700 mb-1">→ {s}</p>
+                  ))}
+                </div>
+              )}
+
+              {/* Expected records */}
               {result.expected_records?.length > 0 && (
                 <div>
                   <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Required DNS Records</p>
@@ -445,19 +549,9 @@ function DnsStatusModal({ domain, onClose }) {
   )
 }
 
-function StatusRow({ label, ok, detail }) {
-  return (
-    <div className={`flex items-center gap-3 p-3 rounded-xl border ${ok ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200'}`}>
-      {ok ? <CheckCircle2 className="w-5 h-5 text-green-600 flex-shrink-0" /> : <XCircle className="w-5 h-5 text-red-500 flex-shrink-0" />}
-      <div>
-        <p className={`text-sm font-medium ${ok ? 'text-green-900' : 'text-red-900'}`}>{label}</p>
-        <p className={`text-xs ${ok ? 'text-green-700' : 'text-red-700'}`}>{detail}</p>
-      </div>
-    </div>
-  )
-}
-
-// ─── Link Domain Modal ──────────────────────────────────────────
+// ═══════════════════════════════════════════════════════════════
+// Link Domain Modal
+// ═══════════════════════════════════════════════════════════════
 
 function LinkDomainModal({ activeTenant, onClose, onSuccess }) {
   const [domain, setDomain] = useState('')
@@ -467,16 +561,10 @@ function LinkDomainModal({ activeTenant, onClose, onSuccess }) {
 
   const handleLink = async () => {
     if (!domain.trim()) return
-    setLoading(true)
-    setError(null)
-    try {
-      const data = await linkCustomDomain(activeTenant, domain.trim())
-      setResult(data)
-    } catch (err) {
-      setError(err.data?.errors || [err.message])
-    } finally {
-      setLoading(false)
-    }
+    setLoading(true); setError(null)
+    try { setResult(await linkCustomDomain(activeTenant, domain.trim())) }
+    catch (err) { setError(err.data?.errors || [err.message]) }
+    finally { setLoading(false) }
   }
 
   return (
@@ -513,7 +601,7 @@ function LinkDomainModal({ activeTenant, onClose, onSuccess }) {
                   onChange={(e) => setDomain(e.target.value.toLowerCase().replace(/[^a-z0-9.-]/g, ''))}
                   placeholder="mybusiness.com" autoFocus
                   className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none text-sm font-mono" />
-                <p className="text-xs text-gray-500 mt-1.5">Enter without http:// or www</p>
+                <p className="text-xs text-gray-500 mt-1.5">Without http:// or www</p>
               </div>
               <div className="p-4 rounded-xl bg-blue-50 border border-blue-200">
                 <div className="flex gap-3">
@@ -521,7 +609,8 @@ function LinkDomainModal({ activeTenant, onClose, onSuccess }) {
                   <div>
                     <p className="text-sm font-bold text-blue-900 mb-1">Before you start</p>
                     <p className="text-xs text-blue-700 leading-relaxed">
-                      You'll need to add DNS records at your domain registrar (GoDaddy, Namecheap, Cloudflare, etc.)
+                      You'll add DNS records at your registrar (GoDaddy, Namecheap, Cloudflare, etc.).
+                      Make sure your nameservers are active — not "dns-parking".
                     </p>
                   </div>
                 </div>
@@ -534,37 +623,61 @@ function LinkDomainModal({ activeTenant, onClose, onSuccess }) {
                   <Check className="w-5 h-5 text-emerald-600" />
                   <p className="text-sm font-bold text-emerald-900">Domain Added!</p>
                 </div>
-                <p className="text-xs text-emerald-700">Configure these DNS records, then click Verify.</p>
+                <p className="text-xs text-emerald-700">Follow the steps below, then click Verify.</p>
               </div>
-              {result.is_root_domain && (
+
+              {/* Important notice */}
+              {result.important && (
                 <div className="p-3 rounded-xl bg-amber-50 border border-amber-200">
-                  <p className="text-xs text-amber-700">
-                    <strong>Root domain detected.</strong> Some DNS providers don't support CNAME on root domains.
-                    Use ALIAS/ANAME record instead, or use www.{result.domain}.
+                  <p className="text-xs text-amber-700"><strong>Important:</strong> {result.important}</p>
+                </div>
+              )}
+
+              {/* Root domain recommendation */}
+              {result.is_root_domain && result.recommended_domain && (
+                <div className="p-3 rounded-xl bg-blue-50 border border-blue-200">
+                  <p className="text-xs text-blue-700">
+                    <strong>Recommended:</strong> Use <code className="font-mono bg-blue-100 px-1 rounded">{result.recommended_domain}</code> for
+                    best compatibility. Set up a redirect from {result.domain} → {result.recommended_domain} at your registrar.
                   </p>
                 </div>
               )}
+
+              {/* Setup steps */}
+              {result.setup_steps?.length > 0 && (
+                <div className="bg-gray-50 rounded-xl p-4 border border-gray-200">
+                  <p className="text-xs font-bold text-gray-900 uppercase tracking-wider mb-3">Setup Steps</p>
+                  <ol className="space-y-2">
+                    {result.setup_steps.map((step, i) => (
+                      <li key={i} className="flex gap-2 text-sm text-gray-700">
+                        <span className="text-xs font-bold text-[#8B1E3F] mt-0.5 w-4 flex-shrink-0">{step.charAt(0)}</span>
+                        <span>{step.substring(2).trim()}</span>
+                      </li>
+                    ))}
+                  </ol>
+                </div>
+              )}
+
+              {/* DNS Records */}
               <div className="space-y-3">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider">DNS Records to Add</p>
                 {result.dns_records?.map((record, i) => (
-                  <div key={i} className="p-4 rounded-xl bg-gray-50 border border-gray-200">
+                  <div key={i} className="p-4 rounded-xl bg-white border border-gray-200 shadow-sm">
                     <div className="flex items-center gap-2 mb-2">
                       <span className="px-2 py-0.5 rounded text-[10px] font-bold bg-gray-200 text-gray-700">{record.type}</span>
                       <span className="text-xs text-gray-500">{record.purpose}</span>
-                      {record.status === 'required' && (
-                        <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">Required</span>
-                      )}
+                      <span className="px-1.5 py-0.5 rounded text-[10px] font-bold bg-red-100 text-red-700">Required</span>
                     </div>
                     <div className="space-y-1">
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500 w-12">Host:</span>
-                        <code className="text-xs font-mono bg-white px-2 py-1 rounded border flex-1 truncate">{record.host}</code>
+                        <code className="text-xs font-mono bg-gray-50 px-2 py-1 rounded border flex-1">{record.host}</code>
                       </div>
                       <div className="flex items-center gap-2">
                         <span className="text-xs text-gray-500 w-12">Value:</span>
-                        <code className="text-xs font-mono bg-white px-2 py-1 rounded border flex-1 truncate">{record.value}</code>
+                        <code className="text-xs font-mono bg-gray-50 px-2 py-1 rounded border flex-1">{record.value}</code>
                       </div>
                     </div>
-                    {record.note && <p className="text-[10px] text-gray-400 mt-2">{record.note}</p>}
                   </div>
                 ))}
               </div>

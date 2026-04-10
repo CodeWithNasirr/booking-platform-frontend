@@ -7,7 +7,7 @@ export function getTenantWebsiteUrl(tenant) {
   // 🌍 Custom domain (always direct)
   // -----------------------------
   if (primary.is_custom) {
-    return `https://${primary.domain}`;
+    return `https://www.${primary.domain}`;
   }
 
   // -----------------------------

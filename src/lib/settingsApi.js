@@ -121,6 +121,12 @@ export async function updateWebsiteSlug(tenantId, slug) {
   });
 }
 
+export async function checkSSLStatus(tenantId, domainId) {
+  return apiCall(`${API}/api/v1/tenant/settings/domain/${domainId}/ssl-status/`, {
+    headers: headers(tenantId),
+
+  });
+}
 // ── Template Rendering ──────────────────────────────────────────
 
 export function renderTemplate(template, data = {}) {

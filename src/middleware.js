@@ -222,11 +222,16 @@ export async function middleware(req) {
   ) {
     // Strip port if present
     const cleanHost = host.includes(":") ? host.split(":")[0] : host;
-
    
-    const domainForLookup = cleanHost.endsWith("." + MAIN_DOMAIN)
-      ? cleanHost.replace("." + MAIN_DOMAIN, "") // gptx.neoleap.ai → gptx
-      : cleanHost;
+    // 🔥 NORMALIZE DOMAIN (IMPORTANT FIX)
+    let domainForLookup = cleanHost
+      .replace(/^www\./, "")   // remove www
+      .replace(/:\d+$/, "")   // remove port
+
+    // If it's platform subdomain
+    if (domainForLookup.endsWith("." + MAIN_DOMAIN)) {
+      domainForLookup = domainForLookup.replace("." + MAIN_DOMAIN, "");
+    }
 
     try {
       const res = await fetch(

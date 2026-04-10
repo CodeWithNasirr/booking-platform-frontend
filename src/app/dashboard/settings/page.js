@@ -39,7 +39,7 @@ function getTenantWebsiteUrl(domains) {
 
   // 🌍 Custom domain
   if (primary.is_custom) {
-    return `https://${primary.domain}`;
+    return `https://www.${primary.domain}`;
   }
 
   // 🧪 Development
