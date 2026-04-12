@@ -37,7 +37,6 @@ export default function BillingSettings() {
     Authorization: `Bearer ${token}`,
     "X-Tenant": activeTenant,
     "Content-Type": "application/json",
-    credentials: "include",
 
   };
 
@@ -62,8 +61,8 @@ export default function BillingSettings() {
   const fetchData = useCallback(async () => {
     try {
       const [subRes, plansRes] = await Promise.all([
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/billing/my-subscription/`, { headers }),
-        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/billing/plans/`),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/billing/my-subscription/`, { headers,credentials: "include" }),
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/billing/plans/`, { headers,credentials: "include" }),
       ]);
 
       const subData = await subRes.json();

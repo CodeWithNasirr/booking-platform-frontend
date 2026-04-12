@@ -20,6 +20,8 @@ import {
   ExternalLink,
   LogOut,
   ShoppingBag,
+  MessageCircle,
+  Send,
 } from "lucide-react";
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
@@ -66,7 +68,9 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     },
     // { key: "tenant-chat", label: t("tenant.chat"), icon: MessageSquare },
     { key: "tenant-integrations", label: t("tenant.integrations"), icon: Zap },
-    { key: "tenant-marketing-integrations", label: t("tenant.marketing"), icon: ExternalLink },
+    { key: "tenant-whatsapp", label: "Manage WhatsApp", icon: MessageCircle },
+    { key: "tenant-campaigns", label: "Campaigns", icon: Send },
+    // { key: "tenant-marketing-integrations", label: t("tenant.marketing"), icon: ExternalLink },
     { key: "tenant-settings", label: t("tenant.settings"), icon: Settings },
   ];
 

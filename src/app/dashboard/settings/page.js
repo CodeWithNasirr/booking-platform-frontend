@@ -6,7 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/contexts/AppContext'
 import { fetchTenantSettings, updateTenantSettings } from '@/lib/settingsApi'
 import NotificationTabs from '@/components/dashboard/settings/NotificationTabs'
-import AppStoreTab from '@/components/dashboard/settings/AppStoreTab'
+// import AppStoreTab from '@/components/dashboard/settings/AppStoreTab'
 import DomainSettingsTab from '@/components/dashboard/settings/DomainSettingsTab'
 import TenantPermissionGate from '@/components/dashboard/TenantPermissionGate'
 
@@ -24,7 +24,7 @@ const TABS = [
   { key: 'business', label: 'Business Info', icon: Building2 },
   { key: 'billing', label: 'Billing & Plan', icon: CreditCard },
   { key: 'notifications', label: 'Notifications', icon: Bell },
-  { key: 'appstore', label: 'App Store', icon: Zap },
+  // { key: 'appstore', label: 'App Store', icon: Zap },
   { key: 'domain', label: 'Domain & Branding', icon: Globe },
   { key: 'language', label: 'Language & Region', icon: Languages },
 ]
@@ -39,7 +39,7 @@ function getTenantWebsiteUrl(domains) {
 
   // 🌍 Custom domain
   if (primary.is_custom) {
-    return `https://www.${primary.domain}`;
+    return `https://${primary.domain}`;
   }
 
   // 🧪 Development
