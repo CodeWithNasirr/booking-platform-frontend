@@ -599,7 +599,7 @@ export default function CreateCampaignPage() {
           ) : (
             <Send className="w-4 h-4" />
           )}
-          {editId ? 'Update & Send' : 'Send'}
+          {editId ? 'Update & Send' : 'Save & Schedule'}
         </button>
       </div>
     </div>

@@ -26,6 +26,7 @@ export default async function TenantHomePage(props ) {
   // Fetch all site data
   const { site, theme, sections, error, status } = await fetchSite(domain);
 
+  console.log("Fetched site data:", { site, theme, sections, error, status });
   // Handle errors
   if (error || !site) {
     if (status === 404) {

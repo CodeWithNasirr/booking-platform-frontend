@@ -11,13 +11,25 @@ export default function DashboardLayout({ children, pageName = "Dashboard" }) {
   const router = useRouter();
   const { user, loadingUser, requiresOnboarding, tenants, activeTenant } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [roleChecked, setRoleChecked] = useState(false); 
 
   useBlockBackNavigation(!!user);
 
-  // Auth guard
   useEffect(() => {
-    if (!loadingUser && !user) router.replace("/");
-  }, [loadingUser, user, router]);
+    if (loadingUser || !user || !tenants?.length) return;
+
+    const active = tenants.find(t => t.id === activeTenant) || tenants[0];
+
+    // 🚨 BLOCK NON-PROVIDER
+    if (active?.role !== "provider") {
+      router.replace("/dashboard"); // ✅ better redirect
+    } else {
+      setRoleChecked(true); // ✅ allow render
+    }
+
+  }, [loadingUser, user, tenants, activeTenant, router]);
+
+
 
   // Onboarding guard
   useEffect(() => {
@@ -25,6 +37,12 @@ export default function DashboardLayout({ children, pageName = "Dashboard" }) {
     const active = tenants.find(t => t.id === activeTenant) || tenants[0];
     router.replace(`/auth/onboarding?step=${active?.onboarding_step || 1}`);
   }, [requiresOnboarding, tenants, activeTenant, router]);
+
+
+  // 🚨 BLOCK UI RENDER
+  if (loadingUser || !roleChecked) {
+    return null; // ❌ NO UI FLASH
+  }
 
   if (loadingUser || requiresOnboarding) {
     return (

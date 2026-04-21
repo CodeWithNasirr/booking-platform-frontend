@@ -97,7 +97,7 @@ export async function fetchSite(domain) {
       {
         headers: {
           "Content-Type": "application/json",
-          // "X-Tenant-Domain": domain,
+          "X-Tenant-Domain": domain,
         },
         cache: "no-store", // SSR
       }

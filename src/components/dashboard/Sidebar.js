@@ -1,4 +1,4 @@
-// src/components/dashboard/Sidebar.js  (UPDATED with RBAC)
+// src/components/dashboard/Sidebar.js
 "use client";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -15,9 +15,7 @@ import {
   Globe,
   BarChart3,
   Settings,
-  MessageSquare,
   Zap,
-  ExternalLink,
   LogOut,
   ShoppingBag,
   MessageCircle,
@@ -27,7 +25,7 @@ import {
 export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { t, logout, isRTL, tenants, activeTenant } = useApp();
+  const { t, logout, isRTL, tenants, activeTenant, hasProviders } = useApp();
   const { hasFeature, loading: planLoading } = usePlan();
   const { canSeeSidebarItem, loading: rbacLoading } = useTenantRBAC();
 
@@ -52,11 +50,27 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const menuItems = [
     { key: "tenant-dashboard", label: t("dashboard.title"), icon: LayoutDashboard },
     { key: "tenant-services", label: t("tenant.services"), icon: Package },
-    { key: "tenant-providers", label: t("tenant.providers"), icon: Users },
+    {
+      key: "tenant-providers",
+      label: t("tenant.providers"),
+      icon: Users,
+      requiresProviders: true, // ← Only show for business tenants
+    },
     { key: "tenant-bookings", label: t("tenant.bookings"), icon: Calendar },
     { key: "tenant-orders", label: "Orders", icon: ShoppingBag },
-    { key: "tenant-users", label: "Team Members", icon: UsersRound },
+    {
+      key: "tenant-users",
+      label: "Team Members",
+      icon: UsersRound,
+      requiresProviders: true, // ← Only show for business tenants
+    },
     { key: "tenant-calendar", label: t("tenant.calendar"), icon: Calendar },
+    {
+      key: "tenant-schedule",
+      label: t("tenant.mySchedule") || "My Schedule",
+      icon: Calendar,
+      requiresIndividual: true, // ← Only show for individual owners
+    },
     { key: "tenant-customers", label: t("tenant.customers"), icon: UsersRound },
     { key: "tenant-finance", label: t("tenant.finance"), icon: DollarSign },
     { key: "tenant-website", label: t("tenant.website"), icon: Globe },
@@ -64,26 +78,28 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       key: "tenant-analytics",
       label: t("tenant.analytics"),
       icon: BarChart3,
-      featureCode: "analytics", // plan-gated
+      featureCode: "analytics",
     },
-    // { key: "tenant-chat", label: t("tenant.chat"), icon: MessageSquare },
     { key: "tenant-integrations", label: t("tenant.integrations"), icon: Zap },
     { key: "tenant-whatsapp", label: "Manage WhatsApp", icon: MessageCircle },
     { key: "tenant-campaigns", label: "Campaigns", icon: Send },
-    // { key: "tenant-marketing-integrations", label: t("tenant.marketing"), icon: ExternalLink },
     { key: "tenant-settings", label: t("tenant.settings"), icon: Settings },
   ];
 
-  // ── Two-layer gating: Plan features + RBAC permissions ──
+  // ── Three-layer gating: tenant type + plan features + RBAC ──
   const visibleItems = menuItems.filter((item) => {
-    // 1. Plan feature gate (e.g., analytics requires Professional plan)
+    // 0. Tenant type gate (individual vs business)
+    if (item.requiresProviders && !hasProviders) return false;
+    if (item.requiresIndividual && hasProviders) return false;
+
+    // 1. Plan feature gate
     if (item.featureCode) {
-      if (planLoading) return true; // show while loading
+      if (planLoading) return true;
       if (!hasFeature(item.featureCode)) return false;
     }
 
-    // 2. RBAC permission gate (e.g., sub_admin without bookings.view)
-    if (rbacLoading) return true; // show while loading
+    // 2. RBAC permission gate
+    if (rbacLoading) return true;
     if (!canSeeSidebarItem(item.key)) return false;
 
     return true;
@@ -104,8 +120,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
               <Package className="w-5 h-5 text-white" />
             </div>
             <div>
-              <div className="font-semibold text-gray-900">Tenant Admin</div>
-              <div className="text-xs text-gray-600">Business Manager</div>
+              <div className="font-semibold text-gray-900">
+                {hasProviders ? "Business Admin" : "Dashboard"}
+              </div>
+              <div className="text-xs text-gray-600">
+                {hasProviders ? "Business Manager" : "Manage your business"}
+              </div>
             </div>
           </div>
         </div>

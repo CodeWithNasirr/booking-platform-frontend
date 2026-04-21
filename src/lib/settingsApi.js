@@ -46,6 +46,7 @@ async function apiCall(url, options = {}) {
     const text = await res.text();
     console.error("❌ Non-JSON response:", text);
   }
+  // console.log("API Response:", { url, options, status: res.status, data });
 
   if (!res.ok) {
     const error = new Error(
@@ -75,6 +76,30 @@ export async function updateTenantSettings(tenantId, data) {
     body: JSON.stringify(data),
   });
 }
+
+
+export async function fetchLocaleSettings(tenantId) {
+    return apiCall(`${API}/api/v1/tenant/settings/locale/`, {
+    headers: headers(tenantId),
+    
+  });
+}
+
+export async function fetchLocaleOptions(tenantId) {
+  return apiCall(`${API}/api/v1/tenant/settings/locale/options/`, {
+    headers: headers(tenantId),
+  });
+  
+}
+
+export async function updateLocaleSettings(tenantId, payload) {
+  return apiCall(`${API}/api/v1/tenant/settings/locale/update/`, {
+    method: "PATCH",
+    headers: headers(tenantId),
+    body: JSON.stringify(payload),
+  });
+}
+
 
 // ── Domain Management ───────────────────────────────────────────
 

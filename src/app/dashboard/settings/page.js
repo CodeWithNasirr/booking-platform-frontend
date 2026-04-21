@@ -4,7 +4,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/contexts/AppContext'
-import { fetchTenantSettings, updateTenantSettings } from '@/lib/settingsApi'
+import { fetchTenantSettings, updateTenantSettings,fetchLocaleSettings, fetchLocaleOptions, updateLocaleSettings } from '@/lib/settingsApi'
 import NotificationTabs from '@/components/dashboard/settings/NotificationTabs'
 // import AppStoreTab from '@/components/dashboard/settings/AppStoreTab'
 import DomainSettingsTab from '@/components/dashboard/settings/DomainSettingsTab'
@@ -60,6 +60,24 @@ export default function TenantSettingsPage() {
 
   const initialTab = searchParams.get('tab') || 'business'
 
+
+  // Inside TenantSettingsPage — add alongside existing state
+  const [localeSettings, setLocaleSettings] = useState({
+    default_language: 'en',
+    timezone: 'UTC',
+    default_currency: 'SAR',
+    supported_languages: [],
+  })
+  const [localeOptions, setLocaleOptions] = useState({
+    languages: [],
+    timezones: [],
+    currencies: [],
+  })
+  const [localeLoading, setLocaleLoading] = useState(false)
+  const [localeSaving, setLocaleSaving] = useState(false)
+  const [localeSaveStatus, setLocaleSaveStatus] = useState(null) // 'success' | 'error' | null
+  const [localeErrors, setLocaleErrors] = useState({})
+
   // ── Core state ──
   const [activeTab, setActiveTab] = useState(initialTab)
   const [settings, setSettings] = useState(null)
@@ -95,25 +113,35 @@ export default function TenantSettingsPage() {
     window.history.replaceState(null, '', `${window.location.pathname}?${params.toString()}`)
   }, [activeTab])
 
-  // ── Load settings from API ──
+  // ── Load settings from API — seed locale from main settings response ──
   const loadSettings = useCallback(async () => {
     if (!activeTenant) return
     try {
       setLoading(true)
       const data = await fetchTenantSettings(activeTenant)
+      console.log("Fetched tenant settings:", data)
       setSettings(data)
       setBusinessInfo(data.business_info || {})
       setNotificationRules(data.notification_rules || [])
       setIntegrations(data.integrations || {})
       setBranding(data.branding || { primary_color: '#8B1E3F', secondary_color: '#10B981' })
-      setDomains(data.domains || [])
-      const domainsData = data.domains || [];
-      setDomains(domainsData);
-      // ✅ compute correct URL
-      const computedUrl = getTenantWebsiteUrl(domainsData);
 
-      setWebsiteUrl(computedUrl || '');
+      const domainsData = data.domains || []
+      setDomains(domainsData)
+      setWebsiteUrl(getTenantWebsiteUrl(domainsData) || '')
       setTenantData(data.tenant || {})
+
+      // ── Seed locale from tenant data in the main response ──
+      // This prevents sending stale defaults if user switches to language tab quickly
+      if (data.tenant) {
+        setLocaleSettings(prev => ({
+          ...prev,
+          default_language:    data.tenant.default_language || 'en',
+          timezone:            data.tenant.timezone         || 'UTC',
+          default_currency:    data.tenant.default_currency || 'USD',
+          supported_languages: data.tenant.supported_languages || [],
+        }))
+      }
     } catch (err) {
       console.error('Failed to load settings:', err)
       setError('Failed to load settings')
@@ -126,6 +154,52 @@ export default function TenantSettingsPage() {
     loadSettings()
   }, [loadSettings])
 
+
+  // ── Load locale options + fresh locale values when tab opens ──
+  useEffect(() => {
+    if (activeTab !== 'language' || !activeTenant) return
+    if (localeOptions.languages.length > 0) return // already loaded
+
+    setLocaleLoading(true)
+    Promise.all([
+      fetchLocaleSettings(activeTenant),   // fresh values from DB
+      fetchLocaleOptions(activeTenant),    // dropdown options
+    ])
+      .then(([locale, options]) => {
+        setLocaleSettings(locale)          // overwrite with real DB values
+        setLocaleOptions(options)
+      })
+      .catch(console.error)
+      .finally(() => setLocaleLoading(false))
+  }, [activeTab, activeTenant])
+
+
+  // Add save handler
+  const handleSaveLocale = async () => {
+    setLocaleSaving(true)
+    setLocaleSaveStatus(null)
+    setLocaleErrors({})
+    try {
+      const updated = await updateLocaleSettings(activeTenant, localeSettings)
+      setLocaleSettings(updated)
+      setLocaleSaveStatus('success')
+      // Also update AppContext language so UI reflects immediately
+      if (updated.default_language !== language) {
+        setLanguage(updated.default_language)
+      }
+      setTimeout(() => setLocaleSaveStatus(null), 2500)
+    } catch (err) {
+      if (err && typeof err === 'object') {
+        setLocaleErrors(err) // field-level errors from DRF
+      }
+      setLocaleSaveStatus('error')
+    } finally {
+      setLocaleSaving(false)
+    }
+  }
+
+
+
   // ── Save handler ──
   const handleSave = async (section, data) => {
     setSaving(true)
@@ -134,6 +208,9 @@ export default function TenantSettingsPage() {
       const payload = { [section]: data }
       const updated = await updateTenantSettings(activeTenant, payload)
       setSettings((prev) => ({ ...prev, ...updated }))
+      if (updated.business_info) {
+        setBusinessInfo(updated.business_info)
+      }
       setSaveStatus('success')
       setTimeout(() => setSaveStatus(null), 2000)
     } catch (err) {
@@ -271,8 +348,19 @@ export default function TenantSettingsPage() {
             )}
 
             {/* ═══ LANGUAGE ═══ */}
+          
             {activeTab === 'language' && (
-              <LanguageTab language={language} setLanguage={setLanguage} />
+              <LanguageTab
+                settings={localeSettings}
+                options={localeOptions}
+                onChange={setLocaleSettings}
+                onSave={handleSaveLocale}
+                saving={localeSaving}
+                saveStatus={localeSaveStatus}
+                errors={localeErrors}
+                loading={localeLoading}
+                disabled={localeLoading || localeOptions.languages.length === 0}
+              />
             )}
           </div>
         </div>
@@ -347,34 +435,268 @@ function BusinessInfoTab({ data, onChange, onSave, saving }) {
 }
 
 
-function LanguageTab({ language, setLanguage }) {
+// src/app/dashboard/settings/page.js — LanguageTab component
+
+function LanguageTab({ settings, options, onChange, onSave, saving, saveStatus, errors, loading, disabled }) {
+  const update = (field, value) => onChange(prev => ({ ...prev, [field]: value }))
+
+  const toggleSupportedLang = (code) => {
+    const current = settings.supported_languages || []
+    const next = current.includes(code)
+      ? current.filter(c => c !== code)
+      : [...current, code]
+    // Always ensure default_language is in supported list
+    if (!next.includes(settings.default_language)) {
+      next.push(settings.default_language)
+    }
+    update('supported_languages', next)
+  }
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-20">
+        <Loader2 className="w-6 h-6 animate-spin text-[#8B1E3F]" />
+      </div>
+    )
+  }
+
+  const { languages = [], timezones = [], currencies = [] } = options
+
+  // Find current timezone label for display
+  const currentTz = timezones.find(t => t.value === settings.timezone)
+  const currentCurrency = currencies.find(c => c.code === settings.default_currency)
+
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-bold text-gray-900 mb-4">Language Preferences</h3>
-        <div className="space-y-4">
+    <div className="space-y-8">
+
+      {/* ── Section: Language ─────────────────────────────────────────── */}
+      <section>
+        <div className="mb-5">
+          <h3 className="text-base font-bold text-gray-900">Language</h3>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Controls the default language for your tenant site and dashboard.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          {/* Default language */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">Default Language</label>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              Default Language
+            </label>
             <select
-              value={language}
-              onChange={(e) => setLanguage(e.target.value)}
-              className="w-full md:w-1/2 px-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none transition-all bg-white"
+              value={settings.default_language}
+              onChange={e => {
+                const code = e.target.value
+
+                onChange(prev => {
+                  const supported = prev.supported_languages || []
+
+                  return {
+                    ...prev,
+                    default_language: code,
+                    supported_languages: supported.includes(code)
+                      ? supported
+                      : [...supported, code]
+                  }
+                })
+              }}
+              className={`w-full px-4 py-3 rounded-xl border bg-white outline-none transition-all
+                focus:ring-2 focus:ring-[#8B1E3F]/20 focus:border-[#8B1E3F]
+                ${errors.default_language ? 'border-red-400' : 'border-gray-300'}`}
             >
-              <option value="en">English</option>
-              <option value="ar">العربية (Arabic)</option>
-              <option value="ur">اردو (Urdu)</option>
+              {languages.map(lang => (
+                <option key={lang.code} value={lang.code}>
+                  {lang.native} — {lang.label}
+                </option>
+              ))}
             </select>
+            {errors.default_language && (
+              <p className="mt-1 text-xs text-red-500">{errors.default_language}</p>
+            )}
           </div>
+
+          {/* Supported languages */}
           <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">Timezone</label>
-            <select className="w-full md:w-1/2 px-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none transition-all bg-white">
-              <option>Eastern Time (ET) - UTC-5</option>
-              <option>Central Time (CT) - UTC-6</option>
-              <option>Pacific Time (PT) - UTC-8</option>
-              <option>Asia/Riyadh - UTC+3</option>
-              <option>Asia/Kolkata - UTC+5:30</option>
-            </select>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              Additional Languages
+              <span className="font-normal text-gray-500 ml-1">(shown on your site)</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {languages.map(lang => {
+                const isDefault = lang.code === settings.default_language
+                const isActive = (settings.supported_languages || []).includes(lang.code)
+
+                return (
+                  <button
+                    key={lang.code}
+                    type="button"
+                    disabled={isDefault}
+                    onClick={() => !isDefault && toggleSupportedLang(lang.code)}
+                    title={isDefault ? 'Default language is always included' : undefined}
+                    className={`px-3 py-1.5 rounded-lg text-sm font-medium border transition-all
+                      ${isDefault
+                        ? 'bg-[#8B1E3F]/10 border-[#8B1E3F]/30 text-[#8B1E3F] cursor-default'
+                        : isActive
+                        ? 'bg-[#8B1E3F] border-[#8B1E3F] text-white'
+                        : 'bg-white border-gray-300 text-gray-600 hover:border-[#8B1E3F]/40'
+                      }`}
+                  >
+                    {lang.native}
+                    {isDefault && (
+                      <span className="ml-1 text-[10px] opacity-70">default</span>
+                    )}
+                  </button>
+                )
+              })}
+            </div>
+            {errors.supported_languages && (
+              <p className="mt-1 text-xs text-red-500">{errors.supported_languages}</p>
+            )}
           </div>
+        </div>
+      </section>
+
+      <div className="border-t border-gray-100" />
+
+      {/* ── Section: Timezone ─────────────────────────────────────────── */}
+      <section>
+        <div className="mb-5">
+          <h3 className="text-base font-bold text-gray-900">Timezone</h3>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Used for booking slots, scheduling, and all time displays across your platform.
+            <span className="text-amber-600 font-medium ml-1">
+              Changing this affects all future booking calculations.
+            </span>
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              Tenant Timezone
+            </label>
+            <select
+              value={settings.timezone}
+              onChange={e => update('timezone', e.target.value)}
+              className={`w-full px-4 py-3 rounded-xl border bg-white outline-none transition-all
+                focus:ring-2 focus:ring-[#8B1E3F]/20 focus:border-[#8B1E3F]
+                ${errors.timezone ? 'border-red-400' : 'border-gray-300'}`}
+            >
+              {timezones.map(tz => (
+                <option key={tz.value} value={tz.value}>
+                  {tz.label}
+                </option>
+              ))}
+            </select>
+            {errors.timezone && (
+              <p className="mt-1 text-xs text-red-500">{errors.timezone}</p>
+            )}
+          </div>
+
+          {/* Current offset preview */}
+          {currentTz && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 border border-gray-200 self-end">
+              <div className="w-9 h-9 rounded-full bg-[#8B1E3F]/10 flex items-center justify-center flex-shrink-0">
+                <Globe className="w-4 h-4 text-[#8B1E3F]" />
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">
+                  {currentTz.value.replace(/_/g, ' ')}
+                </p>
+                <p className="text-xs text-gray-500">{currentTz.offset}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      <div className="border-t border-gray-100" />
+
+      {/* ── Section: Currency ─────────────────────────────────────────── */}
+      <section>
+        <div className="mb-5">
+          <h3 className="text-base font-bold text-gray-900">Currency</h3>
+          <p className="text-sm text-gray-500 mt-0.5">
+            Default currency for pricing, invoices, and payment processing.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              Default Currency
+            </label>
+            <select
+              value={settings.default_currency}
+              onChange={e => update('default_currency', e.target.value)}
+              className={`w-full px-4 py-3 rounded-xl border bg-white outline-none transition-all
+                focus:ring-2 focus:ring-[#8B1E3F]/20 focus:border-[#8B1E3F]
+                ${errors.default_currency ? 'border-red-400' : 'border-gray-300'}`}
+            >
+              {currencies.map(c => (
+                <option key={c.code} value={c.code}>
+                  {c.symbol} {c.code} — {c.label}
+                </option>
+              ))}
+            </select>
+            {errors.default_currency && (
+              <p className="mt-1 text-xs text-red-500">{errors.default_currency}</p>
+            )}
+          </div>
+
+          {/* Currency preview */}
+          {currentCurrency && (
+            <div className="flex items-center gap-3 p-4 rounded-xl bg-gray-50 border border-gray-200 self-end">
+              <div className="w-9 h-9 rounded-full bg-[#8B1E3F]/10 flex items-center justify-center flex-shrink-0 text-[#8B1E3F] font-bold text-sm">
+                {currentCurrency.symbol}
+              </div>
+              <div>
+                <p className="text-sm font-semibold text-gray-900">{currentCurrency.label}</p>
+                <p className="text-xs text-gray-500">{currentCurrency.code}</p>
+              </div>
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* ── Save bar ──────────────────────────────────────────────────── */}
+      <div className="flex items-center justify-between pt-6 border-t border-[#8B1E3F]/10">
+        <div>
+          {saveStatus === 'success' && (
+            <span className="flex items-center gap-1.5 text-sm text-emerald-600 font-medium">
+              <Check className="w-4 h-4" /> Saved successfully
+            </span>
+          )}
+          {saveStatus === 'error' && (
+            <span className="flex items-center gap-1.5 text-sm text-red-600 font-medium">
+              <AlertCircle className="w-4 h-4" /> Save failed — check errors above
+            </span>
+          )}
+        </div>
+
+        <div className="flex gap-3">
+          <button
+            type="button"
+            onClick={() => onChange(prev => ({ ...prev }))} // no-op cancel (could reset)
+            className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all"
+          >
+            Cancel
+          </button>
+          <button
+          type="button"
+          onClick={onSave}
+          disabled={saving || disabled}   // ← add disabled here
+          className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white
+            bg-gradient-to-br from-[#8B1E3F] to-[#6B1630] hover:opacity-90
+            transition-all shadow-md disabled:opacity-50 font-medium"
+        >
+          {saving
+            ? <Loader2 className="w-4 h-4 animate-spin" />
+            : <Save className="w-4 h-4" />
+          }
+          Save Changes
+        </button>
         </div>
       </div>
     </div>

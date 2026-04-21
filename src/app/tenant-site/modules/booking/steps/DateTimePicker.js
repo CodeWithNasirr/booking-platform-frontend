@@ -1,167 +1,223 @@
-// =============================================================================
-// DATE TIME PICKER COMPONENT
-// =============================================================================
+// src/app/tenant-site/modules/booking/DateTimePicker.js
 "use client";
 
-import { useState, useEffect } from "react";
-import { resolveTranslated } from "../../../[domain]/utils/resolveTranslated";
+import { useState, useEffect, useMemo } from "react";
 
-import { formatTime } from "../utils/time";
+import resolveTranslated from "@/app/tenant-site/[domain]/utils/resolveTranslated";
 
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+// ─── Pure helpers — NO Date objects, NO timezone conversions ──────────────────
+
+/**
+ * Returns today's date in the given IANA timezone as "YYYY-MM-DD".
+ * This is the ONLY place we touch Intl/timezone for dates.
+ */
+function getTodayStr(timezone) {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone: timezone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(new Date()); // new Date() = "right now in UTC" — safe
+}
+
+/**
+ * Returns "YYYY-MM-DD" for a given year/month(0-indexed)/day.
+ * Pure string arithmetic — no Date, no timezone.
+ */
+function toDateStr(year, month, day) {
+  const mm = String(month + 1).padStart(2, "0");
+  const dd = String(day).padStart(2, "0");
+  return `${year}-${mm}-${dd}`;
+}
+
+/**
+ * Returns the day-of-week (0=Sun … 6=Sat) for the 1st of year/month.
+ * Uses Date.UTC so it's always Gregorian calendar, TZ-independent.
+ */
+function firstDayOfWeek(year, month) {
+  return new Date(Date.UTC(year, month, 1)).getUTCDay();
+}
+
+/**
+ * Returns the number of days in year/month.
+ */
+function daysInMonth(year, month) {
+  return new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+}
+
+/** "2024-01" from year/month */
+function monthLabel(year, month, lang) {
+  // Safe: Date.UTC gives a fixed point in time, getUTCFullYear/Month are TZ-free
+  const d = new Date(Date.UTC(year, month, 1));
+  const locale = lang === "ar" ? "ar-SA" : lang === "ur" ? "ur-PK" : "en-US";
+  return d.toLocaleDateString(locale, { month: "long", year: "numeric" });
+}
+
+/** Parse "HH:MM" → "h:MM AM/PM" */
+function formatTime(timeStr) {
+  if (!timeStr) return "";
+  if (timeStr.includes("AM") || timeStr.includes("PM")) return timeStr;
+  const [hStr, mStr] = timeStr.split(":");
+  const h = parseInt(hStr, 10);
+  const ampm = h >= 12 ? "PM" : "AM";
+  const h12 = h % 12 || 12;
+  return `${h12}:${mStr} ${ampm}`;
+}
+
+/**
+ * Format a "YYYY-MM-DD" string for display.
+ * We use Date.UTC so the Intl formatter works from a fixed UTC point,
+ * then output in the tenant timezone. Safe: no local-midnight ambiguity.
+ */
+function formatDateStr(dateStr, lang, timezone) {
+  if (!dateStr) return "";
+  const [y, m, d] = dateStr.split("-").map(Number);
+  const locale = lang === "ar" ? "ar-SA" : lang === "ur" ? "ur-PK" : "en-US";
+  return new Intl.DateTimeFormat(locale, {
+    timeZone: timezone,
+    weekday: "short",
+    month: "short",
+    day: "numeric",
+    year: "numeric",
+  }).format(new Date(Date.UTC(y, m - 1, d)));
+}
+
+// ─── Component ────────────────────────────────────────────────────────────────
 
 export default function DateTimePicker({
-  tenantId,
   domain,
   service,
   staff,
-  selectedDate,
-  selectedTime,
-  onDateSelect,
-  onTimeSelect,
+  selectedDate,   // string "YYYY-MM-DD" | null
+  selectedTime,   // string "HH:MM" | null
+  onDateSelect,   // (dateStr: string) => void
+  onTimeSelect,   // (timeStr: string) => void
+  timezone,       // tenant IANA timezone string
   theme,
   lang,
   isRTL,
 }) {
-  const [currentMonth, setCurrentMonth] = useState(new Date());
-  const [availableSlots, setAvailableSlots] = useState([]);
-  const [isLoadingSlots, setIsLoadingSlots] = useState(false);
-  const [closedDates, setClosedDates] = useState({});
+  // ── Today as a string in tenant TZ ──────────────────────────────────────
+  const todayStr = useMemo(() => getTodayStr(timezone), [timezone]);
+  const [todayYear, todayMonth] = todayStr.split("-").map(Number);
 
-  const API_BASE =
-  process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
-  // Generate calendar days
-  const generateCalendarDays = () => {
-    const year = currentMonth.getFullYear();
-    const month = currentMonth.getMonth();
-    
-    const firstDay = new Date(year, month, 1);
-    const lastDay = new Date(year, month + 1, 0);
-    const startPadding = firstDay.getDay();
-    
-    const days = [];
-    
-    // Previous month padding
-    for (let i = 0; i < startPadding; i++) {
-      days.push({ date: null, disabled: true });
+  // ── Current month as plain integers ─────────────────────────────────────
+  const [calYear,  setCalYear]  = useState(todayYear);
+  const [calMonth, setCalMonth] = useState(todayMonth - 1); // 0-indexed
+
+  // ── Slot state ───────────────────────────────────────────────────────────
+  const [availableSlots,  setAvailableSlots]  = useState([]);
+  const [isLoadingSlots,  setIsLoadingSlots]  = useState(false);
+  const [closedDates,     setClosedDates]     = useState({});  // dateStr → reason | true
+
+  // ── Generate calendar days as plain objects ──────────────────────────────
+  const calendarDays = useMemo(() => {
+    const padding  = firstDayOfWeek(calYear, calMonth); // Sun=0
+    const numDays  = daysInMonth(calYear, calMonth);
+    const days     = [];
+
+    for (let i = 0; i < padding; i++) {
+      days.push(null); // empty cell
     }
-    
-    // Current month days
-    const today = new Date();
-    today.setHours(0, 0, 0, 0);
-    
-    for (let d = 1; d <= lastDay.getDate(); d++) {
-      const date = new Date(year, month, d);
-      const isPast = date < today;
-      // const isSunday = date.getDay() === 0; // Example: closed on Sundays
-      
-    const dateStr = date
-        ? toYMD(date)
-        : null;
 
+    for (let d = 1; d <= numDays; d++) {
+      const dateStr = toDateStr(calYear, calMonth, d);
       days.push({
-        date,
-        day: d,
         dateStr,
-        disabled: isPast,
+        day: d,
+        isPast:   dateStr < todayStr,
+        isToday:  dateStr === todayStr,
         isClosed: !!closedDates[dateStr],
-        isToday: date.getTime() === today.getTime(),
+        closedReason: closedDates[dateStr] || null,
+      });
+    }
+
+    return days;
+  }, [calYear, calMonth, todayStr, closedDates]);
+
+  // ── Month navigation — pure arithmetic ──────────────────────────────────
+  function goPrevMonth() {
+    if (calMonth === 0) {
+      setCalYear(y => y - 1);
+      setCalMonth(11);
+    } else {
+      setCalMonth(m => m - 1);
+    }
+  }
+
+  function goNextMonth() {
+    if (calMonth === 11) {
+      setCalYear(y => y + 1);
+      setCalMonth(0);
+    } else {
+      setCalMonth(m => m + 1);
+    }
+  }
+
+  // ── Fetch slots when selectedDate changes ────────────────────────────────
+  useEffect(() => {
+    if (!selectedDate || !service) {
+      setAvailableSlots([]);
+      return;
+    }
+
+    // Already known as closed — no need to fetch
+    if (closedDates[selectedDate]) {
+      setAvailableSlots([]);
+      return;
+    }
+
+    let cancelled = false;
+    setIsLoadingSlots(true);
+
+    const providerParam = staff?.id ? `&provider=${staff.id}` : "";
+    // date is already "YYYY-MM-DD" — backend interprets it in tenant TZ
+    fetch(
+      `${API_BASE}/api/v1/booking/slots/?service=${service.id}&date=${selectedDate}${providerParam}`,
+      { headers: { "Content-Type": "application/json", "X-Tenant": domain } }
+    )
+      .then(r => r.json())
+      .then(data => {
+        if (cancelled) return;
+        const slots = data.slots || [];
+        setAvailableSlots(slots);
+
+        // Mark date as closed if no slots at all
+        if (slots.length === 0) {
+          setClosedDates(prev => ({ ...prev, [selectedDate]: true }));
+          return;
+        }
+
+        // Mark as "no staff" if every slot is provider_unavailable
+        const allNoStaff = slots.every(
+          s => !s.available && s.reason === "provider_unavailable"
+        );
+        if (allNoStaff) {
+          setClosedDates(prev => ({ ...prev, [selectedDate]: "provider_unavailable" }));
+        }
+      })
+      .catch(() => {
+        if (!cancelled) setAvailableSlots([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsLoadingSlots(false);
       });
 
-    }
-    
-    return days;
-  };
+    return () => { cancelled = true; };
+  }, [selectedDate, service?.id, staff?.id, domain]); // NOT timezone — intentional
 
-  const calendarDays = generateCalendarDays();
-  const weekDays = isRTL 
+  // ── Render ───────────────────────────────────────────────────────────────
+  const weekDayLabels = isRTL
     ? ["Sat", "Fri", "Thu", "Wed", "Tue", "Mon", "Sun"]
     : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
-  function toYMD(date) {
-      return [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, "0"),
-        String(date.getDate()).padStart(2, "0"),
-      ].join("-");
-    }
-
-  useEffect(() => {
-    async function fetchSlots() {
-      if (!selectedDate || !service) return;
-
-      const dateStr = toYMD(selectedDate);
-
-      if (closedDates[dateStr]) {
-        // This date is already known to have no slots
-        setAvailableSlots([]);
-        return;
-      }
-
-      setIsLoadingSlots(true);
-
-      try {
-        const providerParam = staff ? `&provider=${staff.id}` : "";
-        const res = await fetch(
-          `${API_BASE}/api/v1/booking/slots/?service=${service.id}&date=${dateStr}${providerParam}`,
-          {
-            headers: {
-              "Content-Type": "application/json",
-              "X-Tenant": domain,
-            },
-          }
-        );
-
-        const data = await res.json();
-        console.log(data)
-        const slots = data.slots || [];
-
-        setAvailableSlots(slots);
-
-        // 👇 MARK DATE AS CLOSED IF NO SLOTS
-        if (slots.length === 0) {
-          setClosedDates(prev => ({
-            ...prev,
-            [dateStr]: true,
-          }));
-        }
-      } catch (e) {
-        console.error(e);
-        setAvailableSlots([]);
-      } finally {
-        setIsLoadingSlots(false);
-      }
-    }
-    
-    fetchSlots();
-  }, [selectedDate, service, staff]);
-
-
-
-
-  const prevMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1));
-  };
-
-  const nextMonth = () => {
-    setCurrentMonth(new Date(currentMonth.getFullYear(), currentMonth.getMonth() + 1, 1));
-  };
-
-  const formatMonthYear = (date) => {
-    return date.toLocaleDateString(lang === "ar" ? "ar-SA" : lang === "ur" ? "ur-PK" : "en-US", {
-      month: "long",
-      year: "numeric",
-    });
-  };
-
-  const isDateSelected = (date) => {
-    if (!date || !selectedDate) return false;
-    return date.toDateString() === selectedDate.toDateString();
-  };
+  const primaryColor = theme?.primary_color || "#3B82F6";
 
   return (
     <div className="p-6">
-      {/* Service Summary */}
+      {/* Service summary */}
       <div className="bg-gray-50 rounded-xl p-4 mb-6">
         <p className="text-sm text-gray-500">
           {resolveTranslated({ en: "Selected Service", ar: "الخدمة المختارة", ur: "منتخب سروس" }, lang)}
@@ -177,128 +233,155 @@ export default function DateTimePicker({
       </div>
 
       <div className="grid md:grid-cols-2 gap-8">
-        {/* Calendar */}
+        {/* ── Calendar ── */}
         <div>
           <h3 className="text-lg font-bold text-gray-900 mb-4">
             {resolveTranslated({ en: "Select Date", ar: "اختر التاريخ", ur: "تاریخ منتخب کریں" }, lang)}
           </h3>
 
-          {/* Month Navigation */}
+          {/* Month navigation */}
           <div className={`flex items-center justify-between mb-4 ${isRTL ? "flex-row-reverse" : ""}`}>
             <button
-              onClick={prevMonth}
+              onClick={goPrevMonth}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Previous month"
             >
-              <svg className={`w-5 h-5 ${isRTL ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-              </svg>
+              <ChevronLeft className={`w-5 h-5 ${isRTL ? "rotate-180" : ""}`} />
             </button>
-            
+
             <h4 className="font-semibold text-gray-900">
-              {formatMonthYear(currentMonth)}
+              {monthLabel(calYear, calMonth, lang)}
             </h4>
-            
+
             <button
-              onClick={nextMonth}
+              onClick={goNextMonth}
               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
+              aria-label="Next month"
             >
-              <svg className={`w-5 h-5 ${isRTL ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-              </svg>
+              <ChevronRight className={`w-5 h-5 ${isRTL ? "rotate-180" : ""}`} />
             </button>
           </div>
 
-          {/* Week Days Header */}
-          <div className="grid grid-cols-7 gap-1 mb-2">
-            {weekDays.map((day) => (
-              <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">
-                {day}
+          {/* Week day headers */}
+          <div className="grid grid-cols-7 gap-1 mb-1">
+            {weekDayLabels.map(d => (
+              <div key={d} className="text-center text-xs font-medium text-gray-400 py-1">
+                {d}
               </div>
             ))}
           </div>
 
-          {/* Calendar Grid */}
+          {/* Day grid */}
           <div className="grid grid-cols-7 gap-1">
-            {calendarDays.map((dayObj) => (
-              <button
-                key={dayObj.dateStr || `empty-${Math.random()}`}
-                disabled={dayObj.disabled}
-                onClick={() => dayObj.date && onDateSelect(dayObj.date)}
-                className={`
-                  relative aspect-square rounded-lg text-sm font-medium
-                  ${dayObj.disabled ? "text-gray-300 cursor-not-allowed" : "hover:bg-gray-100"}
-                  ${isDateSelected(dayObj.date) ? "text-white" : ""}
-                `}
-                style={{
-                  backgroundColor: isDateSelected(dayObj.date)
-                    ? theme.primary_color || "#3B82F6"
-                    : undefined,
-                }}
-              >
-                {dayObj.day}
+            {calendarDays.map((dayObj, idx) => {
+              if (!dayObj) {
+                // Empty cell
+                return <div key={`empty-${idx}`} />;
+              }
 
-                {dayObj.isClosed && (
-                  <span className="absolute bottom-1 left-1 right-1 text-[10px] bg-red-100 text-red-600 rounded">
-                    Closed
-                  </span>
-                )}
-              </button>
-            ))}
+              const { dateStr, day, isPast, isToday, isClosed, closedReason } = dayObj;
+              const isSelected = dateStr === selectedDate;
+              const isDisabled = isPast;
 
+              return (
+                <button
+                  key={dateStr}
+                  disabled={isDisabled}
+                  onClick={() => !isDisabled && onDateSelect(dateStr)}
+                  className={[
+                    "relative aspect-square rounded-lg text-sm font-medium transition-colors",
+                    isDisabled
+                      ? "text-gray-300 cursor-not-allowed"
+                      : isSelected
+                      ? "text-white"
+                      : isToday
+                      ? "ring-2 ring-offset-1 hover:bg-gray-100"
+                      : "hover:bg-gray-100 text-gray-700",
+                  ].join(" ")}
+                  style={{
+                    backgroundColor: isSelected ? primaryColor : undefined,
+                    ringColor: isToday && !isSelected ? primaryColor : undefined,
+                  }}
+                >
+                  {day}
+
+                  {isClosed && !isDisabled && (
+                    <span
+                      className={`
+                        absolute bottom-0.5 left-0.5 right-0.5 text-[9px] rounded leading-tight
+                        ${closedReason === "provider_unavailable"
+                          ? "bg-orange-100 text-orange-600"
+                          : "bg-red-100 text-red-600"}
+                      `}
+                    >
+                      {closedReason === "provider_unavailable"
+                        ? resolveTranslated({ en: "No staff", ar: "لا موظف", ur: "عملہ نہیں" }, lang)
+                        : resolveTranslated({ en: "Closed", ar: "مغلق", ur: "بند" }, lang)}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
         </div>
 
-        {/* Time Slots */}
+        {/* ── Time slots ── */}
         <div>
           <h3 className="text-lg font-bold text-gray-900 mb-4">
             {resolveTranslated({ en: "Select Time", ar: "اختر الوقت", ur: "وقت منتخب کریں" }, lang)}
           </h3>
 
           {!selectedDate ? (
-            <div className="text-center py-12 text-gray-400">
-              <div className="text-4xl mb-4">📅</div>
-              <p>
-                {resolveTranslated({ en: "Select a date first", ar: "اختر التاريخ أولاً", ur: "پہلے تاریخ منتخب کریں" }, lang)}
-              </p>
-            </div>
+            <EmptyState
+              icon="📅"
+              text={resolveTranslated({ en: "Select a date first", ar: "اختر التاريخ أولاً", ur: "پہلے تاریخ منتخب کریں" }, lang)}
+            />
           ) : isLoadingSlots ? (
-            <div className="grid grid-cols-3 gap-2">
-              {[...Array(9)].map((_, i) => (
-                <div key={i} className="h-12 bg-gray-200 rounded-lg animate-pulse" />
-              ))}
-            </div>
-          ) : availableSlots.length > 0 ? (
-            <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto">
-              {availableSlots.map((slot) => {
-                const time = slot.time || slot.start_time || slot;
-                const isSelected = selectedTime === time;
-                const isAvailable = slot.available !== false;
+            <SlotSkeleton />
+          ) : availableSlots.length === 0 ? (
+            <EmptyState
+              icon="😔"
+              text={resolveTranslated({ en: "No available slots", ar: "لا توجد مواعيد متاحة", ur: "کوئی سلاٹ نہیں" }, lang)}
+            />
+          ) : (
+            <div className="grid grid-cols-3 gap-2 max-h-72 overflow-y-auto pr-1">
+              {availableSlots.map(slot => {
+                const timeStr    = slot.time;        // "HH:MM" from backend
+                const isSelected = timeStr === selectedTime;
+                const isAvail    = slot.available !== false;
 
                 return (
-                  <button
-                    key={time}
-                    disabled={!isAvailable}
-                    onClick={() => onTimeSelect(time)}
-                    className={`
-                      py-3 px-4 rounded-lg text-sm font-medium transition-all
-                      ${!isAvailable ? "bg-gray-100 text-gray-400 cursor-not-allowed" : ""}
-                      ${isSelected ? "text-white" : isAvailable ? "bg-gray-100 hover:bg-gray-200 text-gray-700" : ""}
-                    `}
-                    style={{
-                      backgroundColor: isSelected ? theme.primary_color || "#3B82F6" : undefined
-                    }}
-                  >
-                    {formatTime(time)}
-                  </button>
+                  <div key={timeStr} className="flex flex-col items-center gap-1">
+                    <button
+                      disabled={!isAvail}
+                      onClick={() => isAvail && onTimeSelect(timeStr)}
+                      className={[
+                        "py-3 px-2 rounded-lg text-sm font-medium transition-all w-full",
+                        !isAvail
+                          ? "bg-gray-100 text-gray-400 cursor-not-allowed"
+                          : isSelected
+                          ? "text-white"
+                          : "bg-gray-100 hover:bg-gray-200 text-gray-700",
+                      ].join(" ")}
+                      style={{
+                        backgroundColor: isSelected ? primaryColor : undefined,
+                      }}
+                    >
+                      {formatTime(timeStr)}
+                    </button>
+
+                    {!isAvail && (
+                      <span className="text-[10px] text-center text-red-500 leading-tight">
+                        {slot.reason === "provider_unavailable"
+                          ? resolveTranslated({ en: "No staff", ar: "لا موظف", ur: "عملہ نہیں" }, lang)
+                          : slot.reason === "service_unavailable"
+                          ? resolveTranslated({ en: "Unavailable", ar: "غير متاح", ur: "دستیاب نہیں" }, lang)
+                          : resolveTranslated({ en: "Booked", ar: "محجوز", ur: "بک" }, lang)}
+                      </span>
+                    )}
+                  </div>
                 );
               })}
-            </div>
-          ) : (
-            <div className="text-center py-12 text-gray-400">
-              <div className="text-4xl mb-4">😔</div>
-              <p>
-                {resolveTranslated({ en: "No available slots", ar: "لا توجد مواعيد متاحة", ur: "کوئی دستیاب سلاٹ نہیں" }, lang)}
-              </p>
             </div>
           )}
         </div>
@@ -306,3 +389,42 @@ export default function DateTimePicker({
     </div>
   );
 }
+
+// ─── Small helpers ────────────────────────────────────────────────────────────
+
+function ChevronLeft({ className }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
+    </svg>
+  );
+}
+
+function ChevronRight({ className }) {
+  return (
+    <svg className={className} fill="none" stroke="currentColor" viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
+    </svg>
+  );
+}
+
+function EmptyState({ icon, text }) {
+  return (
+    <div className="flex flex-col items-center justify-center py-12 text-gray-400 gap-3">
+      <span className="text-4xl">{icon}</span>
+      <p className="text-sm text-center">{text}</p>
+    </div>
+  );
+}
+
+function SlotSkeleton() {
+  return (
+    <div className="grid grid-cols-3 gap-2">
+      {Array.from({ length: 9 }).map((_, i) => (
+        <div key={i} className="h-12 bg-gray-200 rounded-lg animate-pulse" />
+      ))}
+    </div>
+  );
+}
+
+export { formatDateStr, formatTime, getTodayStr };

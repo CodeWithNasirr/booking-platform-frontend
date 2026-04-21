@@ -34,7 +34,7 @@ const initialForm = {
 }
 
 export default function ProvidersPage() {
-  const { user, loadingUser, requiresOnboarding, t } = useApp()
+  const { user, loadingUser, requiresOnboarding, t,hasProviders } = useApp()
   const router = useRouter()
 
   const {
@@ -73,6 +73,13 @@ export default function ProvidersPage() {
         router.replace('/auth/onboarding?step=1');
     }
     }, [requiresOnboarding]);
+
+    // Individual owners don't need provider management
+    useEffect(() => {
+      if (!loadingUser && user && hasProviders === false) {
+        router.replace('/dashboard');
+      }
+    }, [loadingUser, user, hasProviders, router]);
 
   const filtered = providers.filter(
     (p) =>

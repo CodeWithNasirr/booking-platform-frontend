@@ -492,7 +492,7 @@ function GoogleCalendarModal({ activeTenant, onClose, onRefresh }) {
 
   const handleConnect = async (providerId) => {
     try {
-      const data = await getGoogleCalendarOAuthUrl(activeTenant, providerId)
+      const data = await getGoogleCalendarOAuthUrl(activeTenant, providerId,'tenant')
       if (data.oauth_url) window.location.href = data.oauth_url
     } catch (err) { alert(err.message) }
   }

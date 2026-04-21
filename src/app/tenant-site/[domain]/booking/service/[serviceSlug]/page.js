@@ -35,6 +35,7 @@ export async function generateMetadata({ params }) {
 
 export default async function TenantPage({ params }) {
   const { domain } = await params;
+  console.log("Rendering page for domain:", domain);
 
   // Fetch site data (for header/footer) and page data
   const [siteResult, pageResult] = await Promise.all([
@@ -96,39 +97,3 @@ export default async function TenantPage({ params }) {
     />
   );
 }
-
-// Optional: Generate static paths for common pages
-export async function generateStaticParams({ params }) {
-  const { domain } = params;
-  
-  try {
-    const response = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}/website/tenant/${domain}/pages/`
-    );
-    
-    if (!response.ok) return [];
-    
-    const data = await response.json();
-    
-    return (data.pages || []).map(page => ({
-      slug: page.slug,
-    }));
-  } catch {
-    return [];
-  }
-}
-
-
-
-
-// const res = await fetch(
-//   `/api/v1/booking/${domain}/${bookingId}/`
-// );
-// class BookingDetailView(APIView):
-//     def get(self, request, domain, booking_id):
-//         booking = get_object_or_404(
-//             Booking,
-//             tenant__domain=domain,
-//             booking_id=booking_id
-//         )
-//         return Response(BookingSerializer(booking).data)

@@ -36,7 +36,7 @@ export default function ProviderHome() {
         'Authorization': `Bearer ${Cookies.get("access_token")}`,
         'X-Tenant': activeTenant || '',
       };
-      console.log(headers,"headers")
+    
       const response = await fetch(`${API_BASE}/api/v1/providers/dashboard/`, { headers, credentials: "include" });
       if (response.ok) {
         const data = await response.json();

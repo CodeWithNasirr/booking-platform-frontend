@@ -58,7 +58,7 @@ export default function DashboardHome() {
     tenants,
     requiresOnboarding,
     activeTenant,
-    t, isRTL,
+    t, isRTL,hasProviders,
   } = useApp();
 
   const url = getTenantWebsiteUrl(tenants);
@@ -487,13 +487,24 @@ export default function DashboardHome() {
         </Link>
         )}
 
-        {canViewProviders && (
+        {canViewProviders && hasProviders && (
           <Link href="/dashboard/providers" className="p-5 sm:p-6 rounded-xl bg-white border border-gray-200 hover:shadow-lg text-center active:scale-[0.98] transition group">
             <div className="w-12 h-12 rounded-xl bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center mx-auto mb-3 transition">
               <UsersRound className="w-8 h-8 text-[#8B1E3F]" />
             </div>
             <div className="font-medium text-gray-900">{t("dashboard.manageStaff")}</div>
             <div className="text-sm text-gray-600">{t("dashboard.manageStaffDesc")}</div>
+          </Link>
+        )}
+
+         {/* Individual owners: My Schedule (replaces Manage Staff) */}
+        {!hasProviders && (
+          <Link href="/dashboard/schedule" className="p-5 sm:p-6 rounded-xl bg-white border border-gray-200 hover:shadow-lg text-center active:scale-[0.98] transition group">
+            <div className="w-12 h-12 rounded-xl bg-rose-50 group-hover:bg-rose-100 flex items-center justify-center mx-auto mb-3 transition">
+              <Calendar className="w-8 h-8 text-[#8B1E3F]" />
+            </div>
+            <div className="font-medium text-gray-900">{t("dashboard.mySchedule") || "My Schedule"}</div>
+            <div className="text-sm text-gray-600">{t("dashboard.myScheduleDesc") || "Manage your availability"}</div>
           </Link>
         )}
 

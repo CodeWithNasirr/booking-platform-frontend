@@ -2,195 +2,343 @@
 'use client'
 
 import { useState, useRef } from 'react'
-import { X, Eye, Code, Copy, Check } from 'lucide-react'
-import { renderTemplate, PREVIEW_DATA } from '@/lib/settingsApi'
+import { X, Check, CheckCheck, Send, Loader2, AlertCircle } from 'lucide-react'
+import { sendTestNotification } from '@/lib/notificationApi'
 
-const VARIABLES = [
-  { key: 'customer_name', label: 'Customer Name' },
-  { key: 'booking_number', label: 'Booking #' },
-  { key: 'order_number', label: 'Order #' },
-  { key: 'service_name', label: 'Service Name' },
-  { key: 'date', label: 'Date' },
-  { key: 'time', label: 'Time' },
-  { key: 'provider_name', label: 'Provider Name' },
-  { key: 'tenant_name', label: 'Business Name' },
-  { key: 'amount', label: 'Amount' },
-]
+// ─── Variables available in templates ────────────────────────
+const VARIABLE_GROUPS = {
+  reservations: [
+    { key: 'customer_name', label: 'Customer Name' },
+    { key: 'booking_number', label: 'Booking #' },
+    { key: 'service_name', label: 'Service' },
+    { key: 'date', label: 'Date' },
+    { key: 'time', label: 'Time' },
+    { key: 'duration', label: 'Duration' },
+    { key: 'amount', label: 'Amount' },
+    { key: 'currency', label: 'Currency' },
+    { key: 'meeting_url', label: 'Meeting URL' },
+    { key: 'provider_name', label: 'Provider' },
+    { key: 'business_name', label: 'Business Name' },
+    { key: 'reason', label: 'Reason' },
+  ],
+  orders: [
+    { key: 'customer_name', label: 'Customer Name' },
+    { key: 'order_number', label: 'Order #' },
+    { key: 'service_name', label: 'Service' },
+    { key: 'amount', label: 'Amount' },
+    { key: 'currency', label: 'Currency' },
+    { key: 'delivery_days', label: 'Delivery Days' },
+    { key: 'provider_name', label: 'Provider' },
+    { key: 'business_name', label: 'Business Name' },
+    { key: 'revisions_used', label: 'Revisions Used' },
+    { key: 'revisions_allowed', label: 'Revisions Allowed' },
+    { key: 'reason', label: 'Reason' },
+    { key: 'refund_amount', label: 'Refund Amount' },
+  ],
+  subscriptions: [
+    { key: 'admin_name', label: 'Admin Name' },
+    { key: 'plan_name', label: 'Plan Name' },
+    { key: 'business_name', label: 'Business Name' },
+    { key: 'days_remaining', label: 'Days Remaining' },
+    { key: 'next_billing_date', label: 'Next Billing' },
+  ],
+  platform: [
+    { key: 'date', label: 'Date' },
+    { key: 'new_bookings', label: 'New Bookings' },
+    { key: 'new_orders', label: 'New Orders' },
+    { key: 'revenue', label: 'Revenue' },
+    { key: 'currency', label: 'Currency' },
+    { key: 'new_customers', label: 'New Customers' },
+    { key: 'today_bookings', label: "Today's Bookings" },
+    { key: 'business_name', label: 'Business Name' },
+    { key: 'customer_name', label: 'Customer Name' },
+    { key: 'customer_email', label: 'Customer Email' },
+  ],
+}
 
-export default function TemplateModal({ rule, onClose, onSave }) {
+// ─── Sample data for preview ────────────────────────────────
+const SAMPLE_DATA = {
+  customer_name: 'Ahmed Al-Rashid',
+  booking_number: 'BKG-260412-A1B2C3',
+  order_number: 'ORD-260412-X9Y8Z7',
+  service_name: 'Logo Design',
+  date: 'April 15, 2026',
+  time: '02:30 PM',
+  duration: '60',
+  amount: '150.00',
+  currency: 'USD',
+  meeting_url: 'https://meet.google.com/abc-def-ghi',
+  provider_name: 'Sara Ahmed',
+  business_name: 'Creative Studio',
+  delivery_days: '5',
+  revisions_used: '1',
+  revisions_allowed: '3',
+  reason: 'Schedule conflict',
+  refund_amount: '150.00',
+  admin_name: 'Admin User',
+  plan_name: 'Professional',
+  days_remaining: '3',
+  next_billing_date: 'May 12, 2026',
+  new_bookings: '12',
+  new_orders: '8',
+  revenue: '2,450.00',
+  new_customers: '5',
+  today_bookings: '4',
+  customer_email: 'ahmed@example.com',
+  sender_name: 'Ahmed',
+  message_preview: 'Hi, I have a question...',
+}
+
+export default function TemplateModal({ rule, onClose, onSave, activeTenant }) {
   const [template, setTemplate] = useState(rule.template || '')
-  const [copied, setCopied] = useState(false)
+  const [testPhone, setTestPhone] = useState('')
+  const [testing, setTesting] = useState(false)
+  const [testResult, setTestResult] = useState(null)
   const textareaRef = useRef(null)
 
-  const preview = renderTemplate(template, PREVIEW_DATA)
+  const variables = VARIABLE_GROUPS[rule.category] || VARIABLE_GROUPS.reservations
 
-  const insertVariable = (varKey) => {
+  // ── Preview rendering ──
+  const renderPreview = (text) => {
+    let result = text || ''
+
+    // Handle {% if var %}...{% endif %}
+    result = result.replace(
+      /\{%\s*if\s+(\w+)\s*%\}(.*?)\{%\s*endif\s*%\}/gs,
+      (_, varName, content) => {
+        if (SAMPLE_DATA[varName]) {
+          let rendered = content
+          for (const [k, v] of Object.entries(SAMPLE_DATA)) {
+            rendered = rendered.replaceAll(`{{${k}}}`, v)
+          }
+          return rendered
+        }
+        return ''
+      }
+    )
+
+    // Replace {{variables}}
+    for (const [k, v] of Object.entries(SAMPLE_DATA)) {
+      result = result.replaceAll(`{{${k}}}`, v)
+    }
+
+    // Clean unreplaced
+    result = result.replace(/\{\{[^}]+\}\}/g, '')
+    result = result.replace(/\n{3,}/g, '\n\n').trim()
+
+    return result
+  }
+
+  // ── Insert variable at cursor ──
+  const insertVariable = (key) => {
     const el = textareaRef.current
     if (!el) return
-
     const start = el.selectionStart
     const end = el.selectionEnd
-    const text = `{{${varKey}}}`
-    const newVal = template.slice(0, start) + text + template.slice(end)
+    const tag = `{{${key}}}`
+    const newVal = template.slice(0, start) + tag + template.slice(end)
     setTemplate(newVal)
-
-    // Restore cursor position after React re-render
     setTimeout(() => {
       el.focus()
-      el.selectionStart = el.selectionEnd = start + text.length
+      el.selectionStart = el.selectionEnd = start + tag.length
     }, 0)
   }
 
-  const handleCopy = () => {
-    navigator.clipboard.writeText(template)
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1500)
+  // ── Send test notification ──
+  const handleTest = async () => {
+    if (!testPhone.trim()) return
+    setTesting(true)
+    setTestResult(null)
+    try {
+      const data = await sendTestNotification(activeTenant, rule.event, testPhone.trim())
+      setTestResult({ success: true, message: 'Test sent!' })
+    } catch (err) {
+      setTestResult({ success: false, message: err.message })
+    } finally {
+      setTesting(false)
+    }
   }
 
-  const channelLabel = rule.channel === 'email' ? 'Email' : rule.channel === 'sms' ? 'SMS' : 'WhatsApp'
-  const receiverLabel = rule.receiver.charAt(0).toUpperCase() + rule.receiver.slice(1)
+  const preview = renderPreview(template)
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
 
-      <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl max-h-[90vh] flex flex-col">
-        {/* Header */}
-        <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
+      <div className="relative w-full max-w-5xl bg-white rounded-2xl shadow-2xl max-h-[90vh] flex flex-col">
+        {/* ═══ HEADER ═══ */}
+        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
           <div>
-            <h2 className="text-lg font-bold text-gray-900">Customize Template</h2>
+            <h2 className="text-lg font-bold text-gray-900">Customize Notification</h2>
             <p className="text-sm text-gray-500 mt-0.5">
-              {rule.event_label} → {receiverLabel} → {channelLabel}
+              {rule.event_label} → {rule.receiver} → WhatsApp
             </p>
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl transition-colors">
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl">
             <X className="w-5 h-5 text-gray-400" />
           </button>
         </div>
 
-        {/* Body */}
+        {/* ═══ BODY ═══ */}
         <div className="flex-1 overflow-y-auto p-6">
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* LEFT: Editor */}
+
+            {/* LEFT: Template Editor */}
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                  <Code className="w-4 h-4" />
-                  Template Editor
-                </label>
-                <button
-                  onClick={handleCopy}
-                  className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-[#8B1E3F] transition-colors"
-                >
-                  {copied ? <Check className="w-3.5 h-3.5" /> : <Copy className="w-3.5 h-3.5" />}
-                  {copied ? 'Copied' : 'Copy'}
-                </button>
-              </div>
+              <label className="text-sm font-bold text-gray-700">
+                Message Template
+              </label>
 
               <textarea
                 ref={textareaRef}
                 value={template}
                 onChange={(e) => setTemplate(e.target.value)}
-                rows={8}
-                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none transition-all text-sm font-mono resize-none"
-                placeholder="Enter your notification template..."
+                rows={10}
+                className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none text-sm font-mono resize-none"
+                placeholder="Enter your WhatsApp notification template..."
               />
+
+              <div className="text-xs text-gray-400 text-right">
+                {template.length} characters
+              </div>
 
               {/* Variable buttons */}
               <div>
                 <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
                   Insert Variable
                 </p>
-                <div className="flex flex-wrap gap-2">
-                  {VARIABLES.map((v) => (
+                <div className="flex flex-wrap gap-1.5">
+                  {variables.map((v) => (
                     <button
                       key={v.key}
                       onClick={() => insertVariable(v.key)}
-                      className="px-3 py-1.5 text-xs font-medium rounded-lg border border-[#8B1E3F]/20 text-[#8B1E3F] bg-[#8B1E3F]/5 hover:bg-[#8B1E3F]/10 transition-colors"
+                      className="px-2.5 py-1 text-xs font-medium rounded-md border border-gray-200 text-gray-600 bg-gray-50 hover:bg-[#8B1E3F]/5 hover:border-[#8B1E3F]/30 hover:text-[#8B1E3F] transition-colors"
                     >
                       {`{{${v.key}}}`}
                     </button>
                   ))}
                 </div>
               </div>
+
+              {/* Test send */}
+              <div className="pt-4 border-t border-gray-100">
+                <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">
+                  Send Test Message
+                </p>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={testPhone}
+                    onChange={(e) => setTestPhone(e.target.value)}
+                    placeholder="Phone with country code (e.g. 917873445018)"
+                    className="flex-1 px-3 py-2 rounded-lg border border-gray-300 text-sm focus:border-[#8B1E3F] focus:ring-1 focus:ring-[#8B1E3F]/20 outline-none"
+                  />
+                  <button
+                    onClick={handleTest}
+                    disabled={testing || !testPhone.trim()}
+                    className="flex items-center gap-1.5 px-4 py-2 rounded-lg bg-[#8B1E3F] text-white text-sm font-medium hover:bg-[#6B1630] disabled:opacity-50 transition-colors"
+                  >
+                    {testing ? (
+                      <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    ) : (
+                      <Send className="w-3.5 h-3.5" />
+                    )}
+                    Test
+                  </button>
+                </div>
+                {testResult && (
+                  <p className={`text-xs mt-1.5 ${testResult.success ? 'text-green-600' : 'text-red-600'}`}>
+                    {testResult.message}
+                  </p>
+                )}
+              </div>
             </div>
 
-            {/* RIGHT: Live Preview */}
-            <div className="space-y-4">
-              <label className="flex items-center gap-2 text-sm font-bold text-gray-700">
-                <Eye className="w-4 h-4" />
-                Live Preview
+            {/* RIGHT: WhatsApp Preview */}
+            <div className="space-y-3">
+              <label className="text-sm font-bold text-gray-700">
+                WhatsApp Preview
               </label>
 
-              <div className="rounded-xl border border-gray-200 overflow-hidden">
-                {/* Simulated email header */}
-                {rule.channel === 'email' && (
-                  <div className="bg-gray-50 px-4 py-3 border-b border-gray-200 space-y-1">
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <span className="font-medium text-gray-700">To:</span>
-                      {rule.receiver === 'customer'
-                        ? 'ahmed@example.com'
-                        : rule.receiver === 'provider'
-                        ? 'sara@studio.com'
-                        : 'admin@creativehub.com'}
-                    </div>
-                    <div className="flex items-center gap-2 text-xs text-gray-500">
-                      <span className="font-medium text-gray-700">Subject:</span>
-                      {rule.event_label}
-                    </div>
+              {/* Phone frame */}
+              <div className="bg-[#0b141a] rounded-2xl overflow-hidden shadow-xl">
+                {/* WA header */}
+                <div className="bg-[#1f2c34] px-4 py-3 flex items-center gap-3">
+                  <div className="w-8 h-8 rounded-full bg-[#8B1E3F] flex items-center justify-center text-white text-xs font-bold">
+                    B
                   </div>
-                )}
+                  <div className="flex-1">
+                    <p className="text-white text-sm font-medium">Business</p>
+                    <p className="text-gray-400 text-[10px]">online</p>
+                  </div>
+                </div>
 
-                {/* Message body */}
-                <div className="p-4 bg-white min-h-[200px]">
-                  {rule.channel === 'sms' || rule.channel === 'whatsapp' ? (
-                    <div className="max-w-xs">
-                      <div className="bg-[#8B1E3F]/5 border border-[#8B1E3F]/10 rounded-2xl rounded-tl-none px-4 py-3">
-                        <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                          {preview || 'Your message preview will appear here...'}
+                {/* Chat */}
+                <div className="min-h-[280px] max-h-[360px] overflow-y-auto p-3 flex flex-col justify-end">
+                  {preview ? (
+                    <div className="max-w-[90%] ml-auto">
+                      <div className="bg-[#005c4b] rounded-xl rounded-tr-sm px-3 py-2">
+                        <p className="text-white text-[13px] whitespace-pre-wrap break-words leading-relaxed">
+                          {preview}
                         </p>
+                        <div className="flex items-center justify-end gap-1 mt-1">
+                          <span className="text-[10px] text-green-300/70">
+                            {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                          </span>
+                          <CheckCheck className="w-3.5 h-3.5 text-blue-300" />
+                        </div>
                       </div>
-                      <p className="text-[10px] text-gray-400 mt-1 ml-1">
-                        {new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
-                      </p>
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-800 whitespace-pre-wrap leading-relaxed">
-                      {preview || 'Your message preview will appear here...'}
+                    <p className="text-gray-600 text-center text-xs py-16">
+                      Type a template to see preview
                     </p>
                   )}
                 </div>
+
+                {/* Input bar */}
+                <div className="bg-[#1f2c34] px-3 py-2 flex items-center gap-2">
+                  <div className="flex-1 h-8 rounded-full bg-[#2a3942] px-3 flex items-center">
+                    <span className="text-gray-500 text-xs">Type a message</span>
+                  </div>
+                </div>
               </div>
 
-              {/* Character count for SMS */}
-              {(rule.channel === 'sms' || rule.channel === 'whatsapp') && (
-                <p className="text-xs text-gray-500">
-                  {template.length} characters
-                  {rule.channel === 'sms' && template.length > 160 && (
-                    <span className="text-amber-600 ml-2">
-                      ({Math.ceil(template.length / 160)} SMS segments)
-                    </span>
-                  )}
-                </p>
-              )}
+              {/* Tip */}
+              <div className="flex items-start gap-2 p-3 rounded-lg bg-blue-50 border border-blue-200">
+                <AlertCircle className="w-4 h-4 text-blue-500 flex-shrink-0 mt-0.5" />
+                <div className="text-xs text-blue-700 leading-relaxed">
+                  <span className="font-bold">Tip:</span> Use <code className="bg-blue-100 px-1 rounded">{'{{variable}}'}</code> to
+                  insert dynamic data. Use <code className="bg-blue-100 px-1 rounded">{'{% if var %}...{% endif %}'}</code> for
+                  conditional content (e.g., show meeting link only when it exists).
+                </div>
+              </div>
             </div>
           </div>
         </div>
 
-        {/* Footer */}
-        <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
+        {/* ═══ FOOTER ═══ */}
+        <div className="px-6 py-4 border-t border-gray-200 flex items-center justify-between">
           <button
-            onClick={onClose}
-            className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all"
+            onClick={() => setTemplate(rule.template || '')}
+            className="text-sm text-gray-500 hover:text-gray-700"
           >
-            Cancel
+            Reset to Default
           </button>
-          <button
-            onClick={() => onSave(template)}
-            className="px-5 py-2.5 rounded-xl text-white bg-gradient-to-br from-[#8B1E3F] to-[#6B1630] hover:opacity-90 transition-all shadow-md font-medium"
-          >
-            Save Template
-          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={() => onSave(template)}
+              className="px-5 py-2.5 rounded-xl text-white bg-gradient-to-br from-[#8B1E3F] to-[#6B1630] hover:opacity-90 shadow-md font-medium text-sm"
+            >
+              Save Template
+            </button>
+          </div>
         </div>
       </div>
     </div>

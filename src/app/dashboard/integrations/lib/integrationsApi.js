@@ -51,12 +51,14 @@ export async function disconnectIntegration(tenantId, integrationType, extra = {
 
 // ── Google Calendar ─────────────────────────────────────────────
 
-export async function getGoogleCalendarOAuthUrl(tenantId, providerId) {
+export async function getGoogleCalendarOAuthUrl(tenantId, providerId,sourcePanel = "tenant") {
   const qs = providerId ? `?provider_id=${providerId}` : "";
-  return apiCall(`${API}/api/v1/tenant/integrations/google-calendar/url/${qs}`, {
+  const sr = sourcePanel === "provider" ? "provider" : "tenant";
+  return apiCall(`${API}/api/v1/tenant/integrations/google-calendar/url/${qs}${qs ? "&" : "?"}source_panel=${sr}`, {
     headers: headers(tenantId),
   });
 }
+
 
 // ── WhatsApp Web ────────────────────────────────────────────────
 

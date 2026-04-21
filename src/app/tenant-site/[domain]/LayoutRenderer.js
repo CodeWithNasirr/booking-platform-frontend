@@ -13,7 +13,7 @@ export default function LayoutRenderer({
   theme = {},
   site = {},
   rtlEnabled = false,
-  domain = "",          // ← ADD THIS PROP
+  domain = "",      
 }) {
   const { language, isRTL } = useTenantLang();
   const themeConfig = useTenantTheme();
@@ -38,9 +38,9 @@ export default function LayoutRenderer({
   // ← derive a reliable domain string from the prop first, then site fields
   const resolvedDomain =
     domain ||
+    site?.primary_domain ||
     site?.subdomain ||
     site?.custom_domain ||
-    site?.tenant_slug ||
     "";
 
   return (

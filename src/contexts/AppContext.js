@@ -1,31 +1,3 @@
-// In your main app routing
-// const App = () => {
-//   const { user, tenant } = useApp();
-  
-//   const getUserDashboard = () => {
-//     const membership = user.memberships.find(m => m.tenant_id === tenant.id);
-    
-//     // INDIVIDUAL OWNER - Show Owner Dashboard (with booking fulfillment)
-//     if (membership.role === 'owner' && !tenant.has_providers) {
-//       return 'owner-solo';  // Owner dashboard + order/booking handling
-//     }
-    
-//     // BUSINESS OWNER - Show Owner Dashboard (management view)
-//     if (membership.role === 'owner' && tenant.has_providers) {
-//       return 'owner-business';  // Owner dashboard + provider management
-//     }
-    
-//     // PROVIDER - Show Provider Dashboard (your current code)
-//     if (membership.role === 'provider') {
-//       return 'provider';  // Your ProviderDashboard.js
-//     }
-    
-//     // CUSTOMER
-//     return 'customer';
-//   };
-// };
-
-
 "use client";
 
 import React, { createContext, useContext, useState, useEffect } from "react";
@@ -53,7 +25,10 @@ export function AppProvider({ children }) {
   const [tenantTimezone, setTenantTimezone] = useState("UTC");
   const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-  
+  const activeTenantObj =  tenants.find((t) => t.id === activeTenant) || tenants[0] || null;
+
+  const hasProviders = activeTenantObj?.has_providers ?? false;
+    
   // ---------------- HYDRATION ----------------
   useEffect(() => {
     const savedLang = Cookies.get("app_language") || "en";
@@ -205,6 +180,8 @@ export function AppProvider({ children }) {
 
         tenants,
         setTenants,
+        
+        hasProviders,
 
         activeTenant,
         setActiveTenant,

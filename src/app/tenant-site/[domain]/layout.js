@@ -57,7 +57,7 @@ export default async function TenantSiteLayout({ children, params }) {
 
   const domain = resolved.domain;
 
-  // console.log(domain,"DDDDDDDDDDDDDDD")
+  console.log(domain,"DDDDDDDDDDDDDDD")
   
   // Fetch site and theme data (SSR)
   const { site, theme, error } = await fetchSite(domain);

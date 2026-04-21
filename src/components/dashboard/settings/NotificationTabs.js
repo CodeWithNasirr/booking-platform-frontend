@@ -1,175 +1,186 @@
 // src/components/dashboard/settings/NotificationTabs.js
 'use client'
 
-import { useState } from 'react'
-import {
-  Calendar, ShoppingBag, CreditCard, Bell,
-  Shield, Users, Briefcase, ChevronDown, ChevronRight,
-} from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { useApp } from '@/contexts/AppContext'
+import { fetchNotificationDefaults } from '@/lib/notificationApi'
 import NotificationRow from './NotificationRow'
 import TemplateModal from './TemplateModal'
+import { Loader2 } from 'lucide-react'
 
+// ─── Categories MUST match notification_registry.py ──────────
 const CATEGORIES = [
-  { key: 'reservations', label: 'Reservations', icon: Calendar },
-  { key: 'orders', label: 'Orders', icon: ShoppingBag },
-  { key: 'subscriptions', label: 'Subscriptions', icon: CreditCard },
+  { key: 'reservations', label: 'Reservations' },
+  { key: 'orders', label: 'Orders' },
+  { key: 'subscriptions', label: 'Subscriptions' },
+  { key: 'platform', label: 'Platform' },
 ]
 
+// ─── Receiver section headers (Rekaz-style yellow) ──────────
 const RECEIVER_CONFIG = {
-  admin: { label: 'Admin Notifications', icon: Shield, color: 'border-purple-200 bg-purple-50/50' },
-  customer: { label: 'Customer Notifications', icon: Users, color: 'border-blue-200 bg-blue-50/50' },
-  provider: { label: 'Provider Notifications', icon: Briefcase, color: 'border-emerald-200 bg-emerald-50/50' },
+  admin: { label: 'Admin Notifications' },
+  customer: { label: 'Customers Notifications' },
+  provider: { label: 'Provider Notifications' },
 }
 
 export default function NotificationTabs({ rules, onChange }) {
+  const { activeTenant } = useApp()
   const [activeCategory, setActiveCategory] = useState('reservations')
-  const [expandedSections, setExpandedSections] = useState({ admin: true, customer: true, provider: true })
   const [editingRule, setEditingRule] = useState(null)
+  const [loading, setLoading] = useState(false)
 
-  // Filter rules by active category
-  const categoryRules = rules.filter((r) => r.category === activeCategory)
+  // ── Seed defaults if no rules or rules use old format ──
+  useEffect(() => {
+    if (!activeTenant) return
 
-  // Group by receiver
+    // Check if rules need migration
+    const needsSeed = !rules || rules.length === 0
+    const needsMigration = rules && rules.length > 0 && rules[0]?.event && !rules[0].event.includes('.')
+
+    if (!needsSeed && !needsMigration) return
+
+    setLoading(true)
+    fetchNotificationDefaults(activeTenant)
+      .then((data) => {
+        if (data.rules && data.rules.length > 0) {
+          onChange(data.rules)
+        }
+      })
+      .catch((err) => console.error('Failed to fetch notification defaults:', err))
+      .finally(() => setLoading(false))
+  }, [activeTenant]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Filter by category + WhatsApp channel ──
+  const categoryRules = (rules || []).filter(
+    (r) => r.category === activeCategory && r.channel === 'whatsapp'
+  )
+
+  // ── Group by receiver (admin → customer → provider) ──
   const grouped = {}
   for (const receiver of ['admin', 'customer', 'provider']) {
-    grouped[receiver] = categoryRules.filter((r) => r.receiver === receiver)
+    const receiverRules = categoryRules.filter((r) => r.receiver === receiver)
+    if (receiverRules.length > 0) {
+      grouped[receiver] = receiverRules
+    }
   }
 
-  // Toggle a single rule on/off
+  // ── Toggle on/off ──
   const handleToggle = (ruleId) => {
-    const updated = rules.map((r) =>
+    const updated = (rules || []).map((r) =>
       r.id === ruleId ? { ...r, enabled: !r.enabled } : r
     )
     onChange(updated)
   }
 
-  // Save template from modal
+  // ── Save template from modal ──
   const handleSaveTemplate = (template) => {
-    const updated = rules.map((r) =>
+    const updated = (rules || []).map((r) =>
       r.id === editingRule.id ? { ...r, template } : r
     )
     onChange(updated)
     setEditingRule(null)
   }
 
-  // Toggle all rules for a receiver in this category
+  // ── Enable/disable all for a receiver ──
   const handleToggleAll = (receiver, enable) => {
-    const ids = grouped[receiver].map((r) => r.id)
-    const updated = rules.map((r) =>
-      ids.includes(r.id) ? { ...r, enabled: enable } : r
+    const ids = new Set((grouped[receiver] || []).map((r) => r.id))
+    const updated = (rules || []).map((r) =>
+      ids.has(r.id) ? { ...r, enabled: enable } : r
     )
     onChange(updated)
   }
 
-  const toggleSection = (receiver) => {
-    setExpandedSections((prev) => ({ ...prev, [receiver]: !prev[receiver] }))
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center py-16">
+        <Loader2 className="w-5 h-5 animate-spin text-[#8B1E3F]" />
+      </div>
+    )
   }
 
   return (
-    <div className="space-y-6">
-      {/* Category sub-tabs */}
-      <div className="flex gap-2 p-1 bg-gray-100 rounded-xl">
-        {CATEGORIES.map((cat) => {
-          const Icon = cat.icon
-          const count = rules.filter((r) => r.category === cat.key && r.enabled).length
-          const total = rules.filter((r) => r.category === cat.key).length
+    <div className="space-y-0">
+      {/* ═══ CATEGORY TABS (Rekaz: flat underlined) ═══ */}
+      <div className="border-b border-gray-200">
+        <div className="flex items-center gap-0 overflow-x-auto">
+          {CATEGORIES.map((cat) => {
+            const count = (rules || []).filter(
+              (r) => r.category === cat.key && r.channel === 'whatsapp'
+            ).length
 
-          return (
-            <button
-              key={cat.key}
-              onClick={() => setActiveCategory(cat.key)}
-              className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg text-sm font-medium transition-all ${
-                activeCategory === cat.key
-                  ? 'bg-white text-[#8B1E3F] shadow-sm'
-                  : 'text-gray-500 hover:text-gray-700'
-              }`}
-            >
-              <Icon className="w-4 h-4" />
-              {cat.label}
-              <span className="text-[10px] font-bold px-1.5 py-0.5 rounded-full bg-gray-200 text-gray-600">
-                {count}/{total}
-              </span>
-            </button>
-          )
-        })}
+            return (
+              <button
+                key={cat.key}
+                onClick={() => setActiveCategory(cat.key)}
+                className={`px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+                  activeCategory === cat.key
+                    ? 'border-[#8B1E3F] text-[#8B1E3F]'
+                    : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'
+                }`}
+              >
+                {cat.label}
+                {count > 0 && (
+                  <span className="ml-1.5 text-xs text-gray-400">({count})</span>
+                )}
+              </button>
+            )
+          })}
+        </div>
       </div>
 
-      {/* Receiver sections */}
-      {Object.entries(grouped).map(([receiver, receiverRules]) => {
-        if (receiverRules.length === 0) return null
+      {/* ═══ RECEIVER SECTIONS ═══ */}
+      {Object.keys(grouped).length === 0 ? (
+        <div className="py-12 text-center text-sm text-gray-500">
+          No WhatsApp notifications for this category.
+        </div>
+      ) : (
+        <div className="mt-4">
+          {Object.entries(grouped).map(([receiver, receiverRules]) => {
+            const config = RECEIVER_CONFIG[receiver]
+            if (!config) return null
 
-        const config = RECEIVER_CONFIG[receiver]
-        const Icon = config.icon
-        const expanded = expandedSections[receiver]
-        const enabledCount = receiverRules.filter((r) => r.enabled).length
-        const allEnabled = enabledCount === receiverRules.length
+            const enabledCount = receiverRules.filter((r) => r.enabled).length
+            const allEnabled = enabledCount === receiverRules.length
 
-        // Group by event (collect all channels for same event)
-        const byEvent = {}
-        for (const rule of receiverRules) {
-          if (!byEvent[rule.event]) byEvent[rule.event] = []
-          byEvent[rule.event].push(rule)
-        }
+            return (
+              <div key={receiver} className="mb-6">
+                {/* Section Header (Rekaz: yellow/cream bg) */}
+                <div className="flex items-center justify-between bg-amber-50 border border-amber-200 px-5 py-3.5 rounded-t-lg">
+                  <h3 className="text-sm font-bold text-gray-900">
+                    {config.label}
+                  </h3>
+                  <button
+                    onClick={() => handleToggleAll(receiver, !allEnabled)}
+                    className="text-xs font-medium text-[#8B1E3F] hover:text-[#6B1630]"
+                  >
+                    {allEnabled ? 'Disable All' : 'Enable All'}
+                  </button>
+                </div>
 
-        return (
-          <div key={receiver} className={`rounded-xl border overflow-hidden ${config.color}`}>
-            {/* Section header */}
-            <button
-              onClick={() => toggleSection(receiver)}
-              className="w-full flex items-center justify-between px-5 py-4 hover:bg-white/40 transition-colors"
-            >
-              <div className="flex items-center gap-3">
-                {expanded ? (
-                  <ChevronDown className="w-4 h-4 text-gray-400" />
-                ) : (
-                  <ChevronRight className="w-4 h-4 text-gray-400" />
-                )}
-                <Icon className="w-5 h-5 text-gray-600" />
-                <span className="text-sm font-bold text-gray-900">{config.label}</span>
-                <span className="text-xs text-gray-500">
-                  {enabledCount} of {receiverRules.length} active
-                </span>
+                {/* Rows */}
+                <div className="border border-t-0 border-gray-200 rounded-b-lg bg-white divide-y divide-dashed divide-gray-200">
+                  {receiverRules.map((rule) => (
+                    <NotificationRow
+                      key={rule.id}
+                      rule={rule}
+                      onToggle={() => handleToggle(rule.id)}
+                      onCustomize={() => setEditingRule(rule)}
+                    />
+                  ))}
+                </div>
               </div>
+            )
+          })}
+        </div>
+      )}
 
-              {/* Enable/disable all */}
-              <div
-                onClick={(e) => {
-                  e.stopPropagation()
-                  handleToggleAll(receiver, !allEnabled)
-                }}
-                className="flex items-center gap-2 text-xs font-medium text-gray-500 hover:text-[#8B1E3F] cursor-pointer"
-              >
-                {allEnabled ? 'Disable All' : 'Enable All'}
-              </div>
-            </button>
-
-            {/* Rules */}
-            {expanded && (
-              <div className="bg-white border-t border-gray-100">
-                {Object.entries(byEvent).map(([event, eventRules]) => (
-                  <div key={event} className="border-b border-gray-50 last:border-0">
-                    {eventRules.map((rule) => (
-                      <NotificationRow
-                        key={rule.id}
-                        rule={rule}
-                        onToggle={handleToggle}
-                        onCustomize={setEditingRule}
-                      />
-                    ))}
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )
-      })}
-
-      {/* Template editing modal */}
+      {/* ═══ TEMPLATE MODAL ═══ */}
       {editingRule && (
         <TemplateModal
           rule={editingRule}
           onClose={() => setEditingRule(null)}
           onSave={handleSaveTemplate}
+          activeTenant={activeTenant}
         />
       )}
     </div>

@@ -9,11 +9,14 @@ export async function fetchServiceBySlug(slug, domain) {
       "Content-Type": "application/json",
       "X-Tenant": domain,
     },
+    credentials: "include",
+    cache: "no-store", // Always fresh
   });
 
   if (!res.ok) throw new Error("Failed to fetch services");
 
   const data = await res.json();
+  console.log("Fetched services:", data);
   const services = data.services || data.results || data || [];
 
   const normalize = v =>
