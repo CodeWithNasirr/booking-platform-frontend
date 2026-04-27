@@ -1,6 +1,12 @@
 // src/app/dashboard/campaigns/create/page.js
 'use client'
 
+import dayjs from 'dayjs'
+import utc from 'dayjs/plugin/utc'
+import timezone from 'dayjs/plugin/timezone'
+
+dayjs.extend(utc)
+dayjs.extend(timezone)
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { useApp } from '@/contexts/AppContext'
@@ -35,7 +41,7 @@ const MESSAGE_TAGS = [
 const MAX_CONTENT_LENGTH = 4096
 
 export default function CreateCampaignPage() {
-  const { user, loadingUser, requiresOnboarding, activeTenant } = useApp()
+  const { user, loadingUser, requiresOnboarding, activeTenant,tenants } = useApp()
   const router = useRouter()
   const searchParams = useSearchParams()
   const contentRef = useRef(null)
@@ -46,7 +52,6 @@ export default function CreateCampaignPage() {
   // ── State ──
   const [name, setName] = useState('')
   const [audience, setAudience] = useState('')
-  const [scheduledAt, setScheduledAt] = useState(getDefaultDateTime())
   const [content, setContent] = useState('')
   const [attachment, setAttachment] = useState(null)       // File object (new upload)
   const [existingAttachment, setExistingAttachment] = useState(null)  // URL string (edit mode)
@@ -60,7 +65,13 @@ export default function CreateCampaignPage() {
   const [waStatus, setWaStatus] = useState(null) // { connected, phone, status }
   const [waLoading, setWaLoading] = useState(true)
   const [editLoading, setEditLoading] = useState(!!editId)
-  
+  const tenantTimezone = tenants[0]?.timezone || 'UTC'
+  const [scheduledAt, setScheduledAt] = useState(getDefaultDateTime(tenantTimezone))
+  console.log('LOCAL:', scheduledAt)
+  console.log(
+    'UTC:',
+    fromTenantLocalToUTC(scheduledAt, tenantTimezone)
+  )
   useBlockBackNavigation(!!user)
 
   // Auth guards
@@ -91,10 +102,9 @@ export default function CreateCampaignPage() {
         setAudience(data.audience_type || '')
         setContent(data.content || '')
         if (data.scheduled_at) {
-          // Convert ISO to datetime-local format
-          const dt = new Date(data.scheduled_at)
-          dt.setMinutes(dt.getMinutes() - dt.getTimezoneOffset())
-          setScheduledAt(dt.toISOString().slice(0, 16))
+          setScheduledAt(
+            toTenantLocalInput(data.scheduled_at, tenantTimezone)
+          )
         }
         if (data.attachment) {
           setExistingAttachment(data.attachment)
@@ -137,6 +147,16 @@ export default function CreateCampaignPage() {
     }, 0)
   }
 
+  function toTenantLocalInput(isoString, tenantTz) {
+    if (!isoString) return ''
+    return dayjs.utc(isoString).tz(tenantTz).format('YYYY-MM-DDTHH:mm')
+  }
+  
+  function fromTenantLocalToUTC(localString, tenantTz) {
+    if (!localString) return null
+    return dayjs.tz(localString, tenantTz).utc().toISOString()
+  }
+
   // ── Validate ──
   const validate = (asDraft) => {
     const e = {}
@@ -168,7 +188,12 @@ export default function CreateCampaignPage() {
       formData.append('name', name.trim())
       formData.append('content', content.trim())
       formData.append('audience_type', audience)
-      if (scheduledAt) formData.append('scheduled_at', scheduledAt)
+      // This block is already correct — fromTenantLocalToUTC now returns an ISO string
+      if (scheduledAt) {
+        const utcDate = fromTenantLocalToUTC(scheduledAt, tenantTimezone)
+        formData.append('scheduled_at', utcDate)  // utcDate is already an ISO string now
+      }
+
       formData.append('save_as_draft', asDraft ? 'true' : '')
       if (attachment) formData.append('attachment', attachment)
 
@@ -606,8 +631,6 @@ export default function CreateCampaignPage() {
   )
 }
 
-function getDefaultDateTime() {
-  const now = new Date()
-  now.setMinutes(now.getMinutes() - now.getTimezoneOffset())
-  return now.toISOString().slice(0, 16)
+function getDefaultDateTime(tenantTz) {
+  return dayjs().tz(tenantTz || 'UTC').format('YYYY-MM-DDTHH:mm')
 }

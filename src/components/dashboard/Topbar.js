@@ -6,10 +6,14 @@ import { useApp } from "@/contexts/AppContext";
 import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
 import IntegrationWarningBanner from "@/components/shared/IntegrationWarningBanner";
 import { useIntegrationStatus } from "@/app/dashboard/integrations/hooks/useIntegrationStatus";
+import { useTenantRBAC } from "@/contexts/TenantRBACContext";
 
 export default function Topbar({ setSidebarOpen }) {
   const { tenants } = useApp();
   const { warnings, loading } = useIntegrationStatus();
+  const { hasPermission } = useTenantRBAC();
+
+  const canManageIntegrations = hasPermission("integrations.manage");
 
   return (
     <div className="bg-background border-b border-border">
@@ -39,11 +43,13 @@ export default function Topbar({ setSidebarOpen }) {
       </div>
 
       {/* ── Integration warning banner ── */}
+     {canManageIntegrations && (
       <IntegrationWarningBanner
         warnings={warnings}
         loading={loading}
         panel="tenant"
       />
+    )}
     </div>
   );
 }

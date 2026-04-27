@@ -24,8 +24,18 @@ export default function DashboardLayout({ children }) {
 
   const active = tenants.find(t => t.id === activeTenant) || tenants[0];
 
-  if (active?.role !== "owner" && active?.role !== "admin") {
-    router.replace("/provider");
+  const roleRedirectMap = {
+    owner: "/dashboard",
+    admin: "/dashboard",
+    sub_admin: "/dashboard",
+    provider: "/provider",
+    staff: "/dashboard", 
+  };
+
+  const targetRoute = roleRedirectMap[active?.role];
+
+  if (targetRoute !== "/dashboard") {
+    router.replace(targetRoute);
   } else {
     setRoleChecked(true);
   }

@@ -9,9 +9,9 @@ import { TenantRBACProvider } from "@/contexts/TenantRBACContext";
 export default function ProviderLayout({ children }) {
   return (
     <TenantRBACProvider>
-    <ProviderStatusGuard>
+    {/* <ProviderStatusGuard> */}
       {children}
-    </ProviderStatusGuard>
+    {/* </ProviderStatusGuard> */}
     </TenantRBACProvider>
   );
 }

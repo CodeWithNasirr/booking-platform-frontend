@@ -40,6 +40,29 @@ async function refreshAccessToken() {
   return data.access;
 }
 
+
+export async function fetchPlatformSettings() {
+  return platformFetch(`/api/v1/platform/settings/`, {
+    headers: authHeaders(),
+  });
+}
+ 
+export async function updatePlatformSettings(data) {
+  return platformFetch(`/api/v1/platform/settings/update/`, {
+    method: 'PATCH',
+    headers: authHeaders(),
+    body: JSON.stringify(data),
+  });
+}
+ 
+export async function testIntegrationConnection(integrationName) {
+  return platformFetch(`/api/v1/platform/settings/test-integration/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ integration: integrationName }),
+  });
+}
+
 // ─── Core fetch wrapper ─────────────────────────────────────────
 
 async function platformFetch(endpoint, options = {}) {
@@ -48,12 +71,12 @@ async function platformFetch(endpoint, options = {}) {
   const makeReq = (token) =>
     fetch(url, {
       ...options,
+      credentials: "include",
+
       headers: {
         "Content-Type": "application/json",
         ...(token ? { Authorization: `Bearer ${token}` } : {}),
         ...options.headers,
-        credentials: "include",
-
       },
     });
 

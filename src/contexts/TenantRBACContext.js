@@ -82,7 +82,7 @@ export function TenantRBACProvider({ children }) {
           setMembership(null);
           return;
         }
-        // console.log("TenantRBAC data:", data);
+        console.log("TenantRBAC data:", data);
         if (!cancelled) setMembership(data);
       } catch (err) {
         console.error("TenantRBAC fetch failed:", err);

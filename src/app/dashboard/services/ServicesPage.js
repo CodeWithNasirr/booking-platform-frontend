@@ -18,9 +18,13 @@ import { ServiceRow } from "./components/ServiceRow";
 import { ServiceModal } from "./components/ServiceModal";
 import { CategoryManager } from "./components/CategoryManager";
 import { useTenantPermission } from "@/lib/useTenantPermission";
+import { useBillingGate } from "@/lib/useBillingGate";
+import { usePaymentGateway } from "@/lib/usePaymentGateway";
 
 export default function ServicesPage() {
   const {
+    BillingGateModal,
+    GatewayGateModal, 
     t,
     isRTL,
     loadingUser,
@@ -59,6 +63,7 @@ export default function ServicesPage() {
   } = useServices();
 
   useBlockBackNavigation(true);
+
 
     const { allowed: canCreate } = useTenantPermission("services.create");
     const { allowed: canEdit } = useTenantPermission("services.edit");
@@ -101,7 +106,10 @@ export default function ServicesPage() {
   
 
   return (
+    
     <div className="space-y-6">
+      {BillingGateModal}
+      {GatewayGateModal}
       {/* Header */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>

@@ -4,12 +4,15 @@ import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import Cookies from "js-cookie";
+import { useBillingGate } from "@/lib/useBillingGate";
+import { usePaymentGateway } from "@/lib/usePaymentGateway";
 
 export function useServices() {
   const { user, loadingUser, requiresOnboarding, activeTenant,t,isRTL } = useApp();
   const router = useRouter();
   const tenantId = activeTenant;
   const API_BASE = process.env.NEXT_PUBLIC_API_URL;
+  
 
   // State
   const [services, setServices] = useState([]);
@@ -23,6 +26,9 @@ export function useServices() {
   const [activeTab, setActiveTab] = useState("basic");
   const [serviceCategories, setServiceCategories] = useState([]);
   const [deletedCount, setDeletedCount] = useState(0);
+  const { handleGatewayError, GatewayGateModal } = usePaymentGateway({ autoLoad: false });
+  const { handleBillingError, BillingGateModal } = useBillingGate();
+
 
   const [form, setForm] = useState({
     name: "",
@@ -62,6 +68,7 @@ export function useServices() {
     if (!tenantId) throw new Error("Tenant not ready");
 
     const token = Cookies.get("access_token");
+
     const res = await fetch(url, {
       ...options,
       headers: {
@@ -71,14 +78,25 @@ export function useServices() {
         ...(options.headers || {}),
       },
       credentials: "include",
-
     });
 
     if (!res.ok) {
       const errorData = await res.json();
+
+      // 🔥 STEP 1: gateway gate (ADD THIS)
+      if (handleGatewayError(errorData)) {
+        return;
+      }
+
+      // 🔥 STEP 2: billing gate
+      if (handleBillingError(errorData)) {
+        return;
+      }
+
       const messages = Object.values(errorData)
         .filter((v) => Array.isArray(v))
         .flat();
+
       const error = new Error(messages.join("\n") || "Request failed");
       error.status = res.status;
       error.raw = errorData;
@@ -248,6 +266,7 @@ export function useServices() {
           body: JSON.stringify(payload),
         });
       }
+      if (!saved) return;
 
       const fresh = await authFetch(`${API_BASE}/api/v1/services/${saved.slug}/`);
       const normalizedService = {
@@ -281,7 +300,13 @@ export function useServices() {
       setEditing(null);
       resetForm();
     } catch (err) {
-      alert(err.message || "Failed to save service");
+      // 🔥 gateway gate
+      if (handleGatewayError(err?.data || err)) return;
+
+      // 🔥 billing gate
+      if (handleBillingError(err)) return;
+
+      alert(err.detail || "Failed to save service");
     }
   };
 
@@ -450,6 +475,8 @@ export function useServices() {
   };
 
   return {
+    BillingGateModal,
+    GatewayGateModal, 
     // Auth state
     user,
     loadingUser,

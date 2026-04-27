@@ -1,4 +1,4 @@
-// src/app/dashboard/integrations/page.js  (FULL REPLACEMENT)
+// src/app/dashboard/integrations/IntegrationsPage.js  (FULL REPLACEMENT)
 'use client'
 
 import { useState, useEffect, useCallback } from 'react'
@@ -23,9 +23,8 @@ import {
   Circle, Link2,
 } from 'lucide-react'
 import useBlockBackNavigation from '@/lib/useBlockBackNavigation'
-
-import { useTenantPermission } from "@/lib/useTenantPermission";
-
+import { useTenantPermission } from "@/lib/useTenantPermission"
+import PaymentGatewaySection from './PaymentGatewaySection'
 
 
 // ── Icon map ────────────────────────────────────────────────────
@@ -51,8 +50,8 @@ export default function IntegrationsPage() {
   const [category, setCategory] = useState('all')
   const [activeModal, setActiveModal] = useState(null)
 
-  const { allowed: canView } = useTenantPermission("integrations.view");
-  const { allowed: canManage } = useTenantPermission("integrations.manage");
+  const { allowed: canView } = useTenantPermission("integrations.view")
+  const { allowed: canManage } = useTenantPermission("integrations.manage")
 
   useBlockBackNavigation(!!user)
 
@@ -101,6 +100,9 @@ export default function IntegrationsPage() {
           <p className="text-gray-600 mt-1">Connect your tools and automate your business</p>
         </div>
       </div>
+
+      {/* ═══ PAYMENT GATEWAYS (top priority) ═══ */}
+      <PaymentGatewaySection activeTenant={activeTenant} />
 
       {/* ═══ STATUS BAR ═══ */}
       <div className="bg-white rounded-2xl border border-[#8B1E3F]/10 p-5 shadow-sm">
@@ -196,10 +198,8 @@ function IntegrationCard({ integration, onAction }) {
   const isConnected = integration.status === 'connected'
   const isPending = integration.status === 'pending' || integration.status === 'qr_ready'
 
-  
-  const { allowed: canView } = useTenantPermission("integrations.view");
-  const { allowed: canManage } = useTenantPermission("integrations.manage");
-
+  const { allowed: canView } = useTenantPermission("integrations.view")
+  const { allowed: canManage } = useTenantPermission("integrations.manage")
 
   const handleConnect = () => {
     if (integration.connect_type === 'oauth') onAction(integration.id)
@@ -506,7 +506,7 @@ function GoogleCalendarModal({ activeTenant, onClose, onRefresh }) {
 
   const handleConnect = async (providerId) => {
     try {
-      const data = await getGoogleCalendarOAuthUrl(activeTenant, providerId,'tenant')
+      const data = await getGoogleCalendarOAuthUrl(activeTenant, providerId, 'tenant')
       if (data.oauth_url) window.location.href = data.oauth_url
     } catch (err) { alert(err.message) }
   }
@@ -579,7 +579,7 @@ function GoogleCalendarModal({ activeTenant, onClose, onRefresh }) {
 // ═══════════════════════════════════════════════════════════════
 
 function WhatsAppModal({ activeTenant, onClose, onRefresh }) {
-  const [phase, setPhase] = useState('loading') // loading | qr | authenticated | error
+  const [phase, setPhase] = useState('loading')
   const [qrCode, setQrCode] = useState('')
   const [phone, setPhone] = useState('')
   const [error, setError] = useState(null)
@@ -602,7 +602,6 @@ function WhatsAppModal({ activeTenant, onClose, onRefresh }) {
     }
   }
 
-  // Poll status while waiting for QR scan
   useEffect(() => {
     if (phase !== 'qr') return
     const interval = setInterval(async () => {
@@ -619,7 +618,6 @@ function WhatsAppModal({ activeTenant, onClose, onRefresh }) {
     return () => clearInterval(interval)
   }, [phase, activeTenant, onRefresh])
 
-  // Refresh QR every 15s
   useEffect(() => {
     if (phase !== 'qr') return
     const interval = setInterval(async () => {
@@ -730,7 +728,6 @@ function PixelConfigModal({ activeTenant, integration, onClose, onRefresh }) {
   return (
     <Modal title={integration.name} subtitle="Enter your credentials to connect" onClose={onClose}>
       <div className="space-y-5">
-        {/* Config fields */}
         {integration.config_fields?.map((field) => (
           <div key={field.key}>
             <label className="block text-sm font-bold text-gray-700 mb-2">{field.label}</label>
@@ -741,7 +738,6 @@ function PixelConfigModal({ activeTenant, integration, onClose, onRefresh }) {
           </div>
         ))}
 
-        {/* Where to find it */}
         {guide && (
           <div className="p-4 rounded-xl bg-gray-50 border border-gray-200">
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Where to find this</p>
@@ -755,7 +751,6 @@ function PixelConfigModal({ activeTenant, integration, onClose, onRefresh }) {
           </div>
         )}
 
-        {/* What we track */}
         {guide?.tracked_events && (
           <div>
             <p className="text-xs font-bold text-gray-500 uppercase tracking-wider mb-2">Events we'll track</p>

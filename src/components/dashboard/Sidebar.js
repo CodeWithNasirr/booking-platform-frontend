@@ -5,6 +5,8 @@ import { usePathname, useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { usePlan } from "@/contexts/PlanContext";
 import { useTenantRBAC } from "@/contexts/TenantRBACContext";
+import { useIntegrationStatus } from "@/app/dashboard/integrations/hooks/useIntegrationStatus";
+import SidebarIntegrationDot from "../shared/SidebarIntegrationDot";
 import {
   LayoutDashboard,
   Package,
@@ -20,6 +22,7 @@ import {
   ShoppingBag,
   MessageCircle,
   Send,
+  CreditCard,
 } from "lucide-react";
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
@@ -27,7 +30,13 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const router = useRouter();
   const { t, logout, isRTL, tenants, activeTenant, hasProviders } = useApp();
   const { hasFeature, loading: planLoading } = usePlan();
-  const { canSeeSidebarItem, loading: rbacLoading } = useTenantRBAC();
+  const { canSeeSidebarItem, hasPermission, loading: rbacLoading } = useTenantRBAC();
+  const canManageIntegrations = hasPermission("integrations.manage");
+
+  const {
+    getWarningsForFeature,
+    loading: integrationLoading,
+  } = useIntegrationStatus();
 
   const go = (page) => {
     if (page === "tenant-dashboard") {
@@ -47,63 +56,138 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     router.push(`/dashboard/${page.replace("tenant-", "")}`);
   };
 
+  // ── Menu items with all gating metadata ──
   const menuItems = [
-    { key: "tenant-dashboard", label: t("dashboard.title"), icon: LayoutDashboard },
-    { key: "tenant-services", label: t("tenant.services"), icon: Package },
+    {
+      key: "tenant-dashboard",
+      label: t("dashboard.title"),
+      icon: LayoutDashboard,
+    },
+    {
+      key: "tenant-services",
+      label: t("tenant.services"),
+      icon: Package,
+    },
     {
       key: "tenant-providers",
       label: t("tenant.providers"),
       icon: Users,
-      requiresProviders: true, // ← Only show for business tenants
+      requiresProviders: true,
     },
-    { key: "tenant-bookings", label: t("tenant.bookings"), icon: Calendar },
-    { key: "tenant-orders", label: "Orders", icon: ShoppingBag },
+    {
+      key: "tenant-bookings",
+      label: t("tenant.bookings"),
+      icon: Calendar,
+      integrationFeature: "online_booking",
+    },
+    {
+      key: "tenant-orders",
+      label: "Orders",
+      icon: ShoppingBag,
+    },
     {
       key: "tenant-users",
       label: "Team Members",
       icon: UsersRound,
-      requiresProviders: true, // ← Only show for business tenants
+      requiresProviders: true,
     },
-    { key: "tenant-calendar", label: t("tenant.calendar"), icon: Calendar },
+    {
+      key: "tenant-calendar",
+      label: t("tenant.calendar"),
+      icon: Calendar,
+    },
     {
       key: "tenant-schedule",
-      label: t("tenant.mySchedule") || "My Schedule",
+      label: t("tenant.schedule") || "My Schedule",
       icon: Calendar,
-      requiresIndividual: true, // ← Only show for individual owners
+      requiresIndividual: true,
     },
-    { key: "tenant-customers", label: t("tenant.customers"), icon: UsersRound },
-    { key: "tenant-finance", label: t("tenant.finance"), icon: DollarSign },
-    { key: "tenant-website", label: t("tenant.website"), icon: Globe },
+    {
+      key: "tenant-customers",
+      label: t("tenant.customers"),
+      icon: UsersRound,
+    },
+    {
+      key: "tenant-finance",
+      label: t("tenant.finance"),
+      icon: DollarSign,
+    },
+    {
+      key:"tenant-billing",
+      label: t("tenant.billing"),
+      icon: CreditCard,
+    },
+    {
+      key: "tenant-website",
+      label: t("tenant.website"),
+      icon: Globe,
+    },
     {
       key: "tenant-analytics",
       label: t("tenant.analytics"),
       icon: BarChart3,
       featureCode: "analytics",
     },
-    { key: "tenant-integrations", label: t("tenant.integrations"), icon: Zap },
-    { key: "tenant-whatsapp", label: "Manage WhatsApp", icon: MessageCircle },
-    { key: "tenant-campaigns", label: "Campaigns", icon: Send },
-    { key: "tenant-settings", label: t("tenant.settings"), icon: Settings },
+    {
+      key: "tenant-integrations",
+      label: t("tenant.integrations"),
+      icon: Zap,
+    },
+    {
+      key: "tenant-whatsapp",
+      label: "Manage WhatsApp",
+      icon: MessageCircle,
+      integrationFeature: "whatsapp_notifications",
+    },
+    {
+      key: "tenant-campaigns",
+      label: "Campaigns",
+      icon: Send,
+      integrationFeature: "whatsapp_notifications",
+    },
+    {
+      key: "tenant-settings",
+      label: t("tenant.settings"),
+      icon: Settings,
+    },
   ];
 
-  // ── Three-layer gating: tenant type + plan features + RBAC ──
+  // ── Four-layer gating: tenant type → plan → RBAC → (integration is visual only) ──
   const visibleItems = menuItems.filter((item) => {
-    // 0. Tenant type gate (individual vs business)
     if (item.requiresProviders && !hasProviders) return false;
     if (item.requiresIndividual && hasProviders) return false;
 
-    // 1. Plan feature gate
     if (item.featureCode) {
       if (planLoading) return true;
       if (!hasFeature(item.featureCode)) return false;
     }
 
-    // 2. RBAC permission gate
     if (rbacLoading) return true;
     if (!canSeeSidebarItem(item.key)) return false;
 
     return true;
   });
+
+  // ── Resolve integration dot for a menu item ──
+  const getIntegrationDot = (item) => {
+    if (!item.integrationFeature || integrationLoading) return null;
+     // 🚨 ADD THIS LINE
+    if (!canManageIntegrations) return null;
+
+    const warning = getWarningsForFeature(item.integrationFeature);
+    if (!warning) return null;
+
+    const missingNames = warning.missing
+      ?.map((m) => m.label)
+      .join(", ");
+
+    return (
+      <SidebarIntegrationDot
+        severity={warning.severity}
+        tooltip={missingNames ? `Requires: ${missingNames}` : warning.label}
+      />
+    );
+  };
 
   return (
     <div
@@ -144,6 +228,8 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
                 ? pathname === "/dashboard"
                 : pathname === route || pathname.startsWith(route + "/");
 
+            const dot = getIntegrationDot(item);
+
             return (
               <button
                 key={item.key}
@@ -163,7 +249,10 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
                     isActive ? "text-[#8B1E3F]" : "text-gray-500"
                   }`}
                 />
-                <span className="font-medium">{item.label}</span>
+                <span className="font-medium whitespace-nowrap overflow-hidden text-ellipsis min-w-0">
+                  {item.label}
+                </span>
+                {dot}
               </button>
             );
           })}

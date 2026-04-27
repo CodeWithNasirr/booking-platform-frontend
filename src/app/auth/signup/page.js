@@ -19,15 +19,16 @@ import Link from "next/link";
 import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
 import Cookies from "js-cookie";
 import { Button } from "@/app/ui/button";
+import { useSearchParams } from "next/navigation";
 
-export default function RegisterWizard({ searchParams }) {
+export default function RegisterWizard() {
+  const searchParams = useSearchParams();
   const router = useRouter();
   // const searchParams = useSearchParams();
   const { t, isRTL, setUser, requiresOnboarding, tenants, activeTenant, setActiveTenant, selectTenant } = useApp();
 
-  // ── Read plan from URL query params ──
-  const selectedPlan = searchParams?.plan || "free";
-  const selectedInterval = searchParams?.interval || "month";
+  const selectedPlan = searchParams.get("plan") || "free";
+  const selectedInterval = searchParams.get("interval") || "month";
 
   const [step, setStep] = useState("register");
   const [isLoading, setIsLoading] = useState(false);

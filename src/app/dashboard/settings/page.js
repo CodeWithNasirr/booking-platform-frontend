@@ -9,6 +9,8 @@ import NotificationTabs from '@/components/dashboard/settings/NotificationTabs'
 // import AppStoreTab from '@/components/dashboard/settings/AppStoreTab'
 import DomainSettingsTab from '@/components/dashboard/settings/DomainSettingsTab'
 import TenantPermissionGate from '@/components/dashboard/TenantPermissionGate'
+import DocumentUploadSection from '@/components/dashboard/settings/DocumentUploadSection'
+
 
 import {
   Building2, Bell, Zap, Globe, Languages, Save, Upload,
@@ -298,6 +300,7 @@ export default function TenantSettingsPage() {
                 onChange={setBusinessInfo}
                 onSave={() => handleSave('business_info', businessInfo)}
                 saving={saving}
+                activeTenant={activeTenant}
               />
             )}
 
@@ -373,7 +376,7 @@ export default function TenantSettingsPage() {
 // SUB-TAB COMPONENTS
 // ═══════════════════════════════════════════════════════════════
 
-function BusinessInfoTab({ data, onChange, onSave, saving }) {
+function BusinessInfoTab({ data, onChange, onSave, saving, activeTenant }) {
   const update = (field, value) => onChange({ ...data, [field]: value })
 
   return (
@@ -417,6 +420,12 @@ function BusinessInfoTab({ data, onChange, onSave, saving }) {
         />
       </div>
 
+      {/* ═══ BUSINESS DOCUMENT ═══ */}
+      <div className="pt-6 border-t border-[#8B1E3F]/10">
+        <DocumentUploadSection activeTenant={activeTenant} />
+      </div>
+
+      {/* ═══ ACTION BUTTONS ═══ */}
       <div className="flex justify-end gap-3 pt-6 border-t border-[#8B1E3F]/10">
         <button className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all">
           Cancel
