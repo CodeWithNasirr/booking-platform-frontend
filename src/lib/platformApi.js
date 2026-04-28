@@ -41,27 +41,10 @@ async function refreshAccessToken() {
 }
 
 
-export async function fetchPlatformSettings() {
-  return platformFetch(`/api/v1/platform/settings/`, {
-    headers: authHeaders(),
-  });
-}
- 
-export async function updatePlatformSettings(data) {
-  return platformFetch(`/api/v1/platform/settings/update/`, {
-    method: 'PATCH',
-    headers: authHeaders(),
-    body: JSON.stringify(data),
-  });
-}
- 
-export async function testIntegrationConnection(integrationName) {
-  return platformFetch(`/api/v1/platform/settings/test-integration/`, {
-    method: 'POST',
-    headers: authHeaders(),
-    body: JSON.stringify({ integration: integrationName }),
-  });
-}
+
+
+
+
 
 // ─── Core fetch wrapper ─────────────────────────────────────────
 
@@ -106,6 +89,74 @@ async function platformFetch(endpoint, options = {}) {
   }
 
   return data;
+}
+
+
+
+
+// ───────────────────────────────────────────────────────────────────
+// DOCUMENT VERIFICATION
+// ───────────────────────────────────────────────────────────────────
+ 
+export async function fetchDocuments(params = {}) {
+  const qs = new URLSearchParams();
+  Object.entries(params).forEach(([k, v]) => {
+    if (v !== undefined && v !== null && v !== '') qs.set(k, v);
+  });
+  const qsStr = qs.toString();
+  return platformFetch(`/api/v1/platform/documents/${qsStr ? '?' + qsStr : ''}`, {
+    headers: authHeaders(),
+  });
+}
+ 
+export async function fetchDocumentDetail(docId) {
+  return platformFetch(`/api/v1/platform/documents/${docId}/`, {
+    headers: authHeaders(),
+  });
+}
+ 
+export async function fetchDocumentStats() {
+  return platformFetch(`/api/v1/platform/documents/stats/`, {
+    headers: authHeaders(),
+  });
+}
+ 
+export async function approveDocument(docId, notes = '') {
+  return platformFetch(`/api/v1/platform/documents/${docId}/approve/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ notes }),
+  });
+}
+ 
+export async function rejectDocument(docId, reason, notes = '') {
+  return platformFetch(`/api/v1/platform/documents/${docId}/reject/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ reason, notes }),
+  });
+}
+ 
+export async function resetDocument(docId, reason = '') {
+  return platformFetch(`/api/v1/platform/documents/${docId}/reset/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ reason }),
+  });
+}
+ 
+export async function fetchTenantVerification(tenantId) {
+  return platformFetch(`/api/v1/platform/tenants/${tenantId}/verification/`, {
+    headers: authHeaders(),
+  });
+}
+ 
+export async function overrideTenantVerification(tenantId, action, reason, days = 7) {
+  return platformFetch(`/api/v1/platform/tenants/${tenantId}/verification/`, {
+    method: 'POST',
+    headers: authHeaders(),
+    body: JSON.stringify({ action, reason, days }),
+  });
 }
 
 // ─── Auth ───────────────────────────────────────────────────────

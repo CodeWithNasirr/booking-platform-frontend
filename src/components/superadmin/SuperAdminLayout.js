@@ -62,6 +62,13 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
       icon: Users,
       visible: hasPermission("tenants.view"),
     },
+
+    {
+      key: "/superadmin/documents",
+      label: t("superadmin.nav.documents"),
+      icon: FileText,
+      visible: hasPermission("tenants.view"),
+    },
     {
       key: "/superadmin/billing",
       label: t("superadmin.nav.billing"),
