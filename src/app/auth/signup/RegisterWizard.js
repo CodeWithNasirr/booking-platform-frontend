@@ -1,0 +1,493 @@
+"use client";
+
+import { useState, useEffect } from "react";
+import {
+  ArrowLeft,
+  Mail,
+  Phone,
+  Lock,
+  Eye,
+  EyeOff,
+  UserPlus,
+  Sparkles,
+  Check,
+} from "lucide-react";
+import Image from "next/image";
+import { useApp } from "@/contexts/AppContext";
+import { useRouter } from "next/navigation";
+import Link from "next/link";
+import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
+import Cookies from "js-cookie";
+import { Button } from "@/app/ui/button";
+import { useSearchParams } from "next/navigation";
+
+import { UserX } from "lucide-react";
+
+import usePlatformFlags from "@/hooks/usePlatformFlags";
+import useApiError, { ApiErrorAlert } from "@/hooks/useApiError";
+
+export default function RegisterWizard({
+  selectedPlan,
+  selectedInterval,
+}) {
+//   const searchParams = useSearchParams();
+  const router = useRouter();
+  const { t, isRTL, setUser, requiresOnboarding, tenants, activeTenant, setActiveTenant, selectTenant } = useApp();
+
+  const { flags, loading: flagsLoading } = usePlatformFlags();
+
+  const {error,handleError,clearError,} = useApiError();
+
+//   const selectedPlan = searchParams.get("plan") || "free";
+//   const selectedInterval = searchParams.get("interval") || "month";
+
+  const [step, setStep] = useState("register");
+  const [isLoading, setIsLoading] = useState(false);
+  const [tempId, setTempId] = useState(null);
+
+  // const [error, setError] = useState("");
+  const [otpError, setOtpError] = useState("");
+  const [resendCooldown, setResendCooldown] = useState(0);
+  const [showPassword, setShowPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+
+  const [formData, setFormData] = useState({
+    full_name: "",
+    email: "",
+    phone: "",
+    password: "",
+    confirm_password: "",
+  });
+
+  const [otpCode, setOtpCode] = useState("");
+
+  const handleChange = (e) => {
+    const { name, value } = e.target;
+    setFormData((prev) => ({ ...prev, [name]: value }));
+  };
+
+  const handleOtpChange = (e) => {
+    setOtpCode(e.target.value.replace(/[^0-9]/g, ""));
+  };
+
+  // ── Plan display names ──
+  const planLabels = {
+    free: { name: "Free", color: "slate" },
+    starter: { name: "Starter", color: "blue" },
+    professional: { name: "Professional", color: "rose" },
+    enterprise: { name: "Enterprise", color: "purple" },
+  };
+
+  const planInfo = planLabels[selectedPlan] || planLabels.free;
+
+  /* ── REDIRECT IF ALREADY ONBOARDING ── */
+  useEffect(() => {
+  if (requiresOnboarding === undefined) return;
+
+  if (requiresOnboarding) {
+    const tenant =
+      tenants?.find((t) => t.id === activeTenant) || tenants?.[0];
+
+    const step = tenant ? tenant.onboarding_step || 1 : 1;
+    router.replace(`/auth/onboarding?step=${step}`);
+  }
+}, [requiresOnboarding, tenants, activeTenant]);
+
+  /* ── RESEND TIMER ── */
+  useEffect(() => {
+    if (resendCooldown > 0) {
+      const timer = setTimeout(() => setResendCooldown((c) => c - 1), 1000);
+      return () => clearTimeout(timer);
+    }
+  }, [resendCooldown]);
+  
+
+  /* ── REGISTER → SEND OTP ── */
+  const handleRegister = async (e) => {
+    e.preventDefault();
+    clearError();
+
+    if (formData.password !== formData.confirm_password) {
+      handleError({
+        code: "password_mismatch",
+        message: t("auth.passwordMismatch"),
+      });
+      return;
+    }
+
+    setIsLoading(true);
+
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/register/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          ...formData,
+          // ── Pass selected plan to backend ──
+          selected_plan: selectedPlan,
+          billing_interval: selectedInterval,
+        }),
+      }
+    );
+
+    const data = await res.json();
+    console.log("REGISTER STATUS:", res.status);
+    console.log("REGISTER RESPONSE:", data);
+    setIsLoading(false);
+
+    if (!res.ok) {
+      const messages = [];
+      Object.entries(data).forEach(([field, errors]) => {
+        if (Array.isArray(errors)) {
+          errors.forEach((msg) => messages.push(msg));
+        } else if (typeof errors === "string") {
+          messages.push(errors);
+        }
+      });
+      handleError({
+        code: data.code || "registration_failed",
+        message: messages.join("\n"),
+        data,
+      });
+      return;
+    }
+
+    setTempId(data.temp_id);
+    setResendCooldown(data.cooldown);
+    setStep("otp");
+  };
+
+  /* ── VERIFY OTP ── */
+  const handleVerifyOTP = async () => {
+
+    setOtpError("");
+
+    if (otpCode.length !== 6) return setOtpError(t("auth.invalidOtp"));
+
+    setIsLoading(true);
+    const res = await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/register/verify/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          temp_id: tempId,
+          code: otpCode,
+          // ── Pass plan info through verification too ──
+          selected_plan: selectedPlan,
+          billing_interval: selectedInterval,
+        }),
+      }
+    );
+
+    const data = await res.json();
+
+    if (res.status === 429) {
+      setOtpError(data.detail || t("auth.tooManyAttempts"));
+      setTimeout(() => window.location.reload(), 5000);
+      setIsLoading(false);
+      return;
+    }
+
+    if (!res.ok) {
+      const messages = [];
+      Object.entries(data).forEach(([field, errors]) => {
+        if (Array.isArray(errors)) {
+          errors.forEach((msg) => messages.push(msg));
+        } else if (typeof errors === "string") {
+          messages.push(errors);
+        }
+      });
+      setOtpError(
+        messages.join("\n") ||
+        data.detail ||
+        t("auth.invalidOtp")
+      );
+      setIsLoading(false);
+      return;
+    }
+
+    Cookies.set("access_token", data.access);
+    Cookies.set("refresh_token", data.refresh);
+    setUser(data.user);
+
+    if (data.tenant?.id) {
+      Cookies.set("active_tenant", data.tenant.id);
+      selectTenant(data.tenant.id);
+    }
+
+    router.push(`/auth/onboarding?step=${data.tenant.onboarding_step || 1}`);
+  };
+
+  /* ── RESEND CODE ── */
+  const handleResend = async () => {
+    if (!tempId) return;
+    setResendCooldown(60);
+
+    await fetch(
+      `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/register/resend/`,
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ temp_id: tempId }),
+      }
+    );
+  };
+
+  if (!flagsLoading && !flags.registration_open) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6 bg-gradient-to-br from-accent via-background to-secondary">
+        <div className="max-w-sm text-center bg-white rounded-2xl shadow-xl p-8">
+          <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <UserX className="w-8 h-8 text-gray-400" />
+          </div>
+
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Registration Closed
+          </h2>
+
+          <p className="text-sm text-gray-500 leading-relaxed">
+            New account registrations are temporarily disabled.
+            Please check back later.
+          </p>
+
+          <Link
+            href="/"
+            className="inline-flex mt-6 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90"
+          >
+            Back Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
+
+  /* ── UI ── */
+  return (
+    <div className="min-h-screen flex items-center justify-center p-4 bg-gradient-to-br from-accent via-background to-secondary">
+      {/* Language Switcher */}
+      <div className="absolute top-4 right-4">
+        <LanguageSwitcher />
+      </div>
+
+      {/* Back Button */}
+      <Link
+        href="/"
+        className="absolute top-4 left-4 flex items-center gap-2 text-gray-600 hover:text-gray-800"
+      >
+        <ArrowLeft className="w-4 h-4" />
+        <span>{t("common.backHome")}</span>
+      </Link>
+
+      <div className="w-full max-w-md">
+        {/* Logo & Titles */}
+        <div className="text-center mb-8">
+          <div className="inline-flex items-center gap-2 mb-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-primary to-[hsl(345_65%_32%)] flex items-center justify-center">
+              <UserPlus className="w-6 h-6 text-white" />
+            </div>
+            <span className="text-2xl font-bold">BookingPro</span>
+          </div>
+
+          <h1 className="text-3xl font-bold">{t("auth.signup")}</h1>
+          <p className="text-gray-600">{t("auth.createAccountSubtitle")}</p>
+        </div>
+
+        {/* ── SELECTED PLAN BANNER ── */}
+        {selectedPlan && selectedPlan !== "free" && (
+          <div className="mb-6 p-4 rounded-xl bg-gradient-to-r from-rose-50 to-amber-50 border border-rose-200">
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-gradient-to-br from-rose-500 to-amber-500 flex items-center justify-center flex-shrink-0">
+                <Sparkles className="w-5 h-5 text-white" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center gap-2">
+                  <span className="font-bold text-slate-900">
+                    {planInfo.name} Plan
+                  </span>
+                  <span className="px-2 py-0.5 rounded-full bg-emerald-100 text-emerald-700 text-xs font-semibold">
+                    14-day free trial
+                  </span>
+                </div>
+                <p className="text-sm text-slate-600 mt-0.5">
+                  Full access during trial · No credit card required
+                </p>
+              </div>
+              <Check className="w-5 h-5 text-emerald-600 flex-shrink-0" />
+            </div>
+          </div>
+        )}
+
+        {/* ── REGISTRATION FORM ── */}
+        {step === "register" && (
+          <div className="bg-white p-8 rounded-2xl shadow-xl space-y-6">
+            <form onSubmit={handleRegister} className="space-y-6">
+              {/* Full Name */}
+              <div>
+                <label className="block mb-2">{t("auth.fullName")}</label>
+                <input
+                  name="full_name"
+                  value={formData.full_name}
+                  onChange={handleChange}
+                  placeholder={t("auth.fullNamePlaceholder")}
+                  className="w-full px-4 py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring"
+                  required
+                />
+              </div>
+
+              {/* Email */}
+              <div>
+                <label className="block mb-2">{t("common.email")}</label>
+                <div className="relative">
+                  <Mail className={`absolute top-1/2 -translate-y-1/2 w-5 text-gray-400 ${isRTL ? "right-3" : "left-3"}`} />
+                  <input
+                    name="email"
+                    type="email"
+                    value={formData.email}
+                    onChange={handleChange}
+                    placeholder={t("auth.emailPlaceholder")}
+                    className={`w-full ${isRTL ? "pr-10 pl-4" : "pl-10 pr-4"} py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring`}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Phone */}
+              <div>
+                <label className="block mb-2">{t("auth.phone")}</label>
+                <div className="relative">
+                  <Phone className={`absolute top-1/2 -translate-y-1/2 w-5 text-gray-400 ${isRTL ? "right-3" : "left-3"}`} />
+                  <input
+                    name="phone"
+                    value={formData.phone}
+                    onChange={handleChange}
+                    placeholder={t("auth.phonePlaceholder")}
+                    className={`w-full ${isRTL ? "pr-10 pl-4" : "pl-10 pr-4"} py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring`}
+                    required
+                  />
+                </div>
+              </div>
+
+              {/* Password */}
+              <div>
+                <label className="block mb-2">{t("common.password")}</label>
+                <div className="relative">
+                  <Lock className={`absolute top-1/2 -translate-y-1/2 w-5 text-gray-400 ${isRTL ? "right-3" : "left-3"}`} />
+                  <input
+                    name="password"
+                    type={showPassword ? "text" : "password"}
+                    value={formData.password}
+                    onChange={handleChange}
+                    placeholder={t("auth.passwordPlaceholder")}
+                    className={`w-full ${isRTL ? "pr-12 pl-10" : "pl-10 pr-12"} py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring`}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowPassword(!showPassword)}
+                    className={`absolute top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600 ${isRTL ? "left-2" : "right-2"}`}
+                  >
+                    {showPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+
+              {/* Confirm Password */}
+              <div>
+                <label className="block mb-2">{t("auth.confirmPassword")}</label>
+                <div className="relative">
+                  <Lock className={`absolute top-1/2 -translate-y-1/2 w-5 text-gray-400 ${isRTL ? "right-3" : "left-3"}`} />
+                  <input
+                    name="confirm_password"
+                    type={showConfirmPassword ? "text" : "password"}
+                    value={formData.confirm_password}
+                    onChange={handleChange}
+                    placeholder={t("auth.confirmPasswordPlaceholder")}
+                    className={`w-full ${isRTL ? "pr-12 pl-10" : "pl-10 pr-12"} py-3 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring`}
+                    required
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                    className={`absolute top-1/2 -translate-y-1/2 p-2 text-gray-400 hover:text-gray-600 ${isRTL ? "left-2" : "right-2"}`}
+                  >
+                    {showConfirmPassword ? <EyeOff size={20} /> : <Eye size={20} />}
+                  </button>
+                </div>
+              </div>
+
+              {error && (
+                <ApiErrorAlert
+                  error={error}
+                  onDismiss={clearError}
+                />
+              )}
+
+              <Button
+                type="submit"
+                className="w-full bg-primary text-primary-foreground py-3 text-lg hover:opacity-90"
+                disabled={isLoading}
+              >
+                {isLoading
+                  ? t("auth.processing")
+                  : selectedPlan !== "free"
+                  ? `Create Account & Start Trial`
+                  : t("auth.createAccount")}
+              </Button>
+            </form>
+          </div>
+        )}
+
+        {/* ── OTP STEP ── */}
+        {step === "otp" && (
+          <div className="bg-white p-8 rounded-2xl shadow-xl space-y-6">
+            <p className="text-center text-gray-600">{t("auth.otpSent")}</p>
+
+            <input
+              maxLength={6}
+              value={otpCode}
+              onChange={handleOtpChange}
+              className="w-full text-center text-2xl tracking-widest py-4 border border-border rounded-xl focus:outline-none focus:ring-2 focus:ring-ring"
+              placeholder="000000"
+            />
+
+            {otpError && <p className="text-red-500 text-center">{otpError}</p>}
+
+            <Button
+              onClick={handleVerifyOTP}
+              className="w-full bg-blue-600 py-3 text-lg"
+              disabled={isLoading || otpCode.length !== 6}
+            >
+              {isLoading ? t("auth.verifying") : t("auth.verify")}
+            </Button>
+
+            <Button
+              variant="ghost"
+              onClick={handleResend}
+              disabled={resendCooldown > 0}
+              className="w-full"
+            >
+              {resendCooldown > 0
+                ? `${t("auth.resendIn")} ${resendCooldown}s`
+                : t("auth.resendCode")}
+            </Button>
+          </div>
+        )}
+
+        {/* Footer */}
+        <div className="text-center mt-4">
+          <p className="text-gray-600">
+            {t("auth.alreadyHaveAccount")}{" "}
+            <Link
+              href="/auth/login"
+              className="text-primary hover:underline font-medium"
+            >
+              {t("auth.signIn")}
+            </Link>
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+}
