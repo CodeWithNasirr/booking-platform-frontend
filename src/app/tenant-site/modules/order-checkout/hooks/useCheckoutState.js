@@ -49,6 +49,12 @@ const EMPTY_STATE = {
   // Completion
   completed: false,
   timestamp: null,
+  // Gateway-agnostic fields
+  gateway: null,              // "stripe" | "hyperpay"
+  checkoutId: null,           // HyperPay checkout ID
+  widgetUrl: null,            // HyperPay widget JS URL
+  brands: null,               // ["VISA", "MASTER", "MADA"]
+  callbackUrl: null,          // HyperPay callback URL
 };
 
 export default function useCheckoutState(domain, serviceSlug) {
@@ -149,17 +155,22 @@ export default function useCheckoutState(domain, serviceSlug) {
 
   // Called after initiateOrderPayment succeeds
   const setPaymentReady = useCallback(
-    ({ clientSecret, orderId, orderNumber, totalAmount, currency }) =>
-      update({
-        clientSecret,
-        orderId,
-        orderNumber,
-        totalAmount,
-        currency,
-        step: 2,
-      }),
-    [update]
-  );
+      ({ clientSecret, orderId, orderNumber, totalAmount, currency, gateway, checkoutId, widgetUrl, brands, callbackUrl }) =>
+        update({
+          clientSecret,
+          orderId,
+          orderNumber,
+          totalAmount,
+          currency,
+          gateway: gateway || (clientSecret ? "stripe" : "hyperpay"),
+          checkoutId: checkoutId || null,
+          widgetUrl: widgetUrl || null,
+          brands: brands || null,
+          callbackUrl: callbackUrl || null,
+          step: 2,
+        }),
+      [update]
+    );
 
   // Called after payment confirmation succeeds
   const setCompleted = useCallback(
@@ -187,7 +198,9 @@ export default function useCheckoutState(domain, serviceSlug) {
   }, [key]);
 
   // Check if we have an existing order (for resume after refresh)
-  const hasExistingOrder = Boolean(state.orderId && state.clientSecret);
+  const hasExistingOrder = Boolean(
+    state.orderId && (state.clientSecret || state.checkoutId)
+  );
 
   return {
     // State

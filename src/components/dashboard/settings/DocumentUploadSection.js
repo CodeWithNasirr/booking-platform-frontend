@@ -195,7 +195,7 @@ export default function DocumentUploadSection({ activeTenant }) {
 // ═══════════════════════════════════════════════════════════════
 
 function VerificationStatusBanner({ verification }) {
-  const { level, is_in_grace_period, days_remaining_in_grace, can_accept_payments, admin_override } = verification;
+  const { level, is_in_grace_period, days_remaining_in_grace, can_accept_payments, admin_override,missing_documents  } = verification;
 
   if (admin_override) {
     return (
@@ -229,9 +229,15 @@ function VerificationStatusBanner({ verification }) {
           <p className="text-sm font-semibold text-amber-900">
             Grace Period: {days_remaining_in_grace} day{days_remaining_in_grace !== 1 ? "s" : ""} remaining
           </p>
-          <p className="text-xs text-amber-700 mt-0.5">
-            You can use the platform freely while we verify your documents. Please upload all required documents to complete verification.
-          </p>
+         <p className="text-xs text-amber-700 mt-0.5">
+          Please upload the following required document(s):
+        </p>
+
+        <ul className="mt-1 text-xs text-amber-800 list-disc list-inside">
+          {missing_documents?.map((doc, i) => (
+            <li key={i}>{doc}</li>
+          ))}
+        </ul>
         </div>
       </div>
     );

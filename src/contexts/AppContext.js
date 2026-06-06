@@ -4,6 +4,9 @@ import React, { createContext, useContext, useState, useEffect } from "react";
 import Cookies from "js-cookie";
 import { translations } from "../translations";
 import { useRouter } from "next/navigation";
+import { apiFetch } from "@/lib/apiClient";
+import { COOKIE_OPTIONS } from "@/lib/cookieConfig";
+
 const AppContext = createContext(undefined);
 
 export function useApp() {
@@ -13,12 +16,16 @@ export function useApp() {
 }
 
 export function AppProvider({ children }) {
+  console.log("APP COntenxt Mount")
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
   const [language, setLanguage] = useState("en");
   const [user, setUser] = useState(null);
 
   const [loadingUser, setLoadingUser] = useState(true);
+  const [authInitialized,
+  setAuthInitialized] =
+  useState(false);
   const [activeTenant, setActiveTenant] = useState(null);
   const [tenants, setTenants] = useState([]);
   const [requiresOnboarding, setRequiresOnboarding] = useState(false);
@@ -38,6 +45,16 @@ export function AppProvider({ children }) {
     if (savedTenant) setActiveTenant(savedTenant);
 
     setHydrated(true);
+
+    // Listen for language changes triggered by t.js setLanguage()
+    // (called from LanguageSwitcher inside superadmin/landing which
+    //  don't have AppProvider and use useTranslation instead of useApp)
+    function onExternalLangChange(e) {
+      setLanguage(e.detail.lang);
+    }
+
+    window.addEventListener("app-lang-change", onExternalLangChange);
+    return () => window.removeEventListener("app-lang-change", onExternalLangChange);
   }, []);
 
   const isRTL = language === "ar" || language === "ur";
@@ -70,9 +87,14 @@ export function AppProvider({ children }) {
     if (!hydrated) return;
 
     Cookies.set("app_language", language);
-
     document.documentElement.dir = isRTL ? "rtl" : "ltr";
     document.documentElement.lang = language;
+
+    // Notify useTranslation() hooks across the entire tree
+    // so superadmin and landing pages re-render without a refresh
+    window.dispatchEvent(
+      new CustomEvent("app-lang-change", { detail: { lang: language } })
+    );
   }, [hydrated, language, isRTL]);
 
   useEffect(() => {
@@ -80,87 +102,66 @@ export function AppProvider({ children }) {
 
     async function load() {
       try {
-        let access = Cookies.get("access_token");
+        const access = Cookies.get("access_token");
         const refresh = Cookies.get("refresh_token");
+
+        const impersonation =
+          Cookies.get("impersonation_token");
+
+       if (
+        impersonation &&
+        !access &&
+        !refresh
+      ) {
+        Cookies.remove(
+          "impersonation_token",
+          
+          COOKIE_OPTIONS
+        );
+
+        Cookies.remove(
+          "impersonation_tenant",
+          COOKIE_OPTIONS
+        );
+
+        setUser(null);
+        setLoadingUser(false);
+
+        return;
+      }
 
         if (!access && !refresh) {
           setUser(null);
+          setTenants([]);
           setLoadingUser(false);
+          setAuthInitialized(true);
           return;
         }
 
-        // 👉 FIRST REQUEST
-        let response = await fetch(`${BACKEND_URL}/api/v1/auth/me/`, {
-          headers: {
-            Authorization: `Bearer ${access}`,
-            "X-Tenant": Cookies.get("active_tenant"),
-          },
-          credentials: "include",
-        });
-
-        // 👉 REFRESH TOKEN FLOW
-        if (response.status === 401 && refresh) {
-          const refreshRes = await fetch(`${BACKEND_URL}/api/v1/auth/token/refresh/`, {
-            method: "POST",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ refresh }),
-          });
-
-          const refreshData = await refreshRes.json();
-
-          if (refreshRes.ok) {
-            Cookies.set("access_token", refreshData.access);
-            access = refreshData.access;
-
-            // 🔥 NEW VARIABLE (IMPORTANT)
-            const retryRes = await fetch(`${BACKEND_URL}/api/v1/auth/me/`, {
-              headers: {
-                Authorization: `Bearer ${access}`,
-                "X-Tenant": Cookies.get("active_tenant"),
-              },
-              credentials: "include",
-            });
-
-            response = retryRes;
-          } else {
-            Cookies.remove("access_token");
-            Cookies.remove("refresh_token");
-            setUser(null);
-            setLoadingUser(false);
-            return;
-          }
-        }
-
-        // 🔥 SAFE PARSE
-        const text = await response.text();
-
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch (err) {
-          console.error("❌ Non-JSON /auth/me response:", text);
-          setUser(null);
-          return;
-        }
+        const data = await apiFetch(
+          "/api/v1/auth/me/",
+          Cookies.get("active_tenant")
+        );
 
         console.log("User data loaded:", data);
 
-        if (response.ok) {
-          setUser(data.user);
-          setTenants(data.tenants);
-          setRequiresOnboarding(data.requires_onboarding);
+        setUser(data.user || null);
+        setTenants(data.tenants || []);
+        setRequiresOnboarding(data.requires_onboarding || false);
 
-          if (data.active_tenant) {
-            Cookies.set("active_tenant", data.active_tenant);
-            setActiveTenant(data.active_tenant);
-          }
+        if (data.active_tenant) {
+          Cookies.set("active_tenant", data.active_tenant);
+          setActiveTenant(data.active_tenant);
         }
       } catch (err) {
         console.error("Load user error:", err);
-        setUser(null);
-      }
 
-      setLoadingUser(false);
+        setUser(null);
+        setTenants([]);
+      } finally {
+        setLoadingUser(false);
+        setAuthInitialized(true);
+      }
     }
 
     load();
@@ -187,7 +188,11 @@ export function AppProvider({ children }) {
         setActiveTenant,
 
         selectTenant: (id) => {
-          Cookies.set("active_tenant", id);
+          Cookies.set(
+            "active_tenant",
+            id,
+            COOKIE_OPTIONS
+          );
           setActiveTenant(id);
         },
           
@@ -195,11 +200,23 @@ export function AppProvider({ children }) {
         setRequiresOnboarding,
 
         loadingUser,
+        authInitialized,
 
         logout: () => {
-          Cookies.remove("access_token");
-          Cookies.remove("refresh_token");
-          Cookies.remove("active_tenant");
+         Cookies.remove(
+            "access_token",
+            COOKIE_OPTIONS
+          );
+
+          Cookies.remove(
+            "refresh_token",
+            COOKIE_OPTIONS
+          );
+
+          Cookies.remove(
+            "active_tenant",
+            COOKIE_OPTIONS
+          );
           router.push("/auth/login");
           setUser(null);
           setTenants([]);

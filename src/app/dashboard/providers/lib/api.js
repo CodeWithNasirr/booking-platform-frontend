@@ -1,6 +1,6 @@
 // providers/lib/api.js
 import Cookies from 'js-cookie'
-
+import { apiFetch } from '@/lib/apiClient'
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000/api'
 
 
@@ -97,18 +97,20 @@ export const transformProviderFromBackend = (data) => ({
 
 // API Functions
 export const fetchProviders = async (tenantId) => {
-  const res = await authFetch(
-    `${API_BASE}/api/v1/providers/`,
+  const data = await apiFetch(
+    `/api/v1/providers/`,
     tenantId
   )
-  const data = await res.json()
   // console.log(data,"data")
   return data.map(transformProviderFromBackend)
 }
 
 
 export const createProvider = async (tenantId,formData) => {
-  const res = await authFetch(`${API_BASE}/api/v1/providers/`,tenantId, {
+  const data = await apiFetch(
+    `/api/v1/providers/`,
+    tenantId,
+    {
     method: 'POST',
     body: JSON.stringify({
       name: formData.name,
@@ -118,8 +120,10 @@ export const createProvider = async (tenantId,formData) => {
       assign_all_services: formData.assignAllServices || false,
       service_ids: formData.assignedServices || [], // Send selected service IDs
     })
-  })
-  return transformProviderFromBackend(await res.json())
+    }
+  )
+
+  return transformProviderFromBackend(data)
 }
 
 export const updateProvider = async (tenantId, id, formData) => {
@@ -134,9 +138,8 @@ export const updateProvider = async (tenantId, id, formData) => {
   if (formData.email !== formData.originalEmail) {
     payload.email = formData.email
   }
-
-  const res = await authFetch(
-    `${API_BASE}/api/v1/providers/${id}/`,
+const data = await apiFetch(
+  `/api/v1/providers/${id}/`,
     tenantId,
     {
       method: 'PATCH',
@@ -144,13 +147,13 @@ export const updateProvider = async (tenantId, id, formData) => {
     }
   )
 
-  return transformProviderFromBackend(await res.json())
+  return transformProviderFromBackend(data)
 }
 
 
 export const updateAvailability = async (tenantId, id, availability) => {
-  const res = await authFetch(
-    `${API_BASE}/api/v1/providers/${id}/availability/`,
+  const data = await apiFetch(
+    `/api/v1/providers/${id}/availability/`,
     tenantId,
     {
       method: 'POST',
@@ -160,19 +163,25 @@ export const updateAvailability = async (tenantId, id, availability) => {
       })
     }
   )
-  return transformProviderFromBackend(await res.json())
+  return transformProviderFromBackend(data)
 }
 
 export const toggleProviderStatus = async (tenantId,id, isActive) => {
-  const res = await authFetch(`${API_BASE}/api/v1/providers/${id}/`,tenantId, {
+  const data = await apiFetch(
+    `/api/v1/providers/${id}/`,
+    tenantId,
+    {
     method: 'PATCH',
     body: JSON.stringify({ is_active: isActive })
   })
-  return transformProviderFromBackend(await res.json())
+  return transformProviderFromBackend(data)
 }
 
 export const deleteProvider = async (tenantId,id) => {
-  await authFetch(`${API_BASE}/api/v1/providers/${id}/`,tenantId, {
+  await apiFetch(
+  `/api/v1/providers/${id}/`,
+  tenantId,
+  {
     method: 'DELETE'
   })
   return true

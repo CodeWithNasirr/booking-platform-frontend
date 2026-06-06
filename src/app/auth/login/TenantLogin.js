@@ -1,4 +1,5 @@
 // skofficial456@gmail.com provider pass:skcode4321
+// auth/login/TenantLogin.js
 "use client";
 
 import { useState } from 'react';
@@ -9,8 +10,8 @@ import LanguageSwitcher from '@/components/shared/LanguageSwitcher';
 import { Briefcase, Mail, Lock, Eye, EyeOff, ArrowLeft } from 'lucide-react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
-
-
+import { apiFetch } from '@/lib/apiClient';
+import { COOKIE_OPTIONS } from "@/lib/cookieConfig";
 export default function TenantLogin() {
   const { t, isRTL, setUser, setTenants, setRequiresOnboarding, selectTenant } = useApp();
   const router = useRouter();
@@ -54,7 +55,7 @@ export default function TenantLogin() {
     setIsLoading(true);
 
     try {
-      const res = await fetch(`${API}/api/v1/auth/login/`, {
+      const data = await apiFetch(`/api/v1/auth/login/`, null, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -63,20 +64,21 @@ export default function TenantLogin() {
         }),
       });
 
-      const data = await res.json();
       console.log("Login response:", data);
-      if (!res.ok) {
-        if (data.email) setErrors({ email: data.email[0] });
-        else if (data.password) setErrors({ password: data.password[0] });
-        else if (data.non_field_errors) setErrors({ email: data.non_field_errors[0] });
-        else setErrors({ email: "Invalid login" });
-        setIsLoading(false);
-        return;
-      }
+
 
       // Save tokens
-      Cookies.set("access_token", data.access);
-      Cookies.set("refresh_token", data.refresh);
+      Cookies.set(
+        "access_token",
+        data.access,
+        COOKIE_OPTIONS
+      );
+
+      Cookies.set(
+        "refresh_token",
+        data.refresh,
+        COOKIE_OPTIONS
+      );
 
       // Update context
       setUser(data.user);
@@ -85,7 +87,11 @@ export default function TenantLogin() {
 
       // Store active tenant
       if (data.active_tenant) {
-        Cookies.set("active_tenant", data.active_tenant);
+        Cookies.set(
+          "active_tenant",
+          data.active_tenant,
+          COOKIE_OPTIONS
+        );
         selectTenant(data.active_tenant);
       }
 
@@ -106,7 +112,11 @@ export default function TenantLogin() {
       //   PROVIDER: Redirect to provider dashboard
       const firstMembership = tenants[0];
       if (firstMembership.role === 'provider') {
-        Cookies.set("active_tenant", firstMembership.id);
+        Cookies.set(
+          "active_tenant",
+          firstMembership.id,
+          COOKIE_OPTIONS
+        );
         selectTenant(firstMembership.id);
         router.push("/provider");
         return;
@@ -114,7 +124,7 @@ export default function TenantLogin() {
       
 
       if (tenants.length === 1) {
-        Cookies.set("active_tenant", tenants[0].id);
+        Cookies.set("active_tenant", tenants[0].id,COOKIE_OPTIONS);
         selectTenant(tenants[0].id);
         router.push("/dashboard");
         return;
@@ -122,10 +132,20 @@ export default function TenantLogin() {
 
       router.push("/tenants/select");
 
-    } catch (err) {
-      console.error("Login error:", err);
-      setErrors({ email: "Server error, please try again later" });
+    } 
+    catch (err) {
+    console.error("Login error:", err);
+
+    if (err.data?.email) {
+      setErrors({ email: err.data.email[0] });
+    } else if (err.data?.password) {
+      setErrors({ password: err.data.password[0] });
+    } else if (err.data?.non_field_errors) {
+      setErrors({ email: err.data.non_field_errors[0] });
+    } else {
+      setErrors({ email: err.message || "Login failed" });
     }
+  }
 
     setIsLoading(false);
   };

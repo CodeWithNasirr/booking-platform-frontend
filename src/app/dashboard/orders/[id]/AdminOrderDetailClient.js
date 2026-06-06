@@ -19,7 +19,9 @@
  *   POST /api/v1/orders/{id}/upload_file/  ← upload file (via chat panel)
  */
 
-import { authFetch } from "../lib/api";
+// import { authFetch } from "../lib/api";
+import { apiFetch as authFetch } from '@/lib/apiClient';
+
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
@@ -65,8 +67,8 @@ const ADMIN_ACTIONS = {
   ],
   delivered: [
     { action: "complete",             label: "Complete Order",    style: "success" },
-    { endpoint: "request_revision",   label: "Request Revision",  style: "secondary" },
-    { endpoint: "start_work",         label: "Reopen",            style: "secondary" },
+    // { endpoint: "request_revision",   label: "Request Revision",  style: "secondary" },
+    // { endpoint: "start_work",         label: "Reopen",            style: "secondary" },
   ],
   revision_requested: [
     { endpoint: "start_work", label: "Resume Work", style: "primary" },
@@ -251,7 +253,7 @@ export default function AdminOrderDetailClient({ orderId }) {
   const handleComplete = async () => {
     try {
       setActionLoading("complete");
-      await authFetch(`/api/v1/orders/${orderId}/accept_delivery/`, tenantId, {
+      await authFetch(`/api/v1/orders/${orderId}/complete/`, tenantId, {
         method: "POST",
       });
       await fetchOrder();

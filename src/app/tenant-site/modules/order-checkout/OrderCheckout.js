@@ -21,6 +21,8 @@ import { useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { loadStripe } from "@stripe/stripe-js";
 import { Elements } from "@stripe/react-stripe-js";
+import { detectGateway, GATEWAY, buildHyperPayCallbackUrl } from "@/lib/paymentGateway";
+import HyperPayWidget from "@/components/payment/HyperPayWidget";
 import { useTenantLang } from "../../contexts/TenantLangContext";
 import { useTenantTheme } from "../../contexts/TenantThemeContext";
 import { resolveTranslated } from "../../[domain]/utils/resolveTranslated";
@@ -83,6 +85,60 @@ export default function OrderCheckout({ service, domain }) {
     );
   }
 
+
+  function HyperPayOrderStep({
+    checkoutId,
+    widgetUrl,
+    brands,
+    callbackUrl,
+    service,
+    selectedPackage,
+    currentPrice,
+    deliveryDays,
+    revisionsAllowed,
+    onBack,
+    theme,
+    lang,
+    isRTL,
+  }) {
+    // Import OrderSummary inline to avoid circular deps
+    const OrderSummary = require("./components/OrderSummary").default;
+  
+    return (
+      <div className="mt-6 space-y-6">
+        <OrderSummary
+          service={service}
+          pkg={selectedPackage}
+          price={currentPrice}
+          deliveryDays={deliveryDays}
+          revisionsAllowed={revisionsAllowed}
+          theme={theme}
+          lang={lang}
+          isRTL={isRTL}
+        />
+  
+        <div className="bg-white rounded-xl border p-6">
+          <HyperPayWidget
+            checkoutId={checkoutId}
+            widgetUrl={widgetUrl}
+            brands={brands || ["VISA", "MASTER", "MADA"]}
+            callbackUrl={callbackUrl}
+            lang={lang}
+            isRTL={isRTL}
+            theme={theme}
+          />
+        </div>
+  
+        <button
+          onClick={onBack}
+          className="px-6 py-3 text-gray-600 font-medium hover:text-gray-900"
+        >
+          {resolveTranslated({ en: "Back", ar: "رجوع", ur: "واپس" }, lang)}
+        </button>
+      </div>
+    );
+  }
+
   // ─── Step 0 → 1: Validate package selection ───
   const handleContinueToDetails = () => {
     if (!selectedPackage && service?.packages?.length > 0) {
@@ -130,14 +186,22 @@ export default function OrderCheckout({ service, domain }) {
       };
 
       const result = await initiateOrderPayment(domain, payload);
-
+      console.log("PAYMENT RESPONSE:", result);
+      const gateway = detectGateway(result);
+ 
       // Persist payment state (survives refresh)
       checkout.setPaymentReady({
-        clientSecret: result.client_secret,
+        clientSecret: result.client_secret || null,
         orderId: result.order_id,
         orderNumber: result.order_number,
         totalAmount: result.total_amount,
         currency: result.currency,
+        // NEW: gateway-specific fields
+        gateway: gateway,
+        checkoutId: result.checkout_id || null,
+        widgetUrl: result.widget_url || null,
+        brands: result.brands || null,
+        callbackUrl: result.callback_url || null,
       });
     } catch (e) {
       setError(e.message);
@@ -199,24 +263,44 @@ export default function OrderCheckout({ service, domain }) {
         />
       )}
 
-      {/* ─── Step 2: Stripe Payment ─── */}
-      {checkout.step === 2 && checkout.clientSecret && (
-        <Elements stripe={stripePromise} options={{ clientSecret: checkout.clientSecret }}>
-          <PaymentStep
-            domain={domain}
-            orderId={checkout.orderId}
+      {/* ─── Step 2: Payment (Stripe or HyperPay) ─── */}
+      {checkout.step === 2 && (
+        checkout.gateway === GATEWAY.HYPERPAY ? (
+          // ── HyperPay: Widget-based payment ──
+          <HyperPayOrderStep
+            checkoutId={checkout.checkoutId}
+            widgetUrl={checkout.widgetUrl}
+            brands={checkout.brands}
+            callbackUrl={checkout.callbackUrl || buildHyperPayCallbackUrl("order", checkout.orderId)}
             service={service}
             selectedPackage={selectedPackage}
             currentPrice={currentPrice}
             deliveryDays={deliveryDays}
             revisionsAllowed={revisionsAllowed}
-            onSuccess={handlePaymentSuccess}
             onBack={() => checkout.setStep(1)}
             theme={theme}
             lang={lang}
             isRTL={isRTL}
           />
-        </Elements>
+        ) : checkout.clientSecret ? (
+          // ── Stripe: Existing Elements flow ──
+          <Elements stripe={stripePromise} options={{ clientSecret: checkout.clientSecret }}>
+            <PaymentStep
+              domain={domain}
+              orderId={checkout.orderId}
+              service={service}
+              selectedPackage={selectedPackage}
+              currentPrice={currentPrice}
+              deliveryDays={deliveryDays}
+              revisionsAllowed={revisionsAllowed}
+              onSuccess={handlePaymentSuccess}
+              onBack={() => checkout.setStep(1)}
+              theme={theme}
+              lang={lang}
+              isRTL={isRTL}
+            />
+          </Elements>
+        ) : null
       )}
 
       {/* ─── Step 3: Confirmation ─── */}

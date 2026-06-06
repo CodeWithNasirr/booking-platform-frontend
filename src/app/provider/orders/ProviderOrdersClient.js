@@ -5,6 +5,7 @@ import { useApp } from "@/contexts/AppContext";
 import DashboardLayout from "@/components/provider/DashboardLayout";
 import ProviderOrdersDashboard from "./ProviderOrdersDashboard";
 import { useState, useEffect, useCallback } from "react";
+import { apiFetch as authFetch } from '@/lib/apiClient';
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
 
@@ -24,7 +25,6 @@ export default function ProviderOrdersClient() {
 
   useEffect(() => {
     const savedToken = Cookies.get("access_token");
-    // console.log("Checking provider auth with token:", savedToken, "and tenant:", tenantId);
 
     if (!savedToken || !tenantId) {
       setUnauthorized(true);
@@ -32,33 +32,25 @@ export default function ProviderOrdersClient() {
       return;
     }
 
-   async function validate() {
-    try {
-      const res = await fetch(`${API_BASE}/api/v1/orders/?role=provider`, {
-        headers: {
-          Authorization: `Bearer ${savedToken}`,
-          "X-Tenant": tenantId,
-        },
-      });
+    async function validate() {
+      try {
+        // ✅ Uses centralized auth logic
+        await authFetch(
+          "/api/v1/orders/?role=provider",
+          tenantId
+        );
 
-      if (!res.ok) {
-        // console.log("Provider validation failed:", res.status);
+        setToken(savedToken);
+        setUnauthorized(false);
+
+      } catch (err) {
+        console.error("Provider validation error:", err);
+
         setUnauthorized(true);
-        return;
+      } finally {
+        setLoading(false);
       }
-
-      const data = await res.json();
-      // console.log("Provider orders response:", data);
-
-      setToken(savedToken);
-      setUnauthorized(false); // ✅ IMPORTANT FIX
-    } catch (err) {
-      // console.error("Provider validation error:", err);
-      setUnauthorized(true);
-    } finally {
-      setLoading(false);
     }
-  }
 
     validate();
   }, [tenantId]);

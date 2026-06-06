@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from 'react'
 import { X, Save, Loader2, AlertCircle, User } from 'lucide-react'
-
+import { apiFetch as authFetch } from '@/lib/apiClient'
+import { useApp } from '@/contexts/AppContext'
 const ROLE_OPTIONS = [
   { value: 'admin', label: 'Admin' },
   { value: 'sub_admin', label: 'Sub Admin' },
@@ -10,7 +11,11 @@ const ROLE_OPTIONS = [
   { value: 'staff', label: 'Staff' },
 ]
 
-export default function EditMemberModal({ member, onClose, onSuccess, headers, apiUrl }) {
+export default function EditMemberModal({
+    member,
+    onClose,
+    onSuccess,
+  }) {
   const [roleForm, setRoleForm] = useState({
     role: member.role,
     permissions: member.permissions || [],
@@ -25,6 +30,7 @@ export default function EditMemberModal({ member, onClose, onSuccess, headers, a
     phone: member.user?.phone || '',
   })
 
+  const { activeTenant } = useApp()
   const [availablePermissions, setAvailablePermissions] = useState({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -34,13 +40,16 @@ export default function EditMemberModal({ member, onClose, onSuccess, headers, a
 
   // Fetch permissions for sub_admin
   useEffect(() => {
-    if (roleForm.role === 'sub_admin') {
-      fetch(`${apiUrl}/api/v1/tenant/members/permissions/`, { headers,credentials: 'include' })
-        .then((r) => r.json())
-        .then(setAvailablePermissions)
-        .catch(console.error)
-    }
-  }, [roleForm.role])
+    if (roleForm.role !== 'sub_admin') return
+
+    authFetch(
+      '/api/v1/tenant/members/permissions/',
+      activeTenant
+    )
+      .then(setAvailablePermissions)
+      .catch(console.error)
+
+  }, [roleForm.role, activeTenant])
 
   const togglePermission = (code) => {
     setRoleForm((prev) => ({
@@ -58,45 +67,50 @@ export default function EditMemberModal({ member, onClose, onSuccess, headers, a
     try {
       // 1) Update role/permissions
       if (!isOwner) {
-        const roleRes = await fetch(
-          `${apiUrl}/api/v1/tenant/members/${member.id}/update/`,
-          {
-            method: 'PATCH',
-            headers,
-            body: JSON.stringify({
-              role: roleForm.role,
-              permissions: roleForm.role === 'sub_admin' ? roleForm.permissions : [],
-              is_active: roleForm.is_active,
-              ...(roleForm.role === 'provider' && {
-                commission_percent: roleForm.commission_percent || null,
-                can_accept_bookings: roleForm.can_accept_bookings,
-              }),
+        const roleRes = await authFetch(
+        `/api/v1/tenant/members/${member.id}/update/`,
+        activeTenant,
+        {
+          method: 'PATCH',
+
+          body: JSON.stringify({
+            role: roleForm.role,
+
+            permissions:
+              roleForm.role === 'sub_admin'
+                ? roleForm.permissions
+                : [],
+
+            is_active: roleForm.is_active,
+
+            ...(roleForm.role === 'provider' && {
+              commission_percent:
+                roleForm.commission_percent || null,
+
+              can_accept_bookings:
+                roleForm.can_accept_bookings,
             }),
-          }
-        )
-        if (!roleRes.ok) {
-          const data = await roleRes.json()
-          throw new Error(data.detail || data.role?.[0] || 'Failed to update role')
+          }),
         }
+      )
       }
 
       // 2) Update profile
-      const profileRes = await fetch(
-        `${apiUrl}/api/v1/tenant/members/${member.id}/profile/`,
+      const profileRes = await authFetch(
+        `/api/v1/tenant/members/${member.id}/profile/`,
+        activeTenant,
         {
           method: 'PATCH',
-          headers,
           body: JSON.stringify(profileForm),
         }
       )
-      if (!profileRes.ok) {
-        const data = await profileRes.json()
-        throw new Error(data.detail || 'Failed to update profile')
-      }
 
       onSuccess()
     } catch (err) {
-      setError(err.message)
+      setError(
+      err?.message ||
+      'Failed to update member'
+    )
     } finally {
       setSaving(false)
     }

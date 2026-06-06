@@ -6,7 +6,7 @@ import { useApp } from "@/contexts/AppContext";
 import Cookies from "js-cookie";
 import { useBillingGate } from "@/lib/useBillingGate";
 import { usePaymentGateway } from "@/lib/usePaymentGateway";
-
+import { apiFetch } from "@/lib/apiClient";
 export function useServices() {
   const { user, loadingUser, requiresOnboarding, activeTenant,t,isRTL } = useApp();
   const router = useRouter();
@@ -115,9 +115,12 @@ export function useServices() {
       try {
         const endpoint =
           viewMode === "deleted"
-            ? `${API_BASE}/api/v1/services/deleted/`
-            : `${API_BASE}/api/v1/services/`;
-        const data = await authFetch(endpoint);
+            ? `/api/v1/services/deleted/`
+            : `/api/v1/services/`;
+        const data = await apiFetch(
+          endpoint,
+          tenantId
+        );
         
         const normalized = (data.results || data).map((s) => ({
           id: s.id,
@@ -144,7 +147,7 @@ export function useServices() {
         
         if (viewMode === "active") {
           try {
-            const deletedData = await authFetch(`${API_BASE}/api/v1/services/deleted/`);
+            const deletedData = await apiFetch(`/api/v1/services/deleted/`,tenantId);
             setDeletedCount(deletedData.length || deletedData.results?.length || 0);
           } catch (e) {
             setDeletedCount(0);
@@ -161,7 +164,7 @@ export function useServices() {
   // Load categories
   useEffect(() => {
     if (!activeTenant) return;
-    authFetch(`${API_BASE}/api/v1/service-categories/`)
+    apiFetch(`/api/v1/service-categories/`,tenantId)
       .then((data) => setServiceCategories(data.results || []))
       .catch(() => setServiceCategories([]));
   }, [activeTenant]);
@@ -256,19 +259,27 @@ export function useServices() {
           alert("Service slug missing");
           return;
         }
-        saved = await authFetch(`${API_BASE}/api/v1/services/${editing.slug}/`, {
+       saved = await apiFetch(
+        `/api/v1/services/${editing.slug}/`,
+        tenantId,
+        {
           method: "PATCH",
           body: JSON.stringify(payload),
-        });
+        }
+      );
       } else {
-        saved = await authFetch(`${API_BASE}/api/v1/services/`, {
+        saved = await apiFetch(
+        `/api/v1/services/`,
+        tenantId,
+        {
           method: "POST",
           body: JSON.stringify(payload),
-        });
+        }
+      );
       }
       if (!saved) return;
 
-      const fresh = await authFetch(`${API_BASE}/api/v1/services/${saved.slug}/`);
+      const fresh = await apiFetch(`/api/v1/services/${saved.slug}/`,tenantId);
       const normalizedService = {
         id: fresh.id,
         slug: fresh.slug,
@@ -312,7 +323,7 @@ export function useServices() {
 
   const handleEdit = async (service) => {
     try {
-      const fullService = await authFetch(`${API_BASE}/api/v1/services/${service.slug}/`);
+      const fullService = await apiFetch(`/api/v1/services/${service.slug}/`,tenantId);
       const mappedAvailability = (fullService.availability || []).map((avail) => ({
         day_of_week: avail.day_of_week,
         start_time: avail.start_time,
@@ -355,9 +366,13 @@ export function useServices() {
 
   const handleDuplicate = async (service) => {
     try {
-      const res = await authFetch(`${API_BASE}/api/v1/services/${service.slug}/duplicate/`, {
-        method: "POST",
-      });
+      const res = await apiFetch(
+        `/api/v1/services/${service.slug}/duplicate/`,
+        tenantId,
+        {
+          method: "POST",
+        }
+      );
       const newService = {
         id: res.service.id,
         slug: res.service.slug,
@@ -387,9 +402,13 @@ export function useServices() {
 
   const handleToggleActive = async (service) => {
     try {
-      const res = await authFetch(`${API_BASE}/api/v1/services/${service.slug}/toggle_active/`, {
-        method: "POST",
-      });
+      const res = await apiFetch(
+        `/api/v1/services/${service.slug}/toggle_active/`,
+        tenantId,
+        {
+          method: "POST",
+        }
+      );
       setServices((prev) =>
         prev.map((s) => (s.id === service.id ? { ...s, isActive: res.is_active } : s))
       );
@@ -410,13 +429,21 @@ export function useServices() {
 
     try {
       if (viewMode === "deleted") {
-        await authFetch(`${API_BASE}/api/v1/services/${service.slug}/permanent_delete/`, {
-          method: "DELETE",
-        });
+        await apiFetch(
+          `/api/v1/services/${service.slug}/permanent_delete/`,
+          tenantId,
+          {
+            method: "DELETE",
+          }
+        );
       } else {
-        await authFetch(`${API_BASE}/api/v1/services/${service.slug}/`, {
-          method: "DELETE",
-        });
+        await apiFetch(
+          `/api/v1/services/${service.slug}/`,
+          tenantId,
+          {
+            method: "DELETE",
+          }
+        );
       }
 
       setServices((prev) => prev.filter((s) => s.id !== service.id));
@@ -430,9 +457,13 @@ export function useServices() {
 
   const handleRestore = async (service) => {
     try {
-      await authFetch(`${API_BASE}/api/v1/services/${service.slug}/restore/`, {
-        method: "POST",
-      });
+      await apiFetch(
+        `/api/v1/services/${service.slug}/restore/`,
+        tenantId,
+        {
+          method: "POST",
+        }
+      );
       setServices((prev) => prev.filter((s) => s.id !== service.id));
       setDeletedCount((prev) => Math.max(0, prev - 1));
     } catch {
@@ -449,12 +480,19 @@ export function useServices() {
         icon: categoryData.icon || "",
       };
 
-      await authFetch(`${API_BASE}/api/v1/service-categories/`, {
-        method: "POST",
-        body: JSON.stringify(payload),
-      });
+      await apiFetch(
+        `/api/v1/service-categories/`,
+        tenantId,
+        {
+          method: "POST",
+          body: JSON.stringify(payload),
+        }
+      );
 
-      const data = await authFetch(`${API_BASE}/api/v1/service-categories/`);
+      const data = await apiFetch(
+        `/api/v1/service-categories/`,
+        tenantId
+      );
       setServiceCategories(data.results || []);
     } catch (err) {
       alert("Failed to create category: " + err.message);
@@ -465,9 +503,13 @@ export function useServices() {
     if (!confirm("Delete this category? Services in this category will become uncategorized."))
       return;
     try {
-      await authFetch(`${API_BASE}/api/v1/service-categories/${categorySlug}/`, {
-        method: "DELETE",
-      });
+      await apiFetch(
+        `/api/v1/service-categories/${categorySlug}/`,
+        tenantId,
+        {
+          method: "DELETE",
+        }
+      );
       setServiceCategories((prev) => prev.filter((c) => c.slug !== categorySlug));
     } catch (err) {
       alert("Failed to delete category: " + (err.message || "Unknown error"));

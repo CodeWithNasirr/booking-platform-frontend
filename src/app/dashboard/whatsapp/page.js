@@ -61,9 +61,35 @@ export default function ManageWhatsAppPage() {
   if (requiresOnboarding || loadingUser) return null
 
   const isConnected = session?.status === 'authenticated'
+  const isPlatformDisabled =
+  session?.status === 'disabled_by_platform'
   const isDisconnected = !session || session.status === 'disconnected'
   const hasError = session?.status === 'error'
 
+   if (isPlatformDisabled) {
+        return (
+          <div className="space-y-6">
+            <div className="bg-white rounded-2xl border border-gray-200">
+              <div className="flex flex-col items-center justify-center py-20 px-8">
+
+                <div className="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mb-5">
+                  <WifiOff className="w-8 h-8 text-gray-500" />
+                </div>
+
+                <h2 className="text-2xl font-bold text-gray-900 mb-3">
+                  WhatsApp Disabled
+                </h2>
+
+                <p className="text-sm text-gray-500 text-center max-w-md">
+                  WhatsApp integration has been disabled by
+                  platform administration.
+                </p>
+
+              </div>
+            </div>
+          </div>
+        )
+      }
   return (
     <div className="space-y-6">
       {/* Session Alert Banner */}

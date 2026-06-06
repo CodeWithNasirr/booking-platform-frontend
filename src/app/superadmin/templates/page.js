@@ -4,7 +4,14 @@
 import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import axios from '@/lib/axios'
-import { useApp } from '@/contexts/AppContext'
+// import { useApp } from '@/contexts/AppContext'
+import { useTranslation } from "@/lib/t";
+
+import {
+  fetchWebsiteTemplates,
+  deleteWebsiteTemplate
+} from '@/lib/platformApi'
+
 import { resolveTranslated } from '@/app/tenant-site/templates/utils/lang'
 import {
   Search,
@@ -52,7 +59,8 @@ function normalizeI18n(value) {
 }
 
 export default function SuperAdminTemplatesPage() {
-  const { language, t } = useApp()
+  // const { language, t } = useApp()
+  const { t, lang, isRTL, dir } = useTranslation()
   const router = useRouter()
   
   // State
@@ -74,28 +82,50 @@ export default function SuperAdminTemplatesPage() {
     premium: 0,
   })
 
-  // Fetch templates
-  const fetchTemplates = useCallback(async () => {
+const fetchTemplates = useCallback(async () => {
     setIsLoading(true)
+
     try {
       const params = new URLSearchParams()
-      if (filterType) params.append('template_type', filterType)
-      if (filterStatus) params.append('is_active', filterStatus)
-      if (searchQuery) params.append('search', searchQuery)
 
-      const res = await axios.get(`/api/v1/website/templates/?${params}`)
-      const data = res.data.results || res.data || []
-      
-      setTemplates(data)
-      
+      if (filterType)
+        params.append('template_type', filterType)
+
+      if (filterStatus)
+        params.append('is_active', filterStatus)
+
+      if (searchQuery)
+        params.append('search', searchQuery)
+
+      const data = await fetchWebsiteTemplates(
+        params.toString()
+      )
+
+      const templatesData =
+        data.results || data || []
+
+      setTemplates(templatesData)
+
       setStats({
-        total: data.length,
-        active: data.filter(t => t.is_active).length,
-        draft: data.filter(t => !t.is_active).length,
-        premium: data.filter(t => t.is_premium).length,
+        total: templatesData.length,
+        active: templatesData.filter(
+          t => t.is_active
+        ).length,
+
+        draft: templatesData.filter(
+          t => !t.is_active
+        ).length,
+
+        premium: templatesData.filter(
+          t => t.is_premium
+        ).length,
       })
+
     } catch (err) {
-      console.error('Failed to fetch templates:', err)
+      console.error(
+        'Failed to fetch templates:',
+        err
+      )
     } finally {
       setIsLoading(false)
     }
@@ -113,19 +143,36 @@ export default function SuperAdminTemplatesPage() {
   }, [searchQuery])
 
   const handleDelete = async (id) => {
-    if (!confirm(t('templates.confirmDelete') || 'Are you sure you want to delete this template?')) {
+    if (
+      !confirm(
+        t('templates.confirmDelete') ||
+        'Are you sure you want to delete this template?'
+      )
+    ) {
       return
     }
-    
+
     setIsDeleting(id)
+
     try {
-      await axios.delete(`/api/v1/website/templates/${id}/`)
-      setTemplates(prev => prev.map(t => 
-        t.id === id ? { ...t, is_active: false } : t
-      ))
+      await deleteWebsiteTemplate(id)
+
+      setTemplates(prev =>
+        prev.map(t =>
+          t.id === id
+            ? { ...t, is_active: false }
+            : t
+        )
+      )
+
     } catch (err) {
       console.error('Delete failed:', err)
-      alert(t('templates.deleteError') || 'Failed to delete template')
+
+      alert(
+        t('templates.deleteError') ||
+        'Failed to delete template'
+      )
+
     } finally {
       setIsDeleting(null)
     }
@@ -195,7 +242,7 @@ export default function SuperAdminTemplatesPage() {
         <div className="flex items-center justify-between">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
-              {resolveTranslated(template.name, language)} - Layouts
+              {resolveTranslated(template.name, lang)} - Layouts
             </h3>
             <p className="text-sm text-gray-500">
               {layouts.length} layout{layouts.length !== 1 ? 's' : ''} available
@@ -222,10 +269,10 @@ export default function SuperAdminTemplatesPage() {
                 <div className="flex justify-between items-start mb-3">
                   <div>
                     <h4 className="text-sm font-semibold text-gray-900">
-                      {resolveTranslated(nameI18n, language) || `Layout ${idx + 1}`}
+                      {resolveTranslated(nameI18n, lang) || `Layout ${idx + 1}`}
                     </h4>
                     <p className="text-xs text-gray-500 mt-1 line-clamp-2">
-                      {resolveTranslated(descI18n, language) || 'No description'}
+                      {resolveTranslated(descI18n, lang) || 'No description'}
                     </p>
                   </div>
                 </div>
@@ -274,7 +321,7 @@ export default function SuperAdminTemplatesPage() {
           {template.preview_url ? (
             <img 
               src={template.preview_url} 
-              alt={resolveTranslated(template.name, language)}
+              alt={resolveTranslated(template.name, lang)}
               className="w-full h-full object-cover"
             />
           ) : (
@@ -337,12 +384,12 @@ export default function SuperAdminTemplatesPage() {
               className="font-medium text-gray-900 line-clamp-1 cursor-pointer hover:text-indigo-600"
               onClick={() => router.push(`/superadmin/templates/${template.slug}/edit`)}
             >
-              {resolveTranslated(template.name, language)}
+              {resolveTranslated(template.name, lang)}
             </h3> */}
           </div>
           
           <p className="text-xs text-gray-500 mt-1 line-clamp-2 mb-2">
-            {resolveTranslated(template.description, language)}
+            {resolveTranslated(template.description, lang)}
           </p>
 
           {/* Meta row */}
@@ -434,14 +481,14 @@ export default function SuperAdminTemplatesPage() {
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-2 mb-1">
             <h3 className="font-semibold text-gray-900 truncate">
-              {resolveTranslated(template.name, language)}
+              {resolveTranslated(template.name, lang)}
             </h3>
             {template.is_premium && (
               <Star className="w-4 h-4 text-amber-500 fill-amber-500" />
             )}
           </div>
           <p className="text-sm text-gray-500 truncate">
-            {resolveTranslated(template.description, language)}
+            {resolveTranslated(template.description, lang)}
           </p>
         </div>
 

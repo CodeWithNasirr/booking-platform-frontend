@@ -4,16 +4,19 @@ import "../app/globals.css";
 
 import { AppProvider } from "@/contexts/AppContext";
 import { SuperAdminProvider } from "@/contexts/Superadmincontext";
+import PlatformGate from "@/components/ui/PlatformGate";
 
 export default function RootLayout({ children }) {
   return (
     <html>
       <body>
-        {/* <SuperAdminProvider> */}
-          <AppProvider>
+        {/* <PlatformGate> */}
+          {/* <AppProvider> */}
+          
             {children}
-          </AppProvider>
-        {/* </SuperAdminProvider> */}
+
+          {/* </AppProvider> */}
+        {/* </PlatformGate> */}
       </body>
     </html>
   );

@@ -21,7 +21,9 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
-import { authFetch } from "./orderApi";
+// import { authFetch } from "./orderApi";
+import { apiFetch as authFetch } from '@/lib/apiClient';
+
 import OrderChatPanel from "@/components/orders/OrderChatPanel";
 
 // ─── Status config ───

@@ -10,8 +10,10 @@ import { TenantRBACProvider } from "@/contexts/TenantRBACContext";
 import Sidebar from "./Sidebar";
 import { Toaster } from "react-hot-toast";
 import Topbar from "./Topbar";
-
+import { ImpersonationBanner } from "@/components/superadmin/ImpersonateButton";
+import AnnouncementBanner from "@/components/dashboard/AnnouncementBanner";
 export default function DashboardLayout({ children }) {
+  console.log("DashboardLayout mounted");
   const router = useRouter();
   const { user, loadingUser, requiresOnboarding, tenants, activeTenant } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -20,30 +22,63 @@ export default function DashboardLayout({ children }) {
   useBlockBackNavigation(!!user);
 
   useEffect(() => {
-  if (loadingUser || !user || !tenants?.length) return;
 
-  const active = tenants.find(t => t.id === activeTenant) || tenants[0];
+  // still loading auth
+  if (loadingUser) return;
+
+  // no user → stop blocking
+  if (!user) {
+    setRoleChecked(true);
+    return;
+  }
+
+  // no tenants yet → stop blocking
+  if (!tenants?.length) {
+    setRoleChecked(true);
+    return;
+  }
+
+  const active =
+    tenants.find(t => t.id === activeTenant)
+    || tenants[0];
+
+  console.log("TENANTS:", tenants);
+  console.log("ACTIVE TENANT:", activeTenant);
+  console.log("ACTIVE:", active);
 
   const roleRedirectMap = {
     owner: "/dashboard",
     admin: "/dashboard",
     sub_admin: "/dashboard",
     provider: "/provider",
-    staff: "/dashboard", 
+    staff: "/dashboard",
   };
 
-  const targetRoute = roleRedirectMap[active?.role];
+  const targetRoute =
+    roleRedirectMap[active?.role];
+
+  if (!targetRoute) {
+    setRoleChecked(true);
+    return;
+  }
 
   if (targetRoute !== "/dashboard") {
     router.replace(targetRoute);
-  } else {
-    setRoleChecked(true);
+    return;
   }
 
-  }, [loadingUser, user, tenants, activeTenant, router]);
+  setRoleChecked(true);
+
+}, [
+  loadingUser,
+  user,
+  tenants,
+  activeTenant,
+  router
+]);
 
 
-  
+
 
   // Onboarding guard
   useEffect(() => {
@@ -68,6 +103,8 @@ export default function DashboardLayout({ children }) {
           <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
           <div className="flex-1 flex flex-col overflow-hidden">
+            <ImpersonationBanner />
+            <AnnouncementBanner />
             <Topbar setSidebarOpen={setSidebarOpen} />
             <main className="flex-1 overflow-y-auto p-6 space-y-6">
               {children}

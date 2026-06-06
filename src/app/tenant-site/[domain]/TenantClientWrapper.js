@@ -17,7 +17,8 @@
 import React, { createContext, useContext, useMemo } from "react";
 import TenantThemeProvider from "../contexts/TenantThemeContext";
 import TenantLangProvider from "../contexts/TenantLangContext";
-
+      
+import { TenantRBACProvider } from "@/contexts/TenantRBACContext";
 
 // Site context for accessing site data throughout the app
 export const TenantSiteContext = createContext(null);
@@ -74,18 +75,20 @@ export default function TenantClientWrapper({
 
   return (
     <TenantSiteContext.Provider value={siteContextValue}>
-      <TenantThemeProvider theme={theme} themeDefaults={themeDefaults}>
-        <TenantLangProvider
-          defaultLang={defaultLang}
-          rtlEnabled={rtlEnabled}
-          supportedLanguages={supportedLanguages}
-        >
-          {/* Main content wrapper with theme CSS variables applied */}
-          <div className="tenant-site-wrapper min-h-screen">
-            {children}
-          </div>
-        </TenantLangProvider>
-      </TenantThemeProvider>
+      {/* <TenantRBACProvider> */}
+        <TenantThemeProvider theme={theme} themeDefaults={themeDefaults}>
+          <TenantLangProvider
+            defaultLang={defaultLang}
+            rtlEnabled={rtlEnabled}
+            supportedLanguages={supportedLanguages}
+          >
+            {/* Main content wrapper with theme CSS variables applied */}
+            <div className="tenant-site-wrapper min-h-screen">
+              {children}
+            </div>
+          </TenantLangProvider>
+        </TenantThemeProvider>
+      {/* </TenantRBACProvider> */}
     </TenantSiteContext.Provider>
   );
 }

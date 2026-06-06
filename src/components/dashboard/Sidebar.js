@@ -23,6 +23,8 @@ import {
   MessageCircle,
   Send,
   CreditCard,
+  LifeBuoy,
+  RotateCcw,
 } from "lucide-react";
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
@@ -123,6 +125,16 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       icon: Globe,
     },
     {
+      key: "tenant-logs",
+      label: t("tenant.logs"),
+      icon: Globe,
+    },
+    {
+      key: "tenant-refunds",
+      label: t("tenant.refunds") || "Refunds",
+      icon: RotateCcw,
+    },
+    {
       key: "tenant-analytics",
       label: t("tenant.analytics"),
       icon: BarChart3,
@@ -133,6 +145,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       label: t("tenant.integrations"),
       icon: Zap,
     },
+    {
+      key: "tenant-support",
+      label: t("tenant.support"),
+      icon: LifeBuoy,
+    },
+
     {
       key: "tenant-whatsapp",
       label: "Manage WhatsApp",

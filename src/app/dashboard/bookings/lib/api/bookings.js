@@ -1,6 +1,6 @@
 // src/app/dashboard/bookings/lib/api/bookings.js
-import { authFetch } from './index';
-
+// import { apiFetch } from './index';
+import { apiFetch } from "@/lib/apiClient";
 /**
  * Booking API Service
  * Connects to Django backend booking endpoints
@@ -25,14 +25,14 @@ export async function getBookings(tenantId, params = {}) {
   const query = queryParams.toString();
   const url = query ? `/api/v1/bookings/?${query}` : '/api/v1/bookings/';
 
-  return authFetch(url, tenantId);
+  return apiFetch(url, tenantId);
 }
 
 /**
  * Get single booking by ID
  */
 export async function getBooking(tenantId, id) {
-  return authFetch(`/api/v1/bookings/${id}/`, tenantId);
+  return apiFetch(`/api/v1/bookings/${id}/`, tenantId);
 }
 
 /**
@@ -40,7 +40,7 @@ export async function getBooking(tenantId, id) {
  * Matches PublicBookingCreateSerializer on backend
  */
 export async function createBooking(tenantId, data) {
-  return authFetch('/api/v1/bookings/', tenantId, {
+  return apiFetch('/api/v1/bookings/', tenantId, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -50,7 +50,7 @@ export async function createBooking(tenantId, data) {
  * Update booking
  */
 export async function updateBooking(tenantId, id, data) {
-  return authFetch(`/api/v1/bookings/${id}/`, tenantId, {
+  return apiFetch(`/api/v1/bookings/${id}/`, tenantId, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -60,7 +60,7 @@ export async function updateBooking(tenantId, id, data) {
  * Delete booking (soft delete)
  */
 export async function deleteBooking(tenantId, id) {
-  return authFetch(`/api/v1/bookings/${id}/`, tenantId, {
+  return apiFetch(`/api/v1/bookings/${id}/`, tenantId, {
     method: 'DELETE',
   });
 }
@@ -69,7 +69,7 @@ export async function deleteBooking(tenantId, id) {
  * Restore deleted booking
  */
 export async function restoreBooking(tenantId, id) {
-  return authFetch(`/api/v1/bookings/${id}/restore/`, tenantId, {
+  return apiFetch(`/api/v1/bookings/${id}/restore/`, tenantId, {
     method: 'POST',
   });
 }
@@ -82,7 +82,7 @@ export async function restoreBooking(tenantId, id) {
  * Update booking status
  */
 export async function updateBookingStatus(tenantId, id, status, notes = '') {
-  return authFetch(`/api/v1/bookings/${id}/update_status/`, tenantId, {
+  return apiFetch(`/api/v1/bookings/${id}/update_status/`, tenantId, {
     method: 'POST',
     body: JSON.stringify({ status, notes }),
   });
@@ -92,7 +92,7 @@ export async function updateBookingStatus(tenantId, id, status, notes = '') {
  * Cancel booking
  */
 export async function cancelBooking(tenantId, id, reason, refundRequested = false) {
-  return authFetch(`/api/v1/bookings/${id}/cancel/`, tenantId, {
+  return apiFetch(`/api/v1/bookings/${id}/cancel/`, tenantId, {
     method: 'POST',
     body: JSON.stringify({
       reason,
@@ -109,7 +109,7 @@ export async function cancelBooking(tenantId, id, reason, refundRequested = fals
  * Initiate payment for booking
  */
 export async function initiatePayment(tenantId, id, isDeposit = false) {
-  return authFetch(`/api/v1/bookings/${id}/initiate_payment/`, tenantId, {
+  return apiFetch(`/api/v1/bookings/${id}/initiate_payment/`, tenantId, {
     method: 'POST',
     body: JSON.stringify({ is_deposit: isDeposit }),
   });
@@ -119,7 +119,7 @@ export async function initiatePayment(tenantId, id, isDeposit = false) {
  * Confirm payment
  */
 export async function confirmPayment(tenantId, id, paymentIntentId) {
-  return authFetch(`/api/v1/bookings/${id}/confirm_payment/`, tenantId, {
+  return apiFetch(`/api/v1/bookings/${id}/confirm_payment/`, tenantId, {
     method: 'POST',
     body: JSON.stringify({ payment_intent_id: paymentIntentId }),
   });
@@ -137,7 +137,7 @@ export async function uploadBookingFile(tenantId, id, file, category) {
   formData.append('file', file);
   formData.append('category', category);
 
-  return authFetch(`/api/v1/bookings/${id}/upload_file/`, tenantId, {
+  return apiFetch(`/api/v1/bookings/${id}/upload_file/`, tenantId, {
     method: 'POST',
     body: formData,
   });
@@ -147,7 +147,7 @@ export async function uploadBookingFile(tenantId, id, file, category) {
  * Get booking files
  */
 export async function getBookingFiles(tenantId, id) {
-  return authFetch(`/api/v1/bookings/${id}/files/`, tenantId);
+  return apiFetch(`/api/v1/bookings/${id}/files/`, tenantId);
 }
 
 // =====================
@@ -158,7 +158,7 @@ export async function getBookingFiles(tenantId, id) {
  * Submit review for completed booking
  */
 export async function submitReview(tenantId, id, reviewData) {
-  return authFetch(`/api/v1/bookings/${id}/submit_review/`, tenantId, {
+  return apiFetch(`/api/v1/bookings/${id}/submit_review/`, tenantId, {
     method: 'POST',
     body: JSON.stringify(reviewData),
   });
@@ -181,7 +181,7 @@ export async function getBookingSlots(tenantId, serviceId, date, providerId = nu
     params.append('provider', providerId);
   }
 
-  return authFetch(`/api/v1/booking/slots/?${params.toString()}`, tenantId);
+  return apiFetch(`/api/v1/booking/slots/?${params.toString()}`, tenantId);
 }
 
 // =====================
@@ -192,21 +192,21 @@ export async function getBookingSlots(tenantId, serviceId, date, providerId = nu
  * Get dashboard overview stats
  */
 export async function getDashboardOverview(tenantId) {
-  return authFetch('/api/v1/dashboard/overview/', tenantId);
+  return apiFetch('/api/v1/dashboard/overview/', tenantId);
 }
 
 /**
  * Get dashboard revenue data
  */
 export async function getDashboardRevenue(tenantId) {
-  return authFetch('/api/v1/dashboard/revenue/', tenantId);
+  return apiFetch('/api/v1/dashboard/revenue/', tenantId);
 }
 
 /**
  * Get recent bookings for dashboard
  */
 export async function getRecentBookings(tenantId) {
-  return authFetch('/api/v1/dashboard/recent-bookings/', tenantId);
+  return apiFetch('/api/v1/dashboard/recent-bookings/', tenantId);
 }
 
 // =====================
@@ -217,7 +217,7 @@ export async function getRecentBookings(tenantId) {
  * Send OTP for guest booking access
  */
 export async function sendGuestOTP(tenantId, email) {
-  return authFetch('/api/v1/guest-bookings/otp/send/', tenantId, {
+  return apiFetch('/api/v1/guest-bookings/otp/send/', tenantId, {
     method: 'POST',
     body: JSON.stringify({ email }),
   });
@@ -227,7 +227,7 @@ export async function sendGuestOTP(tenantId, email) {
  * Verify OTP for guest booking access
  */
 export async function verifyGuestOTP(tenantId, email, otp) {
-  return authFetch('/api/v1/guest-bookings/otp/verify/', tenantId, {
+  return apiFetch('/api/v1/guest-bookings/otp/verify/', tenantId, {
     method: 'POST',
     body: JSON.stringify({ email, otp }),
   });
@@ -237,7 +237,7 @@ export async function verifyGuestOTP(tenantId, email, otp) {
  * Get bookings by email (guest access)
  */
 export async function getGuestBookings(tenantId, token) {
-  return authFetch('/api/v1/guest-bookings/by-email/', tenantId, {
+  return apiFetch('/api/v1/guest-bookings/by-email/', tenantId, {
     headers: {
       Authorization: `Bearer ${token}`,
     },

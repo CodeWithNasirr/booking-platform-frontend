@@ -1,120 +1,3 @@
-// import { NextResponse } from "next/server";
-
-// const MAIN_DOMAIN =
-//   process.env.NEXT_PUBLIC_FRONTEND_DOMAIN || "yourplatform.com";
-
-// const RESERVED_SUBDOMAINS = [
-//   "www",
-//   "app",
-//   "api",
-//   "admin",
-//   "dashboard",
-//   "auth",
-// ];
-
-// const PUBLIC_PATHS = ["/","/auth/login", "/auth/signup"];
-
-
-// // ✅ ADD THIS — Prefixes that bypass auth entirely
-// const PUBLIC_PREFIXES = [
-//   "/tenant-site/editor/preview", // iframe preview needs no auth
-//   "/tenant-site/",               // all public tenant sites
-// ];
-
-// const EXCLUDED_PATHS = ["/_next", "/api", "/favicon.ico"];
-
-// export function middleware(req) {
-//   const pathname = req.nextUrl.pathname;
-//   const host = req.headers.get("host") || "";
-
-  
-//   // Block superadmin routes on non-admin domains
-//   if (pathname.startsWith('/superadmin') && !host.startsWith('admin.')) {
-//     return NextResponse.redirect(new URL('/', req.url));
-//   }
-
-//   // Skip excluded paths
-//   if (EXCLUDED_PATHS.some(p => pathname.startsWith(p))) {
-//     return NextResponse.next();
-//   }
-
-//     // ---------------------------------------------
-//   // AUTH STATE FROM COOKIES
-//   // ---------------------------------------------
-//   const authToken = req.cookies.get("access_token")?.value;
-//   const onboardingStep = req.cookies.get("onboarding_step")?.value;
-//   const activeTenantId = req.cookies.get("active_tenant")?.value;
-
-
-//   const isPublicPath =
-//       PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p)) ||
-//       PUBLIC_PREFIXES.some((prefix) => pathname.startsWith(prefix)); // ✅ ADD THIS
-
-//     if (!authToken && !isPublicPath) {
-//       const url = req.nextUrl.clone();
-//       url.pathname = "/auth/login";
-//       return NextResponse.redirect(url);
-//     }
-
-//   // ---------------------------------------------
-//   // ONBOARDING REDIRECT (same logic as dashboard)
-//   // ---------------------------------------------
-//   if (
-//     authToken &&
-//     onboardingStep &&
-//     Number(onboardingStep) > 0 &&
-//     !pathname.startsWith("/auth/onboarding")
-//   ) {
-//     const url = req.nextUrl.clone();
-//     url.pathname = `/auth/onboarding`;
-//     url.searchParams.set("step", onboardingStep);
-//     return NextResponse.redirect(url);
-//   }
-
-
-//   // ---------------------------------------------
-//   // TENANT DOMAIN RESOLUTION
-//   // ---------------------------------------------
-//   let tenantDomain = null;
-//   let subdomain = null;
-
-//   // DEV: gptx.lvh.me:3000
-//   if (host.endsWith(".lvh.me:3000")) {
-//     subdomain = host.replace(".lvh.me:3000", "");
-
-//     if (!RESERVED_SUBDOMAINS.includes(subdomain)) {
-//       tenantDomain = subdomain;
-//     }
-//   }
-
-//   // PROD: gptx.yourplatform.com
-//   else if (host.endsWith("." + MAIN_DOMAIN)) {
-//     subdomain = host.replace("." + MAIN_DOMAIN, "");
-
-//     if (!RESERVED_SUBDOMAINS.includes(subdomain)) {
-//       tenantDomain = subdomain;
-//     }
-//   }
-
-//   // Custom domain
-//   else if (!host.includes("localhost")) {
-//     tenantDomain = host;
-//   }
-
-//   if (tenantDomain && !pathname.startsWith("/tenant-site")) {
-//     const url = req.nextUrl.clone();
-//     url.pathname = `/tenant-site/${tenantDomain}${pathname}`;
-//     return NextResponse.rewrite(url);
-//   }
-
-//   return NextResponse.next();
-// }
-
-// export const config = {
-//   matcher: ["/:path*"],
-// };
-
-
 // middleware.js  (UPDATED — adds custom domain verification via resolve API)
 
 import { NextResponse } from "next/server";
@@ -143,14 +26,38 @@ const PUBLIC_PREFIXES = [
 
 const EXCLUDED_PATHS = ["/_next", "/api", "/favicon.ico"];
 
-export async function middleware(req) {
+export async function proxy(req) {
   const pathname = req.nextUrl.pathname;
   const host = req.headers.get("host") || "";
 
-  // Block superadmin routes on non-admin domains
+  // ── Superadmin isolation ──────────────────────────────────
+  // Block /superadmin/* on any non-admin domain
   if (pathname.startsWith("/superadmin") && !host.startsWith("admin.")) {
     return NextResponse.redirect(new URL("/", req.url));
   }
+
+// Allow template preview routes on admin domain
+const ADMIN_ALLOWED_PUBLIC_ROUTES = [
+  "/tenant-site/templates",
+  "/tenant-site/editor/preview",
+]
+
+// Block all non-superadmin pages on admin domain
+if (
+  host.startsWith("admin.") &&
+  !pathname.startsWith("/superadmin") &&
+  !pathname.startsWith("/auth") &&
+  !ADMIN_ALLOWED_PUBLIC_ROUTES.some((p) =>
+    pathname.startsWith(p)
+  ) &&
+  !EXCLUDED_PATHS.some((p) =>
+    pathname.startsWith(p)
+  )
+) {
+  return NextResponse.redirect(
+    new URL("/superadmin/dashboard", req.url)
+  );
+}
 
   // Skip excluded paths
   if (EXCLUDED_PATHS.some((p) => pathname.startsWith(p))) {
@@ -160,9 +67,16 @@ export async function middleware(req) {
   // -----------------------------------------
   // AUTH STATE FROM COOKIES
   // -----------------------------------------
-  const authToken = req.cookies.get("access_token")?.value;
+  const authToken =
+    req.cookies.get("access_token")?.value ||
+    req.cookies.get("platform_access_token")?.value;
   const onboardingStep = req.cookies.get("onboarding_step")?.value;
   const activeTenantId = req.cookies.get("active_tenant")?.value;
+
+  console.log("HOST:", host);
+  console.log("PATH:", pathname);
+  console.log("AUTH TOKEN:", authToken);
+  console.log("ACTIVE TENANT:", activeTenantId);
 
   const isPublicPath =
     PUBLIC_PATHS.some((p) => pathname === p || pathname.startsWith(p)) ||

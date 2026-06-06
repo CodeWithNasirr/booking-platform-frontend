@@ -47,8 +47,20 @@ export default function OrderChatPanel({
   const messagesEndRef = useRef(null);
   const fileInputRef = useRef(null);
 
-  const { allowed: canViewChat } = useTenantPermission("chat.view");
-  const { allowed: canRespond } = useTenantPermission("chat.respond");
+  let canViewChat = true;
+  let canRespond = true;
+
+  try {
+    const viewPerm = useTenantPermission("chat.view");
+    const respondPerm = useTenantPermission("chat.respond");
+
+    canViewChat = viewPerm?.allowed ?? true;
+    canRespond = respondPerm?.allowed ?? true;
+  } catch {
+    // ✅ No RBAC provider (tenant site)
+    canViewChat = true;
+    canRespond = true;
+  }
 
 
   // At the top of OrderChatPanel, add this helper:
@@ -183,7 +195,7 @@ export default function OrderChatPanel({
     }
   };
 
-  if (!canViewChat) return null;
+ if (canViewChat === false) return null;
 
   return (
     <div className="bg-white rounded-xl border border-gray-200 flex flex-col h-full min-h-[480px] max-h-[calc(100vh-200px)]">

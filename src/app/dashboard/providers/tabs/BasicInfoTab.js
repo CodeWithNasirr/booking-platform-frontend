@@ -2,44 +2,13 @@
 
 import { useState, useEffect } from 'react'
 import { useApp } from '@/contexts/AppContext'
-import Cookies from "js-cookie";
 
+import { apiFetch } from "@/lib/apiClient";
 export default function BasicInfoTab({ form, setForm, editing }) {
   const { activeTenant, t,isRTL } = useApp()
   const [services, setServices] = useState([])
   const [isLoadingServices, setIsLoadingServices] = useState(true)
 
-  // API Helper
-  const authFetch = async (url, options = {}) => {
-    if (!activeTenant) throw new Error("Tenant not ready");
-
-    const token = Cookies.get("access_token");
-    const res = await fetch(url, {
-      ...options,
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: token ? `Bearer ${token}` : "",
-        "X-Tenant": activeTenant,
-        ...(options.headers || {}),
-      },
-      credentials: "include",
-      
-    });
-
-    if (!res.ok) {
-      const errorData = await res.json();
-      const messages = Object.values(errorData)
-        .filter((v) => Array.isArray(v))
-        .flat();
-      const error = new Error(messages.join("\n") || "Request failed");
-      error.status = res.status;
-      error.raw = errorData;
-      throw error;
-    }
-
-    if (res.status === 204) return null;
-    return res.json();
-  };
 
   // Fetch services
   useEffect(() => {
@@ -47,8 +16,9 @@ export default function BasicInfoTab({ form, setForm, editing }) {
       if (!activeTenant) return
       
       try {
-        const data = await authFetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/services/`
+        const data = await apiFetch(
+          `/api/v1/services/`,
+          activeTenant
         )
         const list = data.results || data
         setServices(list.filter(service => service.is_active))

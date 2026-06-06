@@ -1,9 +1,10 @@
 "use client";
 
 import { useApp } from "@/contexts/AppContext";
+import { t } from "@/lib/t";
 
 export default function PublicFooter() {
-  const { t } = useApp();
+
   const year = new Date().getFullYear();
 
   return (

@@ -37,7 +37,8 @@ export function SuperAdminProvider({ children }) {
     let cancelled = false;
 
     async function verify() {
-      const access = Cookies.get("access_token");
+      // const access = Cookies.get("access_token");
+      const access = Cookies.get("platform_access_token");
       if (!access) {
         setLoading(false);
         router.replace("/auth/login");
@@ -93,9 +94,18 @@ export function SuperAdminProvider({ children }) {
     try {
       await apiLogout();
     } catch { /* ignore */ }
+    // Cookies.remove("access_token");
+    // Cookies.remove("refresh_token");
+    // Cookies.remove("active_tenant");
+    Cookies.remove("platform_access_token");
+    Cookies.remove("platform_refresh_token");
+    Cookies.remove("platform_role");
+
+    // Also remove tenant token if present (belt-and-suspenders)
     Cookies.remove("access_token");
     Cookies.remove("refresh_token");
     Cookies.remove("active_tenant");
+        
     setUser(null);
     setPlatform(null);
     router.replace("/auth/login");

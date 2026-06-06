@@ -1,6 +1,6 @@
 // src/app/dashboard/bookings/lib/api/services.js
-import { authFetch } from './index';
-
+// import { apiFetch } from './index';
+import { apiFetch } from "@/lib/apiClient";
 /**
  * Services API
  */
@@ -11,21 +11,21 @@ import { authFetch } from './index';
 export async function getServices(tenantId, params = {}) {
   const query = new URLSearchParams(params).toString();
   const url = query ? `/api/v1/services/?${query}` : '/api/v1/services/';
-  return authFetch(url, tenantId);
+  return apiFetch(url, tenantId);
 }
 
 /**
  * Get single service by slug
  */
 export async function getService(tenantId, slug) {
-  return authFetch(`/api/v1/services/${slug}/`, tenantId);
+  return apiFetch(`/api/v1/services/${slug}/`, tenantId);
 }
 
 /**
  * Create new service
  */
 export async function createService(tenantId, data) {
-  return authFetch('/api/v1/services/', tenantId, {
+  return apiFetch('/api/v1/services/', tenantId, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -35,7 +35,7 @@ export async function createService(tenantId, data) {
  * Update service
  */
 export async function updateService(tenantId, slug, data) {
-  return authFetch(`/api/v1/services/${slug}/`, tenantId, {
+  return apiFetch(`/api/v1/services/${slug}/`, tenantId, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -45,7 +45,7 @@ export async function updateService(tenantId, slug, data) {
  * Delete service (soft delete)
  */
 export async function deleteService(tenantId, slug) {
-  return authFetch(`/api/v1/services/${slug}/`, tenantId, {
+  return apiFetch(`/api/v1/services/${slug}/`, tenantId, {
     method: 'DELETE',
   });
 }
@@ -54,14 +54,14 @@ export async function deleteService(tenantId, slug) {
  * Get service stats
  */
 export async function getServiceStats(tenantId) {
-  return authFetch('/api/v1/services/stats/', tenantId);
+  return apiFetch('/api/v1/services/stats/', tenantId);
 }
 
 /**
  * Toggle service active status
  */
 export async function toggleServiceActive(tenantId, slug) {
-  return authFetch(`/api/v1/services/${slug}/toggle_active/`, tenantId, {
+  return apiFetch(`/api/v1/services/${slug}/toggle_active/`, tenantId, {
     method: 'POST',
   });
 }
@@ -70,7 +70,7 @@ export async function toggleServiceActive(tenantId, slug) {
  * Duplicate service
  */
 export async function duplicateService(tenantId, slug) {
-  return authFetch(`/api/v1/services/${slug}/duplicate/`, tenantId, {
+  return apiFetch(`/api/v1/services/${slug}/duplicate/`, tenantId, {
     method: 'POST',
   });
 }
@@ -79,14 +79,14 @@ export async function duplicateService(tenantId, slug) {
  * Get deleted services
  */
 export async function getDeletedServices(tenantId) {
-  return authFetch('/api/v1/services/deleted/', tenantId);
+  return apiFetch('/api/v1/services/deleted/', tenantId);
 }
 
 /**
  * Restore deleted service
  */
 export async function restoreService(tenantId, slug) {
-  return authFetch(`/api/v1/services/${slug}/restore/`, tenantId, {
+  return apiFetch(`/api/v1/services/${slug}/restore/`, tenantId, {
     method: 'POST',
   });
 }
@@ -95,7 +95,7 @@ export async function restoreService(tenantId, slug) {
  * Permanently delete service
  */
 export async function permanentDeleteService(tenantId, slug) {
-  return authFetch(`/api/v1/services/${slug}/permanent_delete/`, tenantId, {
+  return apiFetch(`/api/v1/services/${slug}/permanent_delete/`, tenantId, {
     method: 'DELETE',
   });
 }
@@ -108,14 +108,14 @@ export async function permanentDeleteService(tenantId, slug) {
  * Get all categories
  */
 export async function getCategories(tenantId) {
-  return authFetch('/api/v1/service-categories/', tenantId);
+  return apiFetch('/api/v1/service-categories/', tenantId);
 }
 
 /**
  * Create category
  */
 export async function createCategory(tenantId, data) {
-  return authFetch('/api/v1/service-categories/', tenantId, {
+  return apiFetch('/api/v1/service-categories/', tenantId, {
     method: 'POST',
     body: JSON.stringify(data),
   });
@@ -125,7 +125,7 @@ export async function createCategory(tenantId, data) {
  * Update category
  */
 export async function updateCategory(tenantId, slug, data) {
-  return authFetch(`/api/v1/service-categories/${slug}/`, tenantId, {
+  return apiFetch(`/api/v1/service-categories/${slug}/`, tenantId, {
     method: 'PATCH',
     body: JSON.stringify(data),
   });
@@ -135,7 +135,7 @@ export async function updateCategory(tenantId, slug, data) {
  * Delete category
  */
 export async function deleteCategory(tenantId, slug) {
-  return authFetch(`/api/v1/service-categories/${slug}/`, tenantId, {
+  return apiFetch(`/api/v1/service-categories/${slug}/`, tenantId, {
     method: 'DELETE',
   });
 }

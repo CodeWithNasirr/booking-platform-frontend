@@ -27,13 +27,15 @@ import {
 } from 'lucide-react';
 
 import PublicFooter from "@/components/layout/PublicFooter";
+import { useTranslation } from "@/lib/t";
+
 
 import Link from 'next/link';
 import { useApp } from '../../contexts/AppContext';
 
 export function LandingHome() {
-  const { t, isRTL } = useApp();
 
+  const { t, isRTL } = useTranslation();
 
 const features = [
   { icon: Calendar, title: t("feature.booking"), desc: t("feature.booking.desc"), color: "from-primary to-primary/80" },

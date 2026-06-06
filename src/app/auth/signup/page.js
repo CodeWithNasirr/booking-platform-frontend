@@ -21,11 +21,20 @@ import Cookies from "js-cookie";
 import { Button } from "@/app/ui/button";
 import { useSearchParams } from "next/navigation";
 
+import { UserX } from "lucide-react";
+
+import usePlatformFlags from "@/hooks/usePlatformFlags";
+import useApiError, { ApiErrorAlert } from "@/hooks/useApiError";
+
 export default function RegisterWizard() {
   const searchParams = useSearchParams();
   const router = useRouter();
   // const searchParams = useSearchParams();
   const { t, isRTL, setUser, requiresOnboarding, tenants, activeTenant, setActiveTenant, selectTenant } = useApp();
+
+  const { flags, loading: flagsLoading } = usePlatformFlags();
+
+  const {error,handleError,clearError,} = useApiError();
 
   const selectedPlan = searchParams.get("plan") || "free";
   const selectedInterval = searchParams.get("interval") || "month";
@@ -34,7 +43,7 @@ export default function RegisterWizard() {
   const [isLoading, setIsLoading] = useState(false);
   const [tempId, setTempId] = useState(null);
 
-  const [error, setError] = useState("");
+  // const [error, setError] = useState("");
   const [otpError, setOtpError] = useState("");
   const [resendCooldown, setResendCooldown] = useState(0);
   const [showPassword, setShowPassword] = useState(false);
@@ -89,14 +98,18 @@ export default function RegisterWizard() {
       return () => clearTimeout(timer);
     }
   }, [resendCooldown]);
+  
 
   /* ── REGISTER → SEND OTP ── */
   const handleRegister = async (e) => {
     e.preventDefault();
-    setError("");
+    clearError();
 
     if (formData.password !== formData.confirm_password) {
-      setError(t("auth.passwordMismatch"));
+      handleError({
+        code: "password_mismatch",
+        message: t("auth.passwordMismatch"),
+      });
       return;
     }
 
@@ -117,6 +130,8 @@ export default function RegisterWizard() {
     );
 
     const data = await res.json();
+    console.log("REGISTER STATUS:", res.status);
+    console.log("REGISTER RESPONSE:", data);
     setIsLoading(false);
 
     if (!res.ok) {
@@ -128,7 +143,11 @@ export default function RegisterWizard() {
           messages.push(errors);
         }
       });
-      alert(messages.join("\n"));
+      handleError({
+        code: data.code || "registration_failed",
+        message: messages.join("\n"),
+        data,
+      });
       return;
     }
 
@@ -139,10 +158,12 @@ export default function RegisterWizard() {
 
   /* ── VERIFY OTP ── */
   const handleVerifyOTP = async () => {
+
+    setOtpError("");
+
     if (otpCode.length !== 6) return setOtpError(t("auth.invalidOtp"));
 
     setIsLoading(true);
-
     const res = await fetch(
       `${process.env.NEXT_PUBLIC_API_URL}/api/v1/auth/register/verify/`,
       {
@@ -176,7 +197,11 @@ export default function RegisterWizard() {
           messages.push(errors);
         }
       });
-      alert(messages.join("\n"));
+      setOtpError(
+        messages.join("\n") ||
+        data.detail ||
+        t("auth.invalidOtp")
+      );
       setIsLoading(false);
       return;
     }
@@ -207,6 +232,34 @@ export default function RegisterWizard() {
       }
     );
   };
+
+  if (!flagsLoading && !flags.registration_open) {
+    return (
+      <div className="min-h-screen flex items-center justify-center px-6 bg-gradient-to-br from-accent via-background to-secondary">
+        <div className="max-w-sm text-center bg-white rounded-2xl shadow-xl p-8">
+          <div className="w-16 h-16 bg-gray-100 rounded-2xl flex items-center justify-center mx-auto mb-4">
+            <UserX className="w-8 h-8 text-gray-400" />
+          </div>
+
+          <h2 className="text-2xl font-bold text-gray-900 mb-2">
+            Registration Closed
+          </h2>
+
+          <p className="text-sm text-gray-500 leading-relaxed">
+            New account registrations are temporarily disabled.
+            Please check back later.
+          </p>
+
+          <Link
+            href="/"
+            className="inline-flex mt-6 px-5 py-2.5 rounded-xl bg-primary text-white text-sm font-semibold hover:opacity-90"
+          >
+            Back Home
+          </Link>
+        </div>
+      </div>
+    );
+  }
 
   /* ── UI ── */
   return (
@@ -363,7 +416,10 @@ export default function RegisterWizard() {
               </div>
 
               {error && (
-                <p className="text-destructive text-sm text-center">{error}</p>
+                <ApiErrorAlert
+                  error={error}
+                  onDismiss={clearError}
+                />
               )}
 
               <Button

@@ -26,7 +26,8 @@ import {
   Pie,
   Cell,
 } from "recharts";
-import { useApp } from "@/contexts/AppContext";
+
+import { useTranslation } from "@/lib/t";
 
 // Chart wrapper to prevent hydration issues
 const ChartContainer = ({ children, height = 300 }) => {
@@ -60,7 +61,7 @@ export default function SuperAdminDashboard() {
   const { hasPermission, platform } = useSuperAdmin();
   const [dashData, setDashData] = useState(null);
   const [loading, setLoading] = useState(true);
-  const { t } = useApp();
+  const { t } = useTranslation();
 
 
   useEffect(() => {

@@ -12,37 +12,54 @@ const API = process.env.NEXT_PUBLIC_API_URL || "";
 // ─── Token helpers ──────────────────────────────────────────────
 
 function authHeaders() {
-  const token = Cookies.get("access_token");
-  return token ? { Authorization: `Bearer ${token}` } : {};
+  const token = Cookies.get(
+    "platform_access_token"
+  );
+
+  return token
+    ? { Authorization: `Bearer ${token}` }
+    : {};
 }
 
-async function refreshAccessToken() {
-  const refresh = Cookies.get("refresh_token");
-  if (!refresh) return null;
+  async function refreshAccessToken() {
+    const refresh = Cookies.get(
+      "platform_refresh_token"
+    );
 
-  const res = await fetch(`${API}/api/v1/auth/token/refresh/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    credentials: "include",
+    if (!refresh) return null;
 
-    body: JSON.stringify({ refresh }),
-  });
+    const res = await fetch(
+      `${API}/api/v1/auth/token/refresh/`,
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        credentials: "include",
+        body: JSON.stringify({ refresh }),
+      }
+    );
 
-  if (!res.ok) {
-    Cookies.remove("access_token");
-    Cookies.remove("refresh_token");
-    if (typeof window !== "undefined") window.location.href = "/auth/login";
-    return null;
+    if (!res.ok) {
+      Cookies.remove("platform_access_token");
+      Cookies.remove("platform_refresh_token");
+
+      if (typeof window !== "undefined") {
+        window.location.href = "/auth/login";
+      }
+
+      return null;
+    }
+
+    const data = await res.json();
+
+    Cookies.set(
+      "platform_access_token",
+      data.access
+    );
+
+    return data.access;
   }
-
-  const data = await res.json();
-  Cookies.set("access_token", data.access);
-  return data.access;
-}
-
-
-
-
 
 
 
@@ -63,7 +80,10 @@ async function platformFetch(endpoint, options = {}) {
       },
     });
 
-  let token = Cookies.get("access_token");
+  // let token = Cookies.get("access_token");
+  const token = Cookies.get(
+    "platform_access_token"
+  );
   let res = await makeReq(token);
 
   // Auto-refresh on 401
@@ -92,6 +112,300 @@ async function platformFetch(endpoint, options = {}) {
 }
 
 
+
+// ═══════════════════════════════════════════════════════════════
+// WEBSITE BUILDER TEMPLATES
+// ═══════════════════════════════════════════════════════════════
+
+/**
+ * Fetch all website templates
+ */
+export async function fetchWebsiteTemplates(params = "") {
+  return platformFetch(
+    `/api/v1/platform/templates/${params ? `?${params}` : ""}`
+  );
+}
+
+/**
+ * Delete template
+ */
+export async function deleteWebsiteTemplate(id) {
+  return platformFetch(
+    `/api/v1/platform/templates/${id}/`,
+    {
+      method: "DELETE",
+    }
+  );
+}
+
+
+// ═══════════════════════════════════════════════════════════════
+// EMAIL TEMPLATES
+// ═══════════════════════════════════════════════════════════════
+
+export async function fetchEmailTemplates() {
+  return platformFetch("/api/v1/platform/notifications/templates/");
+}
+
+export async function fetchEmailTemplate(code) {
+  return platformFetch(
+    `/api/v1/platform/notifications/templates/${code}/`
+  );
+}
+
+export async function updateEmailTemplate(code, data) {
+  return platformFetch(
+    `/api/v1/platform/notifications/templates/${code}/`,
+    {
+      method: "PUT",
+      body: JSON.stringify(data),
+    }
+  );
+}
+
+export async function previewEmailTemplate(code) {
+  return platformFetch(
+    "/api/v1/platform/notifications/templates/preview/",
+    {
+      method: "POST",
+      body: JSON.stringify({
+        event_code: code,
+      }),
+    }
+  );
+}
+
+// ═══════════════════════════════════════════════════════════════
+// NOTIFICATION LOGS
+// ═══════════════════════════════════════════════════════════════
+
+export async function fetchNotificationLogs(params = {}) {
+  const query = new URLSearchParams(params).toString();
+
+  return platformFetch(
+    `/api/v1/platform/notifications/logs/${query ? `?${query}` : ""}`
+  );
+}
+
+
+
+// ═══════════════════════════════════════════════════════════════
+// PLATFORM SETTINGS
+// ═══════════════════════════════════════════════════════════════
+
+export async function fetchPlatformSettings() {
+  return platformFetch("/api/v1/platform/settings/");
+}
+
+export async function updatePlatformSettings(data) {
+  return platformFetch("/api/v1/platform/settings/", {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updatePlatformSettingsSection(section, data) {
+  return platformFetch(`/api/v1/platform/settings/${section}/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+
+
+// ═══════════════════════════════════════════════════════════════
+// SUPPORT TICKETS (Platform Admin — all tenants)
+// ═══════════════════════════════════════════════════════════════
+ 
+export async function fetchAllTickets(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return platformFetch(`/api/v1/platform/support/tickets/${qs ? `?${qs}` : ""}`);
+}
+ 
+export async function fetchTicketStats() {
+  return platformFetch("/api/v1/platform/support/tickets/stats/");
+}
+ 
+export async function fetchTicketById(ticketId) {
+  return platformFetch(`/api/v1/platform/support/tickets/${ticketId}/`);
+}
+ 
+export async function fetchTicketThread(ticketId, includeInternal = true) {
+  return platformFetch(
+    `/api/v1/platform/support/tickets/${ticketId}/messages/?include_internal=${includeInternal}`
+  );
+}
+ 
+export async function adminReplyToTicket(ticketId, content, isInternal = false) {
+  return platformFetch(`/api/v1/platform/support/tickets/${ticketId}/reply/`, {
+    method: "POST",
+    body: JSON.stringify({ content, is_internal: isInternal }),
+  });
+}
+ 
+export async function changeTicketStatus(ticketId, status, resolutionNote = "") {
+  return platformFetch(`/api/v1/platform/support/tickets/${ticketId}/status/`, {
+    method: "POST",
+    body: JSON.stringify({ status, resolution_note: resolutionNote }),
+  });
+}
+ 
+export async function assignTicketTo(ticketId, agentId) {
+  return platformFetch(`/api/v1/platform/support/tickets/${ticketId}/assign/`, {
+    method: "POST",
+    body: JSON.stringify({ agent_id: agentId }),
+  });
+}
+ 
+export async function changeTicketPriority(ticketId, priority) {
+  return platformFetch(`/api/v1/platform/support/tickets/${ticketId}/priority/`, {
+    method: "POST",
+    body: JSON.stringify({ priority }),
+  });
+}
+ 
+export async function escalateTicketById(ticketId, reason = "") {
+  return platformFetch(`/api/v1/platform/support/tickets/${ticketId}/escalate/`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+
+
+
+// ═══════════════════════════════════════════════════════════════
+// ANNOUNCEMENTS
+// ═══════════════════════════════════════════════════════════════
+
+export async function fetchAnnouncements() {
+  return platformFetch("/api/v1/platform/announcements/");
+}
+
+export async function createAnnouncement(data) {
+  return platformFetch("/api/v1/platform/announcements/", {
+    method: "POST",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function updateAnnouncement(id, data) {
+  return platformFetch(`/api/v1/platform/announcements/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify(data),
+  });
+}
+
+export async function deleteAnnouncement(id) {
+  return platformFetch(`/api/v1/platform/announcements/${id}/`, {
+    method: "DELETE",
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// REFUNDS
+// ═══════════════════════════════════════════════════════════════
+
+export async function fetchRefunds(params = {}) {
+  const qs = new URLSearchParams(params).toString();
+  return platformFetch(`/api/v1/platform/refunds/${qs ? `?${qs}` : ""}`);
+}
+
+export async function processRefund(transactionId, amount, reason) {
+  return platformFetch("/api/v1/platform/refunds/create/", {
+    method: "POST",
+    body: JSON.stringify({
+      transaction_id: transactionId,
+      amount: amount || null,
+      reason,
+    }),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// SYSTEM HEALTH
+// ═══════════════════════════════════════════════════════════════
+
+export async function fetchSystemHealth() {
+  return platformFetch("/api/v1/platform/health/");
+}
+
+export async function fetchHealthSection(section) {
+  return platformFetch(`/api/v1/platform/health/${section}/`);
+}
+
+// ═══════════════════════════════════════════════════════════════
+// DUNNING / FAILED PAYMENT RECOVERY
+// ═══════════════════════════════════════════════════════════════
+
+export async function fetchDunningStatus() {
+  return platformFetch("/api/v1/platform/dunning/");
+}
+
+export async function retryDunning(subscriptionId) {
+  return platformFetch(`/api/v1/platform/dunning/${subscriptionId}/retry/`, {
+    method: "POST",
+  });
+}
+
+export async function runDunningBatch() {
+  return platformFetch("/api/v1/platform/dunning/run/", {
+    method: "POST",
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// IMPERSONATION
+// ═══════════════════════════════════════════════════════════════
+
+export async function startImpersonation(tenantId) {
+  return platformFetch(`/api/v1/platform/impersonate/${tenantId}/`, {
+    method: "POST",
+  });
+}
+
+export async function stopImpersonation(token) {
+  return platformFetch("/api/v1/platform/impersonate/stop/", {
+    method: "POST",
+    body: JSON.stringify({ token }),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// VERIFICATION
+// ═══════════════════════════════════════════════════════════════
+
+export async function fetchVerificationPending() {
+  return platformFetch("/api/v1/platform/verification/pending/");
+}
+
+export async function fetchVerificationStatus(tenantId) {
+  return platformFetch(`/api/v1/platform/verification/${tenantId}/`);
+}
+
+export async function approveVerification(tenantId, notes = "") {
+  return platformFetch(`/api/v1/platform/verification/${tenantId}/approve/`, {
+    method: "POST",
+    body: JSON.stringify({ notes }),
+  });
+}
+
+export async function rejectVerification(tenantId, reason) {
+  return platformFetch(`/api/v1/platform/verification/${tenantId}/reject/`, {
+    method: "POST",
+    body: JSON.stringify({ reason }),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// TIER SYNC
+// ═══════════════════════════════════════════════════════════════
+
+export async function runTierSync() {
+  return platformFetch("/api/v1/platform/tier-sync/", {
+    method: "POST",
+  });
+}
 
 
 // ───────────────────────────────────────────────────────────────────
@@ -195,8 +509,8 @@ export async function platformLogout() {
   } catch {
     /* best-effort */
   }
-  Cookies.remove("access_token");
-  Cookies.remove("refresh_token");
+  Cookies.remove("platform_access_token");
+  Cookies.remove("platform_refresh_token");
 }
 
 // ─── Dashboard ──────────────────────────────────────────────────

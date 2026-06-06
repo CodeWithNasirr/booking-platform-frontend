@@ -19,20 +19,25 @@ import {
   ChevronRight,
   ShieldCheck,
   ScrollText,
+  AlertTriangle,
+  Activity,
+  RotateCcw,
+  Megaphone
+
 } from "lucide-react";
+
+
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSuperAdmin } from "@/contexts/Superadmincontext";
 import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
-import { useApp } from "@/contexts/AppContext";
+
+import { useTranslation } from "@/lib/t";
 
 const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) => {
   const { user, platform, loading, hasPermission, hasAnyPermission, logout } =  useSuperAdmin();
   
-  const { t } = useApp();
-
-
-
+  const { t, isRTL } = useTranslation();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -75,6 +80,18 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
       icon: CreditCard,
       visible: hasAnyPermission(["billing.view", "plans.view"]),
     },
+     {
+      key: "/superadmin/notifications",
+      label: "Notifications",
+      icon: Megaphone,
+      visible: hasPermission("system.manage_settings"),
+      },
+       {
+      key: "/superadmin/announcements",
+      label: "Announcements",
+      icon: Megaphone,
+      visible: hasPermission("system.manage_settings"),
+      },
     {
       key: "/superadmin/templates",
       label: t("superadmin.nav.templates"),
@@ -89,7 +106,7 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
     },
     {
       key: "/superadmin/support",
-    label: t("superadmin.nav.support"),
+      label: t("superadmin.nav.support"),
       icon: LifeBuoy,
       visible: hasPermission("tickets.view"),
     },
@@ -106,12 +123,32 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
       icon: ScrollText,
       visible: hasPermission("system.view_logs"),
     },
+
+     {
+       key: "/superadmin/refunds",
+       label: "Refunds",
+       icon: RotateCcw,
+       visible: hasPermission("billing.view"),
+     },
+     {
+       key: "/superadmin/health",
+       label: "System Health",
+       icon: Activity,
+       visible: hasPermission("system.view_logs"),
+     },
+     {
+       key: "/superadmin/dunning",
+       label: "Failed Payments",
+       icon: AlertTriangle,
+       visible: hasPermission("billing.view"),
+     },
     {
       key: "/superadmin/settings",
       label: t("superadmin.nav.settings"),
       icon: Settings,
       visible: hasAnyPermission(["system.view_settings", "system.manage_settings"]),
     },
+
   ];
 
   const isActive = (key) => pathname === key || pathname.startsWith(key + "/");

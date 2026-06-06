@@ -1,7 +1,7 @@
 // src/lib/integrationsApi.js
 
 import Cookies from "js-cookie";
-
+import { apiFetch } from "@/lib/apiClient";
 const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 function headers(tenantId) {
@@ -28,23 +28,19 @@ async function apiCall(url, options = {}) {
 // ── Integration CRUD ────────────────────────────────────────────
 
 export async function fetchIntegrations(tenantId) {
-  return apiCall(`${API}/api/v1/tenant/integrations/`, {
-    headers: headers(tenantId),
-  });
+  return apiFetch(`/api/v1/tenant/integrations/`, tenantId);
 }
 
 export async function connectIntegration(tenantId, integrationType, config = {}) {
-  return apiCall(`${API}/api/v1/tenant/integrations/connect/`, {
+  return apiFetch(`/api/v1/tenant/integrations/connect/`, tenantId, {
     method: "POST",
-    headers: headers(tenantId),
     body: JSON.stringify({ integration_type: integrationType, config }),
   });
 }
 
 export async function disconnectIntegration(tenantId, integrationType, extra = {}) {
-  return apiCall(`${API}/api/v1/tenant/integrations/disconnect/`, {
+  return apiFetch(`/api/v1/tenant/integrations/disconnect/`, tenantId, {
     method: "POST",
-    headers: headers(tenantId),
     body: JSON.stringify({ integration_type: integrationType, ...extra }),
   });
 }
@@ -54,44 +50,36 @@ export async function disconnectIntegration(tenantId, integrationType, extra = {
 export async function getGoogleCalendarOAuthUrl(tenantId, providerId,sourcePanel = "tenant") {
   const qs = providerId ? `?provider_id=${providerId}` : "";
   const sr = sourcePanel === "provider" ? "provider" : "tenant";
-  return apiCall(`${API}/api/v1/tenant/integrations/google-calendar/url/${qs}${qs ? "&" : "?"}source_panel=${sr}`, {
-    headers: headers(tenantId),
-  });
+  return apiFetch(`/api/v1/tenant/integrations/google-calendar/url/${qs}${qs ? "&" : "?"}source_panel=${sr}`, tenantId);
 }
 
 
 // ── WhatsApp Web ────────────────────────────────────────────────
 
 export async function startWhatsAppSession(tenantId) {
-  return apiCall(`${API}/api/v1/whatsapp/start/`, {
+  return apiFetch(`/api/v1/whatsapp/start/`, tenantId, {
     method: "POST",
-    headers: headers(tenantId),
   });
 }
 
 export async function getWhatsAppStatus(tenantId) {
-  return apiCall(`${API}/api/v1/whatsapp/status/`, {
-    headers: headers(tenantId),
-  });
+  return apiFetch(`/api/v1/whatsapp/status/`, tenantId);
 }
 
 export async function getWhatsAppQR(tenantId) {
-  return apiCall(`${API}/api/v1/whatsapp/qr/`, {
-    headers: headers(tenantId),
-  });
+  return apiFetch(`/api/v1/whatsapp/qr/`, tenantId);
 }
+   
 
 export async function disconnectWhatsApp(tenantId) {
-  return apiCall(`${API}/api/v1/whatsapp/disconnect/`, {
+  return apiFetch(`/api/v1/whatsapp/disconnect/`, tenantId, {
     method: "POST",
-    headers: headers(tenantId),
   });
 }
 
 export async function sendWhatsAppMessage(tenantId, to, message) {
-  return apiCall(`${API}/api/v1/whatsapp/send/`, {
+  return apiFetch(`/api/v1/whatsapp/send/`, tenantId, {
     method: "POST",
-    headers: headers(tenantId),
     body: JSON.stringify({ to, message }),
   });
 }

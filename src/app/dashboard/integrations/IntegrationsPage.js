@@ -195,8 +195,15 @@ export default function IntegrationsPage() {
 
 function IntegrationCard({ integration, onAction }) {
   const Icon = ICON_MAP[integration.icon] || Globe
-  const isConnected = integration.status === 'connected'
-  const isPending = integration.status === 'pending' || integration.status === 'qr_ready'
+  const isConnected =
+    integration.status === 'connected'
+
+  const isPending =
+    integration.status === 'pending' ||
+    integration.status === 'qr_ready'
+
+  const isPlatformDisabled =
+    integration.status === 'disabled_by_platform'
 
   const { allowed: canView } = useTenantPermission("integrations.view")
   const { allowed: canManage } = useTenantPermission("integrations.manage")
@@ -209,8 +216,12 @@ function IntegrationCard({ integration, onAction }) {
   }
 
   return (
-    <div className={`rounded-2xl bg-white border transition-all hover:shadow-lg group ${
-      isConnected ? 'border-green-200' : 'border-gray-200 hover:border-[#8B1E3F]/30'
+   <div className={`rounded-2xl bg-white border transition-all hover:shadow-lg group ${
+      isConnected
+        ? 'border-green-200'
+        : isPlatformDisabled
+          ? 'border-gray-200 opacity-70'
+          : 'border-gray-200 hover:border-[#8B1E3F]/30'
     }`}>
       {/* Header */}
       <div className="p-5 pb-0">
@@ -285,30 +296,47 @@ function IntegrationCard({ integration, onAction }) {
       {canManage && (
       <div className="p-5 pt-3">
         <div className="flex items-center gap-2">
-          {isConnected ? (
-            <>
-              <button onClick={() => onAction(integration.id)}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-all text-sm">
-                <Settings className="w-4 h-4" /> Manage
-              </button>
-              <button onClick={() => onAction('disconnect')}
-                className="px-3 py-2.5 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-all">
-                <Unplug className="w-4 h-4" />
-              </button>
-            </>
-          ) : (
-            <>
-              <button onClick={handleConnect}
-                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-white bg-gradient-to-br from-[#8B1E3F] to-[#6B1630] hover:opacity-90 transition-all shadow-sm font-medium text-sm">
-                <Zap className="w-4 h-4" /> Connect
-              </button>
-              <button onClick={() => onAction('setup_guide')}
-                className="px-3 py-2.5 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-all"
-                title="Setup Guide">
-                <Info className="w-4 h-4" />
-              </button>
-            </>
-          )}
+        {isPlatformDisabled ? (
+          <div className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 bg-gray-50 text-gray-500 text-sm font-medium cursor-not-allowed">
+            <Shield className="w-4 h-4" />
+            Disabled by Platform
+          </div>
+        ) : isConnected ? (
+          <>
+            <button
+              onClick={() => onAction(integration.id)}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 transition-all text-sm"
+            >
+              <Settings className="w-4 h-4" />
+              Manage
+            </button>
+
+            <button
+              onClick={() => onAction('disconnect')}
+              className="px-3 py-2.5 rounded-xl border border-red-200 text-red-500 hover:bg-red-50 transition-all"
+            >
+              <Unplug className="w-4 h-4" />
+            </button>
+          </>
+        ) : (
+          <>
+            <button
+              onClick={handleConnect}
+              className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-white bg-gradient-to-br from-[#8B1E3F] to-[#6B1630] hover:opacity-90 transition-all shadow-sm font-medium text-sm"
+            >
+              <Zap className="w-4 h-4" />
+              Connect
+            </button>
+
+            <button
+              onClick={() => onAction('setup_guide')}
+              className="px-3 py-2.5 rounded-xl border border-gray-200 text-gray-500 hover:bg-gray-50 transition-all"
+              title="Setup Guide"
+            >
+              <Info className="w-4 h-4" />
+            </button>
+          </>
+        )}
         </div>
       </div>
         )}
@@ -323,6 +351,11 @@ function StatusDot({ status }) {
     qr_ready:     { color: 'bg-blue-400',   ring: 'ring-blue-200',   label: 'Awaiting Scan' },
     error:        { color: 'bg-red-500',     ring: 'ring-red-200',    label: 'Error' },
     disconnected: { color: 'bg-gray-300',    ring: 'ring-gray-100',   label: 'Not Connected' },
+    disabled_by_platform: {
+        color: 'bg-gray-400',
+        ring: 'ring-gray-200',
+        label: 'Disabled by Platform',
+      },
   }[status] || { color: 'bg-gray-300', ring: 'ring-gray-100', label: status }
 
   return (

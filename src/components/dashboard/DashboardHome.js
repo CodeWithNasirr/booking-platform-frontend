@@ -16,7 +16,7 @@ import { Button } from "@/app/ui/button";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import Link from "next/link";
-
+import { apiFetch } from "@/lib/apiClient";
 import {
   LineChart,
   Line,
@@ -42,7 +42,7 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-
+  console.log("DashboardHome mounted");
   const token = Cookies.get("access_token");
 
   const { allowed: canViewServices } = useTenantPermission("services.view");
@@ -81,27 +81,30 @@ export default function DashboardHome() {
     });
   };
 
-
   const fetchDashboardData = async () => {
-    const apiUrl = process.env.NEXT_PUBLIC_API_URL;
+    const [overview, revenue, recent] =
+      await Promise.all([
+        apiFetch(
+          "/api/v1/dashboard/overview/",
+          tenantId
+        ),
 
-    const [overviewRes, revenueRes, recentRes] = await Promise.all([
-      authFetch(`${apiUrl}/api/v1/dashboard/overview/`),
-      authFetch(`${apiUrl}/api/v1/dashboard/revenue/`),
-      authFetch(`${apiUrl}/api/v1/dashboard/recent-bookings/`),
-    ]);
+        apiFetch(
+          "/api/v1/dashboard/revenue/",
+          tenantId
+        ),
 
-    if (!overviewRes.ok || !revenueRes.ok || !recentRes.ok) {
-      throw new Error("Dashboard API failed");
-    }
+        apiFetch(
+          "/api/v1/dashboard/recent-bookings/",
+          tenantId
+        ),
+      ]);
 
-    const [overview, revenue, recent] = await Promise.all([
-      overviewRes.json(),
-      revenueRes.json(),
-      recentRes.json(),
-    ]);
-
-    return { overview, revenue, recent };
+    return {
+      overview,
+      revenue,
+      recent,
+    };
   };
 
 
@@ -110,8 +113,9 @@ export default function DashboardHome() {
 
   /* DATA FETCHING */
   useEffect(() => {
+    console.log("Loading dashboard...");
     if (!user || !tenantId) return;
-
+    console.log("Rendering DashboardHome");
     async function loadDashboard() {
       try {
         setLoading(true);

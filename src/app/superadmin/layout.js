@@ -2,7 +2,6 @@
 "use client";
 
 import { SuperAdminProvider } from "@/contexts/Superadmincontext";
-import { AppProvider } from "@/contexts/AppContext";
 
 export default function SuperAdminRootLayout({ children }) {
   return (

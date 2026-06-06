@@ -99,6 +99,7 @@ export async function initiateOrderPayment(domain, payload, token) {
     headers: buildHeaders(domain, token),
     body: JSON.stringify(payload),
   });
+  console.log(res,"res")
   return handleResponse(res);
 }
 

@@ -11,6 +11,7 @@
  */
 
 import Cookies from "js-cookie";
+import { apiFetch } from "@/lib/apiClient";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -46,9 +47,7 @@ async function apiCall(url, options = {}) {
  *   }
  */
 export async function fetchIntegrationStatuses(tenantId) {
-  return apiCall(`${API}/api/v1/tenant/integrations/status/`, {
-    headers: headers(tenantId),
-  });
+  return apiFetch(`/api/v1/tenant/integrations/status/`, tenantId);
 }
 
 // ── GET /api/v1/tenant/integrations/warnings/ ───────────────────
@@ -63,9 +62,7 @@ export async function fetchIntegrationStatuses(tenantId) {
  *   }
  */
 export async function fetchIntegrationWarnings(tenantId) {
-  return apiCall(`${API}/api/v1/tenant/integrations/warnings/`, {
-    headers: headers(tenantId),
-  });
+  return apiFetch(`/api/v1/tenant/integrations/warnings/`, tenantId);
 }
 
 // ── GET /api/v1/tenant/integrations/check/<feature>/ ────────────
@@ -86,9 +83,9 @@ export async function fetchIntegrationWarnings(tenantId) {
  */
 export async function checkFeature(tenantId, featureKey, providerId = null) {
   const qs = providerId ? `?provider_id=${providerId}` : "";
-  return apiCall(
-    `${API}/api/v1/tenant/integrations/check/${featureKey}/${qs}`,
-    { headers: headers(tenantId) }
+  return apiFetch(
+    `/api/v1/tenant/integrations/check/${featureKey}/${qs}`,
+    tenantId
   );
 }
 
@@ -111,9 +108,8 @@ export async function checkFeature(tenantId, featureKey, providerId = null) {
  *   }
  */
 export async function checkServiceIntegrations(tenantId, params) {
-  return apiCall(`${API}/api/v1/tenant/integrations/check-service/`, {
+  return apiFetch(`/api/v1/tenant/integrations/check-service/`, tenantId, {
     method: "POST",
-    headers: headers(tenantId),
     body: JSON.stringify(params),
   });
 }

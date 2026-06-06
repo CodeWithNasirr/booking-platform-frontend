@@ -212,7 +212,7 @@ export default function PaymentGatewaySection({ activeTenant }) {
           )}
 
           {/* Pending state */}
-          {stripe.account_id && !stripe.connected && stripe.status === "pending" && (
+          {stripe.account_id &&  !stripe.connected && ["pending", "pending_verification"].includes(stripe.status) && (
             <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-100">
               <p className="text-sm text-amber-700 font-medium">
                 Onboarding incomplete

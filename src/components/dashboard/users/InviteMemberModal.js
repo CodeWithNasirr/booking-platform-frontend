@@ -1,7 +1,16 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { X, UserPlus, Loader2, Shield, AlertCircle } from 'lucide-react'
+import {
+  X,
+  UserPlus,
+  Loader2,
+  Shield,
+  AlertCircle,
+} from 'lucide-react'
+
+import { apiFetch as authFetch } from '@/lib/apiClient'
+import { useApp } from '@/contexts/AppContext'
 
 const ROLE_OPTIONS = [
   {
@@ -26,7 +35,8 @@ const ROLE_OPTIONS = [
   },
 ]
 
-export default function InviteMemberModal({ onClose, onSuccess, headers, apiUrl }) {
+export default function InviteMemberModal({ onClose, onSuccess }) {
+  const { activeTenant } = useApp()
   const [form, setForm] = useState({
     email: '',
     first_name: '',
@@ -42,10 +52,12 @@ export default function InviteMemberModal({ onClose, onSuccess, headers, apiUrl 
   // Fetch available permissions for sub_admin
   useEffect(() => {
     if (form.role === 'sub_admin') {
-      fetch(`${apiUrl}/api/v1/tenant/members/permissions/`, { headers })
-        .then((r) => r.json())
-        .then(setAvailablePermissions)
-        .catch(console.error)
+     authFetch(
+      '/api/v1/tenant/members/permissions/',
+      activeTenant
+    )
+      .then(setAvailablePermissions)
+      .catch(console.error)
     }
   }, [form.role])
 
@@ -63,38 +75,32 @@ export default function InviteMemberModal({ onClose, onSuccess, headers, apiUrl 
     }))
   }
 
-  const handleSubmit = async () => {
+const handleSubmit = async () => {
     if (!form.email.trim()) {
       setError('Email is required')
       return
     }
+
     setSaving(true)
     setError(null)
 
     try {
-      const res = await fetch(`${apiUrl}/api/v1/tenant/members/invite/`, {
-        method: 'POST',
-        headers,
-        body: JSON.stringify(form),
-      })
-
-      const data = await res.json()
-
-      if (!res.ok) {
-        // Handle DRF validation errors
-        const msg =
-          data.detail ||
-          data.email?.[0] ||
-          data.role?.[0] ||
-          data.non_field_errors?.[0] ||
-          'Failed to invite member'
-        setError(msg)
-        return
-      }
+      await authFetch(
+        '/api/v1/tenant/members/invite/',
+        activeTenant,
+        {
+          method: 'POST',
+          body: JSON.stringify(form),
+        }
+      )
 
       onSuccess()
+
     } catch (err) {
-      setError('Something went wrong. Please try again.')
+      setError(
+        err?.message ||
+        'Something went wrong. Please try again.'
+      )
     } finally {
       setSaving(false)
     }

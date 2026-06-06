@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/contexts/AppContext'
 import useBlockBackNavigation from '@/lib/useBlockBackNavigation'
-import Cookies from 'js-cookie'
+
 
 import UsersHeader from '@/components/dashboard/users/UsersHeader'
 import UsersTable from '@/components/dashboard/users/UsersTable'
@@ -12,13 +12,13 @@ import InviteMemberModal from '@/components/dashboard/users/InviteMemberModal'
 import EditMemberModal from '@/components/dashboard/users/EditMemberModal'
 import DeleteConfirmModal from '@/components/dashboard/users/DeleteConfirmModal'
 import { useTenantPermission } from "@/lib/useTenantPermission";
+import { apiFetch as authFetch } from "@/lib/apiClient";
 
-const API = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8000'
 
 export default function TenantUsersPage() {
   const { user, loadingUser, requiresOnboarding, activeTenant } = useApp()
   const router = useRouter()
-  const token = Cookies.get('access_token')
+
 
   // ── Auth guards ──
   useBlockBackNavigation(!!user)
@@ -50,15 +50,10 @@ export default function TenantUsersPage() {
   const { allowed: canManage } = useTenantPermission("members.manage");
 
 
-  const headers = {
-    Authorization: `Bearer ${token}`,
-    'X-Tenant': activeTenant,
-    'Content-Type': 'application/json',
-  }
 
   // ── Fetch members ──
   const fetchMembers = useCallback(async () => {
-    if (!activeTenant || !token) return
+    if (!activeTenant) return
     setLoading(true)
     try {
       const params = new URLSearchParams({
@@ -69,8 +64,10 @@ export default function TenantUsersPage() {
       if (roleFilter) params.set('role', roleFilter)
       if (searchQuery) params.set('search', searchQuery)
 
-      const res = await fetch(`${API}/api/v1/tenant/members/?${params}`, { headers, credentials: 'include' })
-      const data = await res.json()
+     const data = await authFetch(
+        `/api/v1/tenant/members/?${params}`,
+        activeTenant
+      )
 
       setMembers(data.results || [])
       setTotalCount(data.count || 0)
@@ -80,7 +77,7 @@ export default function TenantUsersPage() {
     } finally {
       setLoading(false)
     }
-  }, [activeTenant, token, page, pageSize, roleFilter, statusFilter, searchQuery])
+  }, [activeTenant, page, pageSize, roleFilter, statusFilter, searchQuery])
 
   useEffect(() => {
     fetchMembers()
@@ -102,15 +99,17 @@ export default function TenantUsersPage() {
     fetchMembers()
   }
 
-  const handleDelete = async () => {
+  const handleDelete = async (memberId) => {
     if (!canManage) return;
     if (!deleteMember) return
     try {
-      await fetch(`${API}/api/v1/tenant/members/${deleteMember.id}/delete/`, {
-        method: 'DELETE',
-        headers,
-        credentials: 'include',
-      })
+      await authFetch(
+        `/api/v1/tenant/members/${memberId}/delete/`,
+        activeTenant,
+        {
+          method: "DELETE",
+        }
+      )
       setDeleteMember(null)
       fetchMembers()
     } catch (err) {
@@ -121,11 +120,13 @@ export default function TenantUsersPage() {
   const handleReactivate = async (memberId) => {
     if (!canManage) return;
     try {
-      await fetch(`${API}/api/v1/tenant/members/${memberId}/reactivate/`, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-      })
+      await authFetch(
+        `/api/v1/tenant/members/${memberId}/reactivate/`,
+        activeTenant,
+        {
+          method: "POST",
+        }
+      )
       fetchMembers()
     } catch (err) {
       console.error('Failed to reactivate member:', err)
@@ -135,17 +136,15 @@ export default function TenantUsersPage() {
   const handleResendInvite = async (memberId) => {
     if (!canManage) return;
     try {
-      const res = await fetch(`${API}/api/v1/tenant/members/${memberId}/resend-invite/`, {
-        method: 'POST',
-        headers,
-        credentials: 'include',
-      })
-      const data = await res.json()
-      if (res.ok) {
-        alert('Invitation resent successfully!')
-      } else {
-        alert(data.detail || 'Failed to resend invitation')
-      }
+      const res = await authFetch(
+        `/api/v1/tenant/members/${memberId}/resend-invite/`,
+        activeTenant,
+        {
+          method: "POST",
+        }
+      )
+
+    alert("Invitation resent successfully!")
     } catch (err) {
       console.error('Failed to resend invite:', err)
     }
@@ -190,20 +189,16 @@ export default function TenantUsersPage() {
         <InviteMemberModal
           onClose={() => setShowInviteModal(false)}
           onSuccess={handleInviteSuccess}
-          headers={headers}
-          apiUrl={API}
         />
       )}
 
       {/* Edit Modal */}
       {editMember && (
-        <EditMemberModal
-          member={editMember}
-          onClose={() => setEditMember(null)}
-          onSuccess={handleEditSuccess}
-          headers={headers}
-          apiUrl={API}
-        />
+      <EditMemberModal
+        member={editMember}
+        onClose={() => setEditMember(null)}
+        onSuccess={handleEditSuccess}
+      />
       )}
 
       {/* Delete Confirm */}
@@ -211,7 +206,7 @@ export default function TenantUsersPage() {
         <DeleteConfirmModal
           member={deleteMember}
           onClose={() => setDeleteMember(null)}
-          onConfirm={handleDelete}
+          onConfirm={() => handleDelete(deleteMember.id)}
         />
       )}
     </div>

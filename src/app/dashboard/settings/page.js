@@ -11,7 +11,7 @@ import DomainSettingsTab from '@/components/dashboard/settings/DomainSettingsTab
 import TenantPermissionGate from '@/components/dashboard/TenantPermissionGate'
 import DocumentUploadSection from '@/components/dashboard/settings/DocumentUploadSection'
 
-
+import { useRef } from "react";
 import {
   Building2, Bell, Zap, Globe, Languages, Save, Upload,
   Mail, Phone, MapPin, Loader2, Check, AlertCircle,
@@ -61,7 +61,6 @@ export default function TenantSettingsPage() {
   const searchParams = useSearchParams()
 
   const initialTab = searchParams.get('tab') || 'business'
-
 
   // Inside TenantSettingsPage — add alongside existing state
   const [localeSettings, setLocaleSettings] = useState({
@@ -378,7 +377,24 @@ export default function TenantSettingsPage() {
 
 function BusinessInfoTab({ data, onChange, onSave, saving, activeTenant }) {
   const update = (field, value) => onChange({ ...data, [field]: value })
+  const initialDataRef = useRef(null);
 
+  useEffect(() => {
+    if (!initialDataRef.current && data && Object.keys(data).length > 0) {
+      initialDataRef.current = data;
+    }
+  }, [data]);
+
+  const isDirty =
+    initialDataRef.current &&
+    Object.keys(data).some(
+      key => data[key] !== initialDataRef.current[key]
+    );
+
+  const handleSaveClick = async () => {
+    await onSave();
+    initialDataRef.current = data;
+  };
   return (
     <div className="space-y-6">
       {/* Logo */}
@@ -426,12 +442,21 @@ function BusinessInfoTab({ data, onChange, onSave, saving, activeTenant }) {
       </div>
 
       {/* ═══ ACTION BUTTONS ═══ */}
+      {isDirty && (
       <div className="flex justify-end gap-3 pt-6 border-t border-[#8B1E3F]/10">
-        <button className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all">
+        <button
+          onClick={() => {
+            if (initialDataRef.current) {
+              onChange(initialDataRef.current);
+            }
+          }}
+          className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition-all"
+        >
           Cancel
         </button>
+
         <button
-          onClick={onSave}
+          onClick={handleSaveClick}
           disabled={saving}
           className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-white bg-gradient-to-br from-[#8B1E3F] to-[#6B1630] hover:opacity-90 transition-all shadow-md disabled:opacity-50 font-medium"
         >
@@ -439,6 +464,7 @@ function BusinessInfoTab({ data, onChange, onSave, saving, activeTenant }) {
           Save Changes
         </button>
       </div>
+    )}
     </div>
   )
 }

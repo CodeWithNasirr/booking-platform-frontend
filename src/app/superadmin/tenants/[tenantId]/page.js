@@ -3,6 +3,7 @@ import SuperAdminLayout from "@/components/superadmin/SuperAdminLayout";
 import EditTenantModal from "../components/EditTenantModal";
 import { useState, useEffect, useCallback } from "react";
 import { useParams, useRouter } from "next/navigation";
+import ImpersonateButton from "@/components/superadmin/ImpersonateButton";
 import {
   ArrowLeft,
   Globe,
@@ -510,6 +511,10 @@ export default function TenantDetailPage() {
                 {tenant.subscription_tier}
               </span>
               <div className="flex items-center gap-2 ml-2">
+                <ImpersonateButton
+                  tenantId={tenant.id}
+                  tenantName={tenant.name}
+                />
                 <button onClick={() => setShowEdit(true)} className="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
                   <Edit className="w-4 h-4" /> Edit
                 </button>

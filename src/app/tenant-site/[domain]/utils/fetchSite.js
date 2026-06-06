@@ -105,12 +105,14 @@ export async function fetchSite(domain) {
 
     if (!res.ok) {
       const err = await res.json().catch(() => ({}));
+
       return {
         site: null,
         theme: null,
         sections: [],
         pages: [],
         error: err.detail || "Site not found",
+        code: err.code || null,
         status: res.status,
       };
     }

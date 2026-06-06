@@ -12,9 +12,18 @@ import {
   useStripe,
   useElements,
 } from "@stripe/react-stripe-js";
+ 
+// ── Gateway-agnostic imports ──
+import { detectGateway, GATEWAY, buildHyperPayCallbackUrl } from "@/lib/paymentGateway";
+import HyperPayWidget from "@/components/payment/HyperPayWidget";
+import useApiError, {
+  ApiErrorAlert
+} from "@/hooks/useApiError";
 import { useTenantSite } from "../[domain]/TenantClientWrapper";
-
+import { apiFetch } from "@/lib/apiClient";
 import DateTimePicker from "./booking/steps/DateTimePicker";
+
+import IntegrationRequiredModal from "@/components/shared/IntegrationRequiredModal";
 
 // ─── NEW IMPORTS ────────────────────────────────────────────────────────────
 import {
@@ -137,10 +146,19 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
 
   const [clientSecret, setClientSecret] = useState(null);
   const [createdBooking, setCreatedBooking] = useState(null);
+  const [activeGateway, setActiveGateway] = useState(null);       // "stripe" | "hyperpay"
+  const [hyperPayData, setHyperPayData] = useState(null);         // { checkout_id, widget_url, brands }
+
+  const [integrationError, setIntegrationError] = useState(null);
 
   // Loading and error states
   const [isLoading, setIsLoading] = useState(false);
-  const [error, setError] = useState(null);
+  // const [error, setError] = useState(null);
+  const {
+  error,
+  handleError,
+  clearError,
+} = useApiError();
 
   // ── Track whether we've done the initial restore ──
   const restoredRef = useRef(false);
@@ -213,21 +231,24 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
   const goToNextStep = () => {
     if (currentStep < steps.length - 1) {
       setCurrentStep(currentStep + 1);
-      setError(null);
+      // setError(null);
+      clearError();
     }
   };
 
   const goToPrevStep = () => {
     if (currentStep > 0) {
       setCurrentStep(currentStep - 1);
-      setError(null);
+      // setError(null);
+      clearError();
     }
   };
 
   const goToStep = (stepIndex) => {
     if (stepIndex <= currentStep) {
       setCurrentStep(stepIndex);
-      setError(null);
+      // setError(null);
+      clearError();
     }
   };
 
@@ -243,7 +264,8 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
     setBookingResult(null);
     setClientSecret(null);
     setCreatedBooking(null);
-    setError(null);
+    // setError(null);
+    clearError();
     clearBookingState(domain);
   };
 
@@ -254,6 +276,7 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
     : "bg-white";
 
   return (
+    <>
     <div className={`booking-module ${containerClass} ${isRTL ? "rtl" : ""}`}>
       {/* ================= STEPS HEADER ================= */}
       <StepsHeader
@@ -266,9 +289,17 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
       />
 
       {/* ================= ERROR DISPLAY ================= */}
-      {error && (
+      {/* {error && (
         <div className="mx-4 mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
           {error}
+        </div>
+      )} */}
+      {error && (
+        <div className="px-4 pt-4">
+            <ApiErrorAlert
+              error={error}
+              onDismiss={clearError}
+            />
         </div>
       )}
 
@@ -299,6 +330,9 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
             onStaffSelect={(staff) => {
               setSelectedStaff(staff);
               goToNextStep();
+            }}
+            onIntegrationBlocked={(result) => {
+              setIntegrationError(result);
             }}
             theme={theme}
             lang={lang}
@@ -332,7 +366,8 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
             onDataChange={setCustomerData}
             onSubmit={async () => {
             setIsLoading(true);
-            setError(null);
+            // setError(null);
+            clearError();
 
             try {
               // 1️⃣ Create booking
@@ -353,27 +388,38 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
               // TODO: Escrow integration handled in backend (Django)
               //       For milestone services, this would create an escrow hold
               //       instead of a direct payment capture.
-              const res = await fetch(
-                `${API_BASE}/api/v1/bookings/${booking.id}/initiate_payment/`,
+              const data = await apiFetch(
+                `/api/v1/bookings/${booking.id}/initiate_payment/`,
+                domain,
                 {
                   method: "POST",
-                  headers: {
-                    "Content-Type": "application/json",
-                    "X-Tenant": domain,
-                  },
-                  body: JSON.stringify({ is_deposit: false }),
+
+                  body: JSON.stringify({
+                    is_deposit: false,
+                  }),
                 }
               );
-
-              if (!res.ok) throw new Error("Payment init failed");
-
-              const data = await res.json();
-              setClientSecret(data.client_secret);
-
+              const gateway = detectGateway(data);
+              setActiveGateway(gateway);
+ 
+              if (gateway === GATEWAY.HYPERPAY) {
+                // HyperPay: store checkout data for widget
+                setHyperPayData({
+                  checkout_id: data.checkout_id,
+                  widget_url: data.widget_url,
+                  brands: data.brands || ["VISA", "MASTER", "MADA"],
+                  callback_url: data.callback_url || buildHyperPayCallbackUrl("booking", booking.id),
+                });
+              } else {
+                // Stripe: existing flow
+                setClientSecret(data.client_secret);
+              }
+ 
               // 3️⃣ NOW move to confirm
               goToNextStep();
             } catch (e) {
-              setError(e.message);
+              // setError(e.message);
+              handleError(e);
             } finally {
               setIsLoading(false);
             }
@@ -385,31 +431,52 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
           />
         )}
 
-        {currentStepId === "confirm" && clientSecret &&  (
-          <Elements
-            stripe={stripePromise}
-            options={{ clientSecret }}
-          >
-          <ConfirmAndPay
-            booking={createdBooking}
-            tenantId={tenantId}
-            domain={domain}
-            service={selectedService}
-            staff={selectedStaff}
-            date={selectedDate}
-            time={selectedTime}
-            customer={customerData}
-            settings={resolvedSettings}
-            bookingResult={bookingResult}
-            setBookingResult={setBookingResult}
-            isLoading={isLoading}
-            onReset={resetBooking}
-            timezone={timezone}
-            theme={theme}
-            lang={lang}
-            isRTL={isRTL}
-          />
-          </Elements>
+        {currentStepId === "confirm" && (activeGateway === GATEWAY.STRIPE ? clientSecret : hyperPayData) && (
+          activeGateway === GATEWAY.HYPERPAY ? (
+            // ── HyperPay: Widget-based payment ──
+            <ConfirmAndPayHyperPay
+              booking={createdBooking}
+              hyperPayData={hyperPayData}
+              domain={domain}
+              service={selectedService}
+              staff={selectedStaff}
+              date={selectedDate}
+              time={selectedTime}
+              customer={customerData}
+              settings={resolvedSettings}
+              timezone={timezone}
+              onReset={resetBooking}
+              theme={theme}
+              lang={lang}
+              isRTL={isRTL}
+            />
+          ) : (
+            // ── Stripe: Existing Elements flow ──
+            <Elements
+              stripe={stripePromise}
+              options={{ clientSecret }}
+            >
+              <ConfirmAndPay
+                booking={createdBooking}
+                tenantId={tenantId}
+                domain={domain}
+                service={selectedService}
+                staff={selectedStaff}
+                date={selectedDate}
+                time={selectedTime}
+                customer={customerData}
+                settings={resolvedSettings}
+                bookingResult={bookingResult}
+                setBookingResult={setBookingResult}
+                isLoading={isLoading}
+                onReset={resetBooking}
+                timezone={timezone}
+                theme={theme}
+                lang={lang}
+                isRTL={isRTL}
+              />
+            </Elements>
+          )
         )}
       </div>
 
@@ -428,8 +495,22 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
         </div>
       )}
     </div>
+      <IntegrationRequiredModal
+      checkResult={integrationError}
+      panel="provider"
+      allowSkip={false}
+      onClose={() => setIntegrationError(null)}
+      onConnect={(resolution) => {
+        console.log(resolution);
+      }}
+    />
+    </>
   );
+
 }
+
+
+
 
 // =============================================================================
 // STEPS HEADER COMPONENT
@@ -657,18 +738,39 @@ function ServiceSelector({
           </p>
         </button>
 
-        {/* Staff Grid */}
-        <div className="grid md:grid-cols-2 gap-4">
-          {staff.map((member) => (
-            <button
-              key={member.id}
-              onClick={() => onStaffSelect(member)}
-              className={`p-4 rounded-xl border-2 text-left transition-all hover:shadow-md ${
-                selectedStaff?.id === member.id
+      {/* Staff Grid */}
+      <div className="grid md:grid-cols-2 gap-4">
+        {staff.map((member) => (
+          <button
+            key={member.id}
+
+            disabled={!member.integrations_ready}
+
+            onClick={() => {
+
+              if (!member.integrations_ready) {
+
+                onIntegrationBlocked?.(
+                  member.integration_check
+                );
+
+                return;
+              }
+
+              onStaffSelect(member);
+            }}
+
+            className={`
+              p-4 rounded-xl border-2 text-left transition-all
+              ${
+                !member.integrations_ready
+                  ? "opacity-50 cursor-not-allowed border-red-200 bg-red-50"
+                  : selectedStaff?.id === member.id
                   ? "border-blue-500 bg-blue-50"
-                  : "border-gray-200 hover:border-gray-300"
-              }`}
-            >
+                  : "border-gray-200 hover:border-gray-300 hover:shadow-md"
+              }
+            `}
+          >
               <div className={`flex items-center gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
                 {member.photo ? (
                   <img
@@ -687,6 +789,11 @@ function ServiceSelector({
                 <div className={isRTL ? "text-right" : ""}>
                   <p className="font-semibold text-gray-900">{member.name}</p>
                   <p className="text-sm text-gray-500">{member.specialization || member.role}</p>
+                  {!member.integrations_ready && (
+                    <div className="mt-2 text-xs text-red-600 font-medium">
+                      Google Calendar not connected
+                    </div>
+                  )}
                   {member.rating && (
                     <div className="flex items-center gap-1 mt-1">
                       <span className="text-yellow-400">★</span>
@@ -842,423 +949,6 @@ function ServiceCard({ service, isSelected, onSelect, showPrice, showDuration, s
 }
 
 // =============================================================================
-// DATE TIME PICKER COMPONENT
-// =============================================================================
-// function DateTimePicker({
-//   tenantId,
-//   domain,
-//   service,
-//   staff,
-//   selectedDate,
-//   selectedTime,
-//   onDateSelect,
-//   onTimeSelect,
-//   theme,
-//   lang,
-//   isRTL,
-// }) {
-//   const {timezone} = useTenantSite();
-//   const [currentMonth, setCurrentMonth] = useState(
-//     getTenantToday(timezone)
-//   );
-
-//   const [availableSlots, setAvailableSlots] = useState([]);
-//   const [isLoadingSlots, setIsLoadingSlots] = useState(false);
-//   const [closedDates, setClosedDates] = useState({});
-
-
-//   function getTenantToday(timezone) {
-//     const now = new Date();
-
-//     const formatter = new Intl.DateTimeFormat("en-CA", {
-//       timeZone: timezone,
-//       year: "numeric",
-//       month: "2-digit",
-//       day: "2-digit",
-//     });
-
-//     const parts = formatter.formatToParts(now);
-//     const y = parts.find(p => p.type === "year").value;
-//     const m = parts.find(p => p.type === "month").value;
-//     const d = parts.find(p => p.type === "day").value;
-
-//     return new Date(`${y}-${m}-${d}T00:00:00`);
-//   }
-
-//   function makeTenantDate(year, month, day, timezone) {
-//     const dt = new Date(Date.UTC(year, month, day));
-
-//     const formatter = new Intl.DateTimeFormat("en-CA", {
-//       timeZone: timezone,
-//       year: "numeric",
-//       month: "2-digit",
-//       day: "2-digit",
-//     });
-
-//     const parts = formatter.formatToParts(dt);
-//     const y = parts.find(p => p.type === "year").value;
-//     const m = parts.find(p => p.type === "month").value;
-//     const d = parts.find(p => p.type === "day").value;
-
-//     return new Date(`${y}-${m}-${d}T00:00:00`);
-//   }
-
-//   // Generate calendar days
-//   const generateCalendarDays = () => {
-//     const year = currentMonth.getFullYear();
-//     const month = currentMonth.getMonth();
-    
-//     const firstDay = new Date(year, month, 1);
-//     const lastDay = new Date(year, month + 1, 0);
-//     const startPadding = firstDay.getDay();
-    
-//     const days = [];
-    
-//     for (let i = 0; i < startPadding; i++) {
-//       days.push({ date: null, disabled: true });
-//     }
-    
-//     const today = getTenantToday(timezone);
-//     today.setHours(0, 0, 0, 0);
-    
-//     for (let d = 1; d <= lastDay.getDate(); d++) {
-//     const date = makeTenantDate(year, month, d, timezone);
-
-//     const dateStr = date ? toYMD(date) : null;
-//     const todayStr = toYMD(getTenantToday(timezone));
-
-//     const isPast = dateStr < todayStr;
-
-//     days.push({
-//       date,
-//       day: d,
-//       dateStr,
-//       disabled: isPast,
-//       isClosed: !!closedDates[dateStr],closedReason: closedDates[dateStr] || null,
-//       isToday: date.getTime() === today.getTime(),
-//     });
-//   }
-
-//     return days;
-//   };
-
-//   const calendarDays = generateCalendarDays();
-//   const weekDays = isRTL 
-//     ? ["Sat", "Fri", "Thu", "Wed", "Tue", "Mon", "Sun"]
-//     : ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-
-//   function toYMD(date) {
-//     if (!(date instanceof Date) || isNaN(date)) return null;
-
-//     return new Intl.DateTimeFormat("en-CA", {
-//       timeZone: timezone,
-//       year: "numeric",
-//       month: "2-digit",
-//       day: "2-digit",
-//     }).format(date);
-//   }
-
-
-//   useEffect(() => {
-//     async function fetchSlots() {
-//       if (!selectedDate || !service) return;
-
-//       const dateStr = toYMD(selectedDate);
-
-//       if (closedDates[dateStr]) {
-//         setAvailableSlots([]);
-//         return;
-//       }
-      
-//       setIsLoadingSlots(true);
-
-//       try {
-//         const providerParam = staff ? `&provider=${staff.id}` : "";
-//         const res = await fetch(
-//           `${API_BASE}/api/v1/booking/slots/?service=${service.id}&date=${dateStr}${providerParam}`,
-//           {
-//             headers: {
-//               "Content-Type": "application/json",
-//               "X-Tenant": domain,
-//             },
-//           }
-//         );
-
-//         const data = await res.json();
-//         const slots = data.slots || [];
-
-//         setAvailableSlots(slots);
-
-//         const allProviderUnavailable =
-//           slots.length > 0 &&
-//           slots.every(
-//             s => s.available === false &&
-//                 s.reason === "provider_unavailable"
-//           );
-
-//         if (allProviderUnavailable) {
-//           setClosedDates(prev => ({
-//             ...prev,
-//             [dateStr]: "provider_unavailable",
-//           }));
-//         }
-
-//         if (slots.length === 0) {
-//           setClosedDates(prev => ({
-//             ...prev,
-//             [dateStr]: true,
-//           }));
-//         }
-//       } catch (e) {
-//         console.error(e);
-//         setAvailableSlots([]);
-//       } finally {
-//         setIsLoadingSlots(false);
-//       }
-//     }
-    
-//     fetchSlots();
-//   }, [selectedDate, service, staff]);
-
-//   const prevMonth = () => {
-//     setCurrentMonth(
-//     makeTenantDate(currentMonth.getFullYear(), currentMonth.getMonth() - 1, 1, timezone)
-//   );
-//   };
-
-//   const nextMonth = () => {
-//     setCurrentMonth(
-//       makeTenantDate(
-//         currentMonth.getFullYear(),
-//         currentMonth.getMonth() + 1,
-//         1,
-//         timezone
-//       )
-//     );
-//   };
-
-//   const formatMonthYear = (date) => {
-//     return date.toLocaleDateString(lang === "ar" ? "ar-SA" : lang === "ur" ? "ur-PK" : "en-US", {
-//       month: "long",
-//       year: "numeric",
-//     });
-//   };
-
-//   const isDateSelected = (date) => {
-//     if (!date || !selectedDate) return false;
-//     return toYMD(date) === toYMD(selectedDate);
-//   };
-
-//   return (
-//     <div className="p-6">
-//       {/* Service Summary */}
-//       <div className="bg-gray-50 rounded-xl p-4 mb-6">
-//         <p className="text-sm text-gray-500">
-//           {resolveTranslated({ en: "Selected Service", ar: "الخدمة المختارة", ur: "منتخب سروس" }, lang)}
-//         </p>
-//         <p className="font-semibold text-gray-900">
-//           {resolveTranslated(service?.title || service?.name, lang)}
-//         </p>
-//         {staff && (
-//           <p className="text-sm text-gray-600">
-//             {resolveTranslated({ en: "with", ar: "مع", ur: "کے ساتھ" }, lang)} {staff.name}
-//           </p>
-//         )}
-//       </div>
-
-//       <div className="grid md:grid-cols-2 gap-8">
-//         {/* Calendar */}
-//         <div>
-//           <h3 className="text-lg font-bold text-gray-900 mb-4">
-//             {resolveTranslated({ en: "Select Date", ar: "اختر التاريخ", ur: "تاریخ منتخب کریں" }, lang)}
-//           </h3>
-
-//           {/* Month Navigation */}
-//           <div className={`flex items-center justify-between mb-4 ${isRTL ? "flex-row-reverse" : ""}`}>
-//             <button
-//               onClick={prevMonth}
-//               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-//             >
-//               <svg className={`w-5 h-5 ${isRTL ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-//               </svg>
-//             </button>
-            
-//             <h4 className="font-semibold text-gray-900">
-//               {formatMonthYear(currentMonth)}
-//             </h4>
-            
-//             <button
-//               onClick={nextMonth}
-//               className="p-2 hover:bg-gray-100 rounded-lg transition-colors"
-//             >
-//               <svg className={`w-5 h-5 ${isRTL ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-//                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 5l7 7-7 7" />
-//               </svg>
-//             </button>
-//           </div>
-
-//           {/* Week Days Header */}
-//           <div className="grid grid-cols-7 gap-1 mb-2">
-//             {weekDays.map((day) => (
-//               <div key={day} className="text-center text-xs font-medium text-gray-500 py-2">
-//                 {day}
-//               </div>
-//             ))}
-//           </div>
-
-//           {/* Calendar Grid */}
-//           <div className="grid grid-cols-7 gap-1">
-//             {calendarDays.map((dayObj) => (
-//               <button
-//                 key={dayObj.dateStr || `empty-${Math.random()}`}
-//                 disabled={dayObj.disabled}
-//                 onClick={() => dayObj.date && onDateSelect(dayObj.date)}
-//                 className={`
-//                   relative aspect-square rounded-lg text-sm font-medium
-//                   ${dayObj.disabled ? "text-gray-300 cursor-not-allowed" : "hover:bg-gray-100"}
-//                   ${isDateSelected(dayObj.date) ? "text-white" : ""}
-//                 `}
-//                 style={{
-//                   backgroundColor: isDateSelected(dayObj.date)
-//                     ? theme.primary_color || "#3B82F6"
-//                     : undefined,
-//                 }}
-//               >
-//                 {dayObj.day}
-
-//                 {dayObj.isClosed && (
-//                 <span
-//                   className={`absolute bottom-1 left-1 right-1 text-[10px] rounded ${
-//                     dayObj.closedReason === "provider_unavailable"
-//                       ? "bg-orange-100 text-orange-600"
-//                       : "bg-red-100 text-red-600"
-//                   }`}
-//                 >
-//                   {dayObj.closedReason === "provider_unavailable"
-//                     ? resolveTranslated(
-//                         {
-//                           en: "No staff",
-//                           ar: "لا يوجد موظفون",
-//                           ur: "عملہ دستیاب نہیں",
-//                         },
-//                         lang
-//                       )
-//                     : resolveTranslated(
-//                         {
-//                           en: "Closed",
-//                           ar: "مغلق",
-//                           ur: "بند",
-//                         },
-//                         lang
-//                       )}
-//                 </span>
-//               )}
-//               </button>
-//             ))}
-//           </div>
-//         </div>
-
-//         {/* Time Slots */}
-//         <div>
-//           <h3 className="text-lg font-bold text-gray-900 mb-4">
-//             {resolveTranslated({ en: "Select Time", ar: "اختر الوقت", ur: "وقت منتخب کریں" }, lang)}
-//           </h3>
-
-//           {!selectedDate ? (
-//             <div className="text-center py-12 text-gray-400">
-//               <div className="text-4xl mb-4">📅</div>
-//               <p>
-//                 {resolveTranslated({ en: "Select a date first", ar: "اختر التاريخ أولاً", ur: "پہلے تاریخ منتخب کریں" }, lang)}
-//               </p>
-//             </div>
-//           ) : isLoadingSlots ? (
-//             <div className="grid grid-cols-3 gap-2">
-//               {[...Array(9)].map((_, i) => (
-//                 <div key={i} className="h-12 bg-gray-200 rounded-lg animate-pulse" />
-//               ))}
-//             </div>
-//           ) : availableSlots.length > 0 ? (
-//             <div className="grid grid-cols-3 gap-2 max-h-[300px] overflow-y-auto">
-//               {availableSlots.map((slot) => {
-//                 const time = slot.time || slot.start_time || slot;
-//                 const isSelected = selectedTime === time;
-//                 const isAvailable = slot.available !== false;
-
-//                return (
-//                 <div key={time} className="flex flex-col items-center">
-//                   <button
-//                     disabled={!isAvailable}
-//                     onClick={() => {
-//                       if (!isAvailable) return;
-//                       onTimeSelect(time);
-//                     }}
-//                     className={`
-//                       py-3 px-4 rounded-lg text-sm font-medium transition-all w-full
-//                       ${!isAvailable
-//                         ? "bg-gray-200 text-gray-400 cursor-not-allowed"
-//                         : isSelected
-//                         ? "text-white"
-//                         : "bg-gray-100 hover:bg-gray-200 text-gray-700"}
-//                     `}
-//                     style={{
-//                       backgroundColor: isSelected
-//                         ? theme.primary_color || "#3B82F6"
-//                         : undefined,
-//                     }}
-//                   >
-//                     {formatTime(time)}
-//                   </button>
-
-//               {!isAvailable && (
-//                 <span className="text-xs mt-1 text-red-500">
-//                   {slot.reason === "provider_unavailable"
-//                     ? resolveTranslated(
-//                         {
-//                           en: "Select another staff",
-//                           ar: "اختر موظفًا آخر",
-//                           ur: "دوسرا اسٹاف منتخب کریں",
-//                         },
-//                         lang
-//                       )
-//                     : slot.reason === "service_unavailable"
-//                     ? resolveTranslated(
-//                         {
-//                           en: "Service not available at this time",
-//                           ar: "الخدمة غير متاحة في هذا الوقت",
-//                           ur: "اس وقت سروس دستیاب نہیں",
-//                         },
-//                         lang
-//                       )
-//                     : resolveTranslated(
-//                         {
-//                           en: "Already booked",
-//                           ar: "محجوز بالفعل",
-//                           ur: "پہلے سے بک ہے",
-//                         },
-//                         lang
-//                       )}
-//                 </span>
-//               )}
-//                 </div>
-//               );
-//             })}
-//             </div>
-//           ) : (
-//             <div className="text-center py-12 text-gray-400">
-//               <div className="text-4xl mb-4">😔</div>
-//               <p>
-//                 {resolveTranslated({ en: "No available slots", ar: "لا توجد مواعيد متاحة", ur: "کوئی دستیاب سلاٹ نہیں" }, lang)}
-//               </p>
-//             </div>
-//           )}
-//         </div>
-//       </div>
-//     </div>
-//   );
-// }
-
-// =============================================================================
 // CUSTOMER FORM COMPONENT
 // =============================================================================
 function CustomerForm({ customerData, onDataChange, onSubmit, theme, lang, isRTL }) {
@@ -1392,47 +1082,41 @@ function CustomerForm({ customerData, onDataChange, onSubmit, theme, lang, isRTL
 // CONFIRM AND PAY COMPONENT
 // =============================================================================
 function ConfirmAndPay({
-  tenantId,
-  domain,
-  service,
-  staff,
-  date,
-  time,
-  customer,
-  settings,
-  bookingResult,
-  setBookingResult,
-  isLoading,
-  onConfirm,
-  timezone,
-  onReset,
-  theme,
-  lang,
-  isRTL,
-  booking,
-}) {
-  const stripe = useStripe();
-  const elements = useElements();
-  const [isPaying, setIsPaying] = useState(false);
-  const [error, setError] = useState(null);
+    tenantId,
+    domain,
+    service,
+    staff,
+    date,
+    time,
+    customer,
+    settings,
+    bookingResult,
+    setBookingResult,
+    isLoading,
+    onConfirm,
+    timezone,
+    onReset,
+    theme,
+    lang,
+    isRTL,
+    booking,
+  }) {
+    const stripe = useStripe();
+    const elements = useElements();
+    const [isPaying, setIsPaying] = useState(false);
+    const [error, setError] = useState(null);
 
 
-  const handlePay = async () => {
+    const handlePay = async () => {
     if (!stripe || !elements) return;
 
     setIsPaying(true);
     setError(null);
 
-    // TODO: Escrow integration handled in backend (Django)
-    //       For milestone-based services, stripe.confirmPayment would
-    //       create an escrow hold (capture_method='manual') instead of
-    //       an immediate charge. The backend PaymentService handles this
-    //       distinction based on the booking/project type.
-    const { error: stripeError, paymentIntent } =
-      await stripe.confirmPayment({
-        elements,
-        redirect: "if_required",
-      });
+    const { error: stripeError } = await stripe.confirmPayment({
+      elements,
+      redirect: "if_required",
+    });
 
     if (stripeError) {
       setError(stripeError.message);
@@ -1440,40 +1124,14 @@ function ConfirmAndPay({
       return;
     }
 
-    // TODO: Escrow integration handled in backend (Django)
-    //       confirm_payment endpoint handles both:
-    //       - Direct capture for online bookings
-    //       - Escrow hold confirmation for milestone projects
-    const res = await fetch(
-      `${API_BASE}/api/v1/bookings/${booking.id}/confirm_payment/`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "X-Tenant": domain,
-        },
-        body: JSON.stringify({
-          payment_intent_id: paymentIntent.id,
-        }),
-      }
-    );
-
-    const data = await res.json();
-
-    if (!res.ok) {
-      const msg =
-        data?.errors?.[0] ||
-        data?.detail ||
-        "Payment confirmed, but booking failed.";
-
-      setError(msg);
-      setIsPaying(false);
-      return;
-    }
-
-    // ✅ Success — clear persisted state
     clearBookingState(domain);
-    setBookingResult(data);
+
+    // ✅ Do NOT use backend response
+    setBookingResult({
+      status: "processing",
+      booking_id: booking.id,
+    });
+
     setIsPaying(false);
   };
 
@@ -1733,6 +1391,117 @@ function ConfirmAndPay({
   );
 }
 
+
+
+// =============================================================================
+// CONFIRM AND PAY — HYPERPAY VARIANT
+// =============================================================================
+function ConfirmAndPayHyperPay({
+  booking,
+  hyperPayData,
+  domain,
+  service,
+  staff,
+  date,
+  time,
+  customer,
+  settings,
+  timezone,
+  onReset,
+  theme,
+  lang,
+  isRTL,
+}) {
+  /**
+   * HyperPay payment is redirect-based:
+   * - We show the booking summary
+   * - We render the HyperPay widget (loads external JS)
+   * - Customer fills card details IN the widget
+   * - On submit → HyperPay handles 3DS and redirects to callback
+   * - Callback page verifies and shows success/failure
+   *
+   * No stripe.confirmPayment() — the widget handles everything.
+   */
+  return (
+    <div className="p-6">
+      <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">
+        {resolveTranslated({ en: "Review & Pay", ar: "مراجعة والدفع", ur: "جائزہ اور ادائیگی" }, lang)}
+      </h3>
+ 
+      {/* Booking Summary (reuse same layout as Stripe variant) */}
+      <div className="bg-gray-50 rounded-2xl p-6 max-w-lg mx-auto mb-6">
+        <div className={`flex gap-4 mb-6 pb-6 border-b ${isRTL ? "flex-row-reverse" : ""}`}>
+          {service?.image && (
+            <img
+              src={service.image}
+              alt={resolveTranslated(service.title || service.name, lang)}
+              className="w-20 h-20 rounded-xl object-cover"
+            />
+          )}
+          <div className={isRTL ? "text-right" : ""}>
+            <h4 className="font-semibold text-gray-900 text-lg">
+              {resolveTranslated(service?.title || service?.name, lang)}
+            </h4>
+            <p className="text-gray-500">{service?.duration_minutes} min</p>
+            {staff && (
+              <p className="text-sm text-gray-600">
+                {resolveTranslated({ en: "with", ar: "مع", ur: "کے ساتھ" }, lang)} {staff.name}
+              </p>
+            )}
+          </div>
+        </div>
+ 
+        <div className="space-y-3">
+          <DetailRow
+            label={resolveTranslated({ en: "Date", ar: "التاريخ", ur: "تاریخ" }, lang)}
+            value={formatDate(date, lang, timezone)}
+            isRTL={isRTL}
+          />
+          <DetailRow
+            label={resolveTranslated({ en: "Time", ar: "الوقت", ur: "وقت" }, lang)}
+            value={formatTime(time)}
+            isRTL={isRTL}
+          />
+          <DetailRow
+            label={resolveTranslated({ en: "Name", ar: "الاسم", ur: "نام" }, lang)}
+            value={customer.name}
+            isRTL={isRTL}
+          />
+        </div>
+ 
+        <div className="mt-6 pt-6 border-t">
+          <div className={`flex justify-between items-center ${isRTL ? "flex-row-reverse" : ""}`}>
+            <span className="text-lg font-semibold text-gray-900">
+              {resolveTranslated({ en: "Total", ar: "المجموع", ur: "کل" }, lang)}
+            </span>
+            <span
+              className="text-2xl font-bold"
+              style={{ color: theme.primary_color || "#3B82F6" }}
+            >
+              {resolveTranslated(service?.base_price || service?.price_label, lang)}
+            </span>
+          </div>
+        </div>
+      </div>
+ 
+      {/* HyperPay Widget */}
+      <div className="max-w-lg mx-auto">
+        <HyperPayWidget
+          checkoutId={hyperPayData.checkout_id}
+          widgetUrl={hyperPayData.widget_url}
+          brands={hyperPayData.brands}
+          callbackUrl={hyperPayData.callback_url}
+          lang={lang}
+          isRTL={isRTL}
+          theme={theme}
+        />
+      </div>
+    </div>
+  );
+}
+
+
+
 // =============================================================================
 // HELPER COMPONENTS
 // =============================================================================
@@ -1836,76 +1605,29 @@ async function createBooking({ domain, service, staff, date, time, customer, tim
     customer_notes: customer.notes || "",
   };
 
-  const res = await fetch(`${API_BASE}/api/v1/bookings/`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json", "X-Tenant": domain },
-    body: JSON.stringify(payload),
-  });
+  return await apiFetch(
+    "/api/v1/bookings/",
+    domain,
+    {
+      method: "POST",
 
-  if (!res.ok) {
-    const err = await res.json().catch(() => ({}));
-    throw new Error(err.detail || "Failed to create booking");
-  }
+      body: JSON.stringify(payload),
+    }
+  );
+  // const res = await fetch(`${API_BASE}/api/v1/bookings/`, {
+  //   method: "POST",
+  //   headers: { "Content-Type": "application/json", "X-Tenant": domain },
+  //   body: JSON.stringify(payload),
+  // });
 
-  return res.json();
+  // if (!res.ok) {
+  //   const err = await res.json().catch(() => ({}));
+  //   throw new Error(err.detail || "Failed to create booking");
+  // }
+
+  // return res.json();
 }
-// async function createBooking({ tenantId, domain, service, staff, date, time, customer, timezone}) {
-//   const scheduledDate =
-//     typeof date === "string"
-//       ? date
-//       : new Intl.DateTimeFormat("en-CA", {
-//           timeZone: timezone,
-//           year: "numeric",
-//           month: "2-digit",
-//           day: "2-digit",
-//         }).format(date);
 
-//     const bookingData = {
-//       service: service.id,
-//       provider: staff?.id || null,
-//       scheduled_date: scheduledDate,
-//       scheduled_time: time,
-//       customer_name: customer.name,
-//       customer_email: customer.email,
-//       customer_phone: customer.phone,
-//       customer_notes: customer.notes || "",
-//     };
-
-//   try {
-//     const res = await fetch(`${API_BASE}/api/v1/bookings/`, {
-//       method: "POST",
-//       headers: {
-//         "Content-Type": "application/json",
-//         "X-Tenant": domain,
-//       },
-//       body: JSON.stringify(bookingData),
-//     });
-
-//     if (!res.ok) {
-//       const error = await res.json().catch(() => ({}));
-//       throw new Error(error.detail || "Failed to create booking");
-//     }
-//     const data = await res.json();
-
-//     // TODO: Escrow integration handled in backend (Django)
-//     //       If this booking is for a milestone service, the backend will
-//     //       automatically create a Project + Milestones from the booking
-//     //       and return project_id in the response for frontend routing.
-
-//     return data;
-//   } catch (err) {
-//     console.error("Booking creation error:", err);
-//     return {
-//       success: true,
-//       booking_id: "BK" + Date.now().toString(36).toUpperCase(),
-//       ...bookingData,
-//     };
-//   }
-// }
-
-// =============================================================================
-// MOCK DATA (for development)
-// =============================================================================
 
 const MOCK_SERVICES = [
   {

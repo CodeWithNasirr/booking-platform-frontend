@@ -1,3 +1,4 @@
+// app/page.js
 "use client";
 
 import PublicNav from "@/components/layout/PublicNav";

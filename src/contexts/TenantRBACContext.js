@@ -28,7 +28,7 @@ import React, {
 } from "react";
 import Cookies from "js-cookie";
 import { useApp } from "./AppContext";
-
+import { apiFetch } from "@/lib/apiClient";
 const TenantRBACContext = createContext(undefined);
 
 export function useTenantRBAC() {
@@ -49,48 +49,49 @@ export function TenantRBACProvider({ children }) {
 
   // ── Fetch RBAC data on mount / tenant change ─────────────────
   useEffect(() => {
-    if (loadingUser || !user || !activeTenant) {
-      setLoading(false);
-      return;
-    }
+  if (loadingUser) {
+    return;
+  }
+
+  if (!user || !activeTenant) {
+    setMembership(null);
+    setLoading(false);
+    return;
+  }
 
     let cancelled = false;
 
-    async function fetchRBAC() {
-      setLoading(true);
-      try {
-        const token = Cookies.get("access_token");
-        const res = await fetch(`${API}/api/v1/tenants/rbac/me/`, {
-          headers: {
-            Authorization: `Bearer ${token}`,
-            "X-Tenant": activeTenant,
-            "Content-Type": "application/json",
-          },
-          credentials: "include", 
+async function fetchRBAC() {
+    setLoading(true);
 
-        });
+    try {
+      const data = await apiFetch(
+        "/api/v1/tenants/rbac/me/",
+        activeTenant
+      );
 
-        if (!res.ok) throw new Error("RBAC fetch failed");
+      console.log("TenantRBAC data:", data);
 
-        const text = await res.text();
+      if (!cancelled) {
+        setMembership(data);
+      }
 
-        let data;
-        try {
-          data = JSON.parse(text);
-        } catch (err) {
-          console.error("❌ RBAC returned HTML:", text);
-          setMembership(null);
-          return;
-        }
-        console.log("TenantRBAC data:", data);
-        if (!cancelled) setMembership(data);
-      } catch (err) {
-        console.error("TenantRBAC fetch failed:", err);
-        if (!cancelled) setMembership(null);
-      } finally {
-        if (!cancelled) setLoading(false);
+    } catch (err) {
+      console.error(
+        "TenantRBAC fetch failed:",
+        err
+      );
+
+      if (!cancelled) {
+        setMembership(null);
+      }
+
+    } finally {
+      if (!cancelled) {
+        setLoading(false);
       }
     }
+  }
 
     fetchRBAC();
     return () => {

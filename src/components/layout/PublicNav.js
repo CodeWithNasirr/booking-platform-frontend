@@ -2,14 +2,15 @@
 
 import React, { useState } from "react";
 import { useRouter } from "next/navigation";
-import { useApp } from "../../contexts/AppContext";
+
+import { t } from "@/lib/t";
 import LanguageSwitcher from "../shared/LanguageSwitcher";
 import { usePathname } from "next/navigation";
 import { Menu, X, Calendar } from "lucide-react";
 import { Button } from "@/app/ui/button";
 
 export default function PublicNav() {
-  const { t } = useApp();
+
   const router = useRouter();
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const pathname = usePathname();

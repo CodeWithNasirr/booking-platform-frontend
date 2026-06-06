@@ -1,0 +1,397 @@
+"use client";
+
+import { useState, useEffect, useCallback } from "react";
+import { useSuperAdmin } from "@/contexts/Superadmincontext";
+import SuperAdminLayout from "@/components/superadmin/SuperAdminLayout";
+import Cookies from "js-cookie";
+import {
+  Shield,
+  AlertTriangle,
+  Clock,
+  CheckCircle,
+  XCircle,
+  RefreshCw,
+  Search,
+  Loader2,
+  Eye,
+  DollarSign,
+  RotateCcw,
+  Zap,
+  Activity,
+  Timer,
+  FileWarning,
+  ArrowRightLeft,
+  MonitorCheck,
+} from "lucide-react";
+
+const MAROON = "#8B1E3F";
+const API = process.env.NEXT_PUBLIC_API_URL || "";
+
+function platformHeaders() {
+  const token = Cookies.get("platform_access_token") || Cookies.get("access_token");
+  return { Authorization: token ? `Bearer ${token}` : "", "Content-Type": "application/json" };
+}
+
+async function platformFetch(path) {
+  const res = await fetch(`${API}${path}`, { headers: platformHeaders(), credentials: "include" });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
+}
+
+async function platformPost(path) {
+  const res = await fetch(`${API}${path}`, { method: "POST", headers: platformHeaders(), credentials: "include" });
+  if (!res.ok) throw new Error(`${res.status}`);
+  return res.json();
+}
+
+function formatDate(d) {
+  if (!d) return "—";
+  return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
+}
+
+function timeAgo(d) {
+  if (!d) return "";
+  const hrs = Math.floor((Date.now() - new Date(d).getTime()) / 3600000);
+  if (hrs < 1) return `${Math.floor((Date.now() - new Date(d).getTime()) / 60000)}m ago`;
+  if (hrs < 24) return `${hrs}h ago`;
+  return `${Math.floor(hrs / 24)}d ago`;
+}
+
+const REFUND_STATUS = {
+  requested:  { bg: "bg-amber-50",    text: "text-amber-700",   dot: "bg-amber-500" },
+  approved:   { bg: "bg-blue-50",     text: "text-blue-700",    dot: "bg-blue-500" },
+  processing: { bg: "bg-purple-50",   text: "text-purple-700",  dot: "bg-purple-500" },
+  completed:  { bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500" },
+  failed:     { bg: "bg-red-50",      text: "text-red-700",     dot: "bg-red-500" },
+  cancelled:  { bg: "bg-gray-100",    text: "text-gray-600",    dot: "bg-gray-400" },
+};
+
+const DISPUTE_STATUS = {
+  needs_response: { bg: "bg-red-50",     text: "text-red-700",     dot: "bg-red-500" },
+  under_review:   { bg: "bg-amber-50",   text: "text-amber-700",   dot: "bg-amber-500" },
+  won:            { bg: "bg-emerald-50",  text: "text-emerald-700", dot: "bg-emerald-500" },
+  lost:           { bg: "bg-red-50",      text: "text-red-700",     dot: "bg-red-500" },
+  closed:         { bg: "bg-gray-100",    text: "text-gray-600",    dot: "bg-gray-400" },
+};
+
+function StatusBadge({ status, map }) {
+  const s = map[status] || { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400" };
+  return (
+    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>
+      <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
+      {status?.replace(/_/g, " ")}
+    </span>
+  );
+}
+
+function StatCard({ icon: Icon, label, value, color, sub }) {
+  return (
+    <div className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
+      <div className={`w-10 h-10 rounded-xl bg-gradient-to-br ${color} flex items-center justify-center mb-3`}>
+        <Icon className="w-5 h-5 text-white" />
+      </div>
+      <div className="text-2xl font-semibold text-gray-900">{value ?? "—"}</div>
+      <div className="text-sm text-gray-500 mt-0.5">{label}</div>
+      {sub && <div className="text-[10px] text-gray-400 mt-1">{sub}</div>}
+    </div>
+  );
+}
+
+function TabButton({ active, onClick, icon: Icon, label, count, urgent }) {
+  return (
+    <button onClick={onClick}
+      className={`inline-flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition-colors ${
+        active ? "border-[#8B1E3F] text-[#8B1E3F]" : "border-transparent text-gray-500 hover:text-gray-700"
+      }`}>
+      <Icon className="w-4 h-4" />
+      {label}
+      {count != null && (
+        <span className={`ml-1 px-1.5 py-0.5 rounded-full text-[10px] font-semibold ${
+          urgent ? "bg-red-100 text-red-700" : active ? "bg-[#8B1E3F]/10 text-[#8B1E3F]" : "bg-gray-100 text-gray-500"
+        }`}>{count}</span>
+      )}
+    </button>
+  );
+}
+
+/* ════════════════════════════════════════════════════
+   MAIN PAGE — READ-ONLY MONITORING
+   ════════════════════════════════════════════════════ */
+
+export default function PlatformMonitoringPage() {
+  const { t } = useSuperAdmin();
+  const [tab, setTab] = useState("overview");
+  const [loading, setLoading] = useState(true);
+
+  const [refunds, setRefunds] = useState([]);
+  const [disputes, setDisputes] = useState([]);
+  const [reconciliation, setReconciliation] = useState(null);
+  const [webhookFailures, setWebhookFailures] = useState([]);
+
+  const [toast, setToast] = useState(null);
+  function showToast(msg, type = "success") {
+    setToast({ msg, type });
+    setTimeout(() => setToast(null), 3000);
+  }
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    await Promise.all([
+      platformFetch("/api/v1/platform/refunds/?status=failed").then(d => setRefunds(Array.isArray(d) ? d : d?.results || [])).catch(() => {}),
+      platformFetch("/api/v1/platform/disputes/?status=needs_response").then(d => setDisputes(Array.isArray(d) ? d : d?.results || [])).catch(() => {}),
+      platformFetch("/api/v1/platform/reconciliation/stats/").then(setReconciliation).catch(() => {}),
+      platformFetch("/api/v1/platform/webhooks/failures/").then(d => setWebhookFailures(Array.isArray(d) ? d : d?.results || [])).catch(() => {}),
+    ]);
+    setLoading(false);
+  }, []);
+
+  useEffect(() => { loadAll(); }, [loadAll]);
+
+  async function triggerReconciliation() {
+    try {
+      await platformPost("/api/v1/platform/reconciliation/run/");
+      showToast("Reconciliation triggered");
+      setTimeout(loadAll, 5000);
+    } catch { showToast("Failed", "error"); }
+  }
+
+  const failedRefunds = refunds.length;
+  const urgentDisputes = disputes.length;
+
+  return (
+    <SuperAdminLayout
+      title="Platform Monitoring"
+      description="Read-only financial health monitoring — refunds and disputes are managed by tenant admins"
+      breadcrumbs={[{ label: "Monitoring" }]}
+    >
+      <div className="space-y-6">
+        {toast && (
+          <div className={`fixed top-4 right-4 z-50 flex items-center gap-2 px-4 py-3 rounded-lg shadow-lg text-sm font-medium text-white ${toast.type === "error" ? "bg-red-600" : "bg-emerald-600"}`}>
+            {toast.msg}
+          </div>
+        )}
+
+        {/* Monitoring badge */}
+        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg w-fit">
+          <MonitorCheck className="w-4 h-4 text-blue-600" />
+          <span className="text-xs font-medium text-blue-700">
+            Monitoring Only — Refund approvals and dispute responses are handled by tenant admins
+          </span>
+        </div>
+
+        {/* Stats */}
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
+          <StatCard icon={XCircle} label="Failed Refunds" value={failedRefunds} color="from-red-500 to-red-600" />
+          <StatCard icon={Shield} label="Open Disputes" value={urgentDisputes} color="from-amber-500 to-amber-600" />
+          <StatCard icon={Activity} label="Stuck Payments" value={reconciliation?.stuck_bookings ?? "—"} color="from-purple-500 to-purple-600" />
+          <StatCard icon={Activity} label="Stuck Orders" value={reconciliation?.stuck_orders ?? "—"} color="from-indigo-500 to-indigo-600" />
+          <StatCard icon={FileWarning} label="Webhook Errors" value={webhookFailures.length} color="from-gray-500 to-gray-600" />
+        </div>
+
+        {/* Tabs */}
+        <div className="border-b border-gray-200">
+          <div className="flex gap-0 overflow-x-auto">
+            <TabButton active={tab === "overview"} onClick={() => setTab("overview")} icon={Activity} label="Overview" />
+            <TabButton active={tab === "failed-refunds"} onClick={() => setTab("failed-refunds")} icon={XCircle} label="Failed Refunds" count={failedRefunds} urgent={failedRefunds > 0} />
+            <TabButton active={tab === "disputes"} onClick={() => setTab("disputes")} icon={Shield} label="Disputes" count={urgentDisputes} urgent={urgentDisputes > 0} />
+            <TabButton active={tab === "reconciliation"} onClick={() => setTab("reconciliation")} icon={ArrowRightLeft} label="Reconciliation" />
+            <TabButton active={tab === "webhooks"} onClick={() => setTab("webhooks")} icon={Zap} label="Webhooks" count={webhookFailures.length} />
+          </div>
+        </div>
+
+        {/* Overview */}
+        {tab === "overview" && (
+          <div className="space-y-4">
+            {failedRefunds > 0 && (
+              <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
+                <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-red-800">{failedRefunds} refund(s) have failed across tenants</p>
+                  <p className="text-xs text-red-600 mt-1">Tenant admins have been notified. Check the Failed Refunds tab for details.</p>
+                </div>
+              </div>
+            )}
+            {urgentDisputes > 0 && (
+              <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
+                <Shield className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-amber-800">{urgentDisputes} dispute(s) need tenant response</p>
+                  <p className="text-xs text-amber-600 mt-1">Tenant admins must respond before evidence deadlines expire.</p>
+                </div>
+              </div>
+            )}
+            {(reconciliation?.stuck_bookings > 0 || reconciliation?.stuck_orders > 0) && (
+              <div className="bg-purple-50 border border-purple-200 rounded-xl p-4 flex items-start gap-3">
+                <Activity className="w-5 h-5 text-purple-500 mt-0.5 shrink-0" />
+                <div>
+                  <p className="text-sm font-medium text-purple-800">
+                    {(reconciliation?.stuck_bookings || 0) + (reconciliation?.stuck_orders || 0)} payment(s) stuck in pending
+                  </p>
+                  <p className="text-xs text-purple-600 mt-1">Run reconciliation to recover missed webhook payments.</p>
+                </div>
+              </div>
+            )}
+            {failedRefunds === 0 && urgentDisputes === 0 && !reconciliation?.stuck_bookings && (
+              <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center">
+                <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
+                <p className="text-sm font-medium text-emerald-800">All systems healthy</p>
+                <p className="text-xs text-emerald-600 mt-1">No failed refunds, open disputes, or stuck payments</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Failed Refunds (READ-ONLY) */}
+        {tab === "failed-refunds" && (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {refunds.length === 0 ? (
+              <div className="text-center py-16"><CheckCircle className="w-10 h-10 text-emerald-300 mx-auto mb-3" /><p className="text-sm text-gray-500">No failed refunds</p></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 text-left">
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Refund #</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Tenant</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Amount</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Error</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Retries</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Failed At</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {refunds.map(r => (
+                      <tr key={r.id} className="hover:bg-gray-50/60">
+                        <td className="px-5 py-3.5"><code className="text-xs font-medium text-gray-700 bg-gray-50 px-2 py-1 rounded">{r.refund_number}</code></td>
+                        <td className="px-5 py-3.5 text-xs text-gray-600">{r.tenant_name || "—"}</td>
+                        <td className="px-5 py-3.5 text-sm font-semibold text-gray-900">{r.currency} {r.customer_refund}</td>
+                        <td className="px-5 py-3.5 text-xs text-red-600 max-w-xs truncate">{r.last_error?.slice(0, 80)}</td>
+                        <td className="px-5 py-3.5 text-xs text-gray-500">{r.retry_count}/{r.max_retries}</td>
+                        <td className="px-5 py-3.5 text-xs text-gray-500">{timeAgo(r.failed_at || r.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Disputes (READ-ONLY) */}
+        {tab === "disputes" && (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {disputes.length === 0 ? (
+              <div className="text-center py-16"><CheckCircle className="w-10 h-10 text-emerald-300 mx-auto mb-3" /><p className="text-sm text-gray-500">No open disputes</p></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 text-left">
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Dispute #</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Tenant</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Amount</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Reason</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Deadline</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {disputes.map(d => {
+                      const hoursLeft = d.evidence_due_by ? Math.max(0, (new Date(d.evidence_due_by) - Date.now()) / 3600000) : null;
+                      const isUrgent = hoursLeft !== null && hoursLeft < 24;
+                      return (
+                        <tr key={d.id} className={`hover:bg-gray-50/60 ${isUrgent ? "bg-red-50/30" : ""}`}>
+                          <td className="px-5 py-3.5"><code className="text-xs font-medium text-gray-700 bg-gray-50 px-2 py-1 rounded">{d.dispute_number}</code></td>
+                          <td className="px-5 py-3.5 text-xs text-gray-600">{d.tenant_name || "—"}</td>
+                          <td className="px-5 py-3.5 text-sm font-semibold text-gray-900">{d.currency} {d.amount}</td>
+                          <td className="px-5 py-3.5 text-xs text-gray-600">{d.reason?.replace(/_/g, " ")}</td>
+                          <td className="px-5 py-3.5"><StatusBadge status={d.status} map={DISPUTE_STATUS} /></td>
+                          <td className="px-5 py-3.5">
+                            {d.evidence_due_by ? (
+                              <span className={`text-xs ${isUrgent ? "text-red-600 font-semibold" : "text-gray-500"}`}>
+                                {isUrgent && <Timer className="w-3 h-3 inline mr-1" />}
+                                {hoursLeft < 1 ? "<1h" : `${Math.floor(hoursLeft)}h`} left
+                              </span>
+                            ) : "—"}
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Reconciliation */}
+        {tab === "reconciliation" && (
+          <div className="space-y-4">
+            <div className="flex items-center justify-between">
+              <div>
+                <h3 className="text-lg font-semibold text-gray-900">Payment Reconciliation</h3>
+                <p className="text-sm text-gray-500 mt-1">Detects payments stuck due to missed webhooks</p>
+              </div>
+              <button onClick={triggerReconciliation}
+                className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg"
+                style={{ backgroundColor: MAROON }}>
+                <RefreshCw className="w-4 h-4" /> Run Reconciliation
+              </button>
+            </div>
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="text-sm font-medium text-gray-700 mb-2">Stuck Bookings</div>
+                <div className="text-3xl font-semibold text-gray-900">{reconciliation?.stuck_bookings ?? "—"}</div>
+                <p className="text-xs text-gray-400 mt-1">pending_payment &gt; 1 hour</p>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="text-sm font-medium text-gray-700 mb-2">Stuck Orders</div>
+                <div className="text-3xl font-semibold text-gray-900">{reconciliation?.stuck_orders ?? "—"}</div>
+                <p className="text-xs text-gray-400 mt-1">pending_payment &gt; 1 hour</p>
+              </div>
+              <div className="bg-white rounded-xl border border-gray-200 p-5">
+                <div className="text-sm font-medium text-gray-700 mb-2">Stale Schedules</div>
+                <div className="text-3xl font-semibold text-gray-900">{reconciliation?.stale_schedules ?? "—"}</div>
+                <p className="text-xs text-gray-400 mt-1">Booked slots for terminated bookings</p>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Webhooks */}
+        {tab === "webhooks" && (
+          <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
+            {webhookFailures.length === 0 ? (
+              <div className="text-center py-16"><CheckCircle className="w-10 h-10 text-emerald-300 mx-auto mb-3" /><p className="text-sm text-gray-500">No failed webhooks</p></div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full">
+                  <thead>
+                    <tr className="bg-gray-50 text-left">
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Event ID</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Type</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Provider</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Error</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Time</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-100">
+                    {webhookFailures.map(w => (
+                      <tr key={w.id} className="hover:bg-gray-50/60">
+                        <td className="px-5 py-3.5"><code className="text-[10px] text-gray-600 bg-gray-50 px-1.5 py-0.5 rounded break-all">{w.external_event_id?.slice(0, 24)}...</code></td>
+                        <td className="px-5 py-3.5 text-xs text-gray-700">{w.event_type}</td>
+                        <td className="px-5 py-3.5 text-xs text-gray-600">{w.provider}</td>
+                        <td className="px-5 py-3.5 text-xs text-red-600 max-w-xs truncate">{w.error?.slice(0, 80)}</td>
+                        <td className="px-5 py-3.5 text-xs text-gray-500">{timeAgo(w.created_at)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </div>
+        )}
+      </div>
+    </SuperAdminLayout>
+  );
+}

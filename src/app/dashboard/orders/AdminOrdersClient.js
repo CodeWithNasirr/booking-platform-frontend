@@ -11,7 +11,9 @@
  * - Search and status filtering via query params
  * - No new auth, no new endpoints
  */
-import { authFetch } from "./lib/api";
+// import { authFetch } from "./lib/api";
+import { apiFetch as authFetch } from '@/lib/apiClient';
+
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
