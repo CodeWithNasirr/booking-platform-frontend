@@ -4,14 +4,15 @@ export const metadata = {
   description: 'Service Provider Panel',
 };
 
-import ProviderStatusGuard from '@/components/provider/ProviderStatusGuard';
+import { AppProvider } from "@/contexts/AppContext";
 import { TenantRBACProvider } from "@/contexts/TenantRBACContext";
+
 export default function ProviderLayout({ children }) {
   return (
-    <TenantRBACProvider>
-    {/* <ProviderStatusGuard> */}
-      {children}
-    {/* </ProviderStatusGuard> */}
-    </TenantRBACProvider>
+    <AppProvider>
+      <TenantRBACProvider>
+        {children}
+      </TenantRBACProvider>
+    </AppProvider>
   );
 }
