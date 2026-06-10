@@ -9,7 +9,7 @@ import { Card } from "@/app/ui/card";
 import { Button } from "@/app/ui/button";
 import { Progress } from "@/app/ui/progress";
 import { useApp } from "@/contexts/AppContext";
-
+import { apiFetch } from "@/lib/apiClient";
 export default function PublishingPage() {
   const router = useRouter();
   const token = Cookies.get("access_token");
@@ -68,22 +68,17 @@ export default function PublishingPage() {
 
   async function completeOnboarding() {
     if (isCompleting) return;
+
     setIsCompleting(true);
 
     try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/onboarding/complete/`,
+      const json = await apiFetch(
+        "/api/v1/onboarding/complete/",
+        TenantID,
         {
           method: "POST",
-          headers: {
-            "Content-Type": "application/json",
-            "X-Tenant": TenantID,
-            ...(token && { Authorization: `Bearer ${token}`, credentials: "include" }),
-          },
         }
       );
-
-      const json = await res.json();
 
       if (json.domain) {
         setDomainInfo(json.domain);

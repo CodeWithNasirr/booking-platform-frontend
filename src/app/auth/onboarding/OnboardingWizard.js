@@ -32,6 +32,7 @@ import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
 
 
 import Cookies from "js-cookie";
+import { apiFetch } from "@/lib/apiClient";
 import { useRouter } from "next/navigation";
 import { formatDynamicAPIAccesses } from "next/dist/server/app-render/dynamic-rendering";
 // import { useApp } from "@/contexts/AppContext"; // if you need it later
@@ -53,8 +54,42 @@ export default function OnboardingWizard({ tenant }) {
   const token = Cookies.get("access_token");
     // console.log("OnboardingWizard tenant:", normalizedTenant);
 
-  const { t, isRTL } = useApp();
+  const { t, isRTL,user,tenants,authInitialized,loadingUser,activeTenant } = useApp();
 
+
+  useEffect(() => {
+    console.log("ONBOARDING PAGE");
+
+    console.log({
+      authInitialized,
+      loadingUser,
+      user,
+      activeTenant,
+      tenantsLength: tenants.length,
+    });
+
+    if (!authInitialized) return;
+
+    if (!user) {
+      console.log("ONBOARDING REDIRECT LOGIN");
+      router.replace("/auth/login");
+      return;
+    }
+
+  }, [
+    authInitialized,
+    user,
+    loadingUser,
+    tenants,
+    activeTenant
+  ]);
+
+
+  useEffect(() => {
+    if (normalizedTenant) {
+      setTenantState(normalizedTenant);
+    }
+  }, [normalizedTenant]);
 
   function flattenErrors(errors, parentKey = "") {
   let messages = [];
@@ -79,6 +114,7 @@ export default function OnboardingWizard({ tenant }) {
   return messages;
 }
 
+  
 
   // ------------------------------------------------------
   // STEP SETUP
@@ -158,21 +194,21 @@ export default function OnboardingWizard({ tenant }) {
 
     // If individual owner → provider already exists in backend
     if (tenantState.has_providers === false) {
-      fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/v1/providers/me/`, {
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "X-Tenant": tenantState.id,
-        },
-        credentials: "include",
+      apiFetch(
+      "/api/v1/providers/me/",
+      tenantState.id,
+      {
+        method: "GET",
+      }
+    )
+      .then((data) => {
+        if (data?.id) {
+          setProviderId(data.id);
+          localStorage.setItem("provider_id", data.id);
+        }
       })
-        .then((res) => res.json())
-        .then((data) => {
-          if (data?.id) {
-            setProviderId(data.id);
-            localStorage.setItem("provider_id", data.id);
-          }
-        });
-    }
+      .catch(console.error);
+        }
 
 
   }, [tenantState]);
@@ -353,6 +389,11 @@ export default function OnboardingWizard({ tenant }) {
   // ------------------------------------------------------
   async function saveStep() {
     if (!token) return alert("Login required");
+    if (!tenantState?.id) {
+      console.error("Tenant missing", tenantState);
+      alert("Tenant not loaded");
+      return;
+    }
 
     let endpoint = "";
     let body;
@@ -395,14 +436,32 @@ export default function OnboardingWizard({ tenant }) {
       body = JSON.stringify(buildPayload(currentStep));
     }
 
-    const res = await fetch(
-      `${process.env.NEXT_PUBLIC_API_URL}${endpoint}`,
-      { method: "POST", headers, body, credentials: "include" }
+    let json;
 
-    );
-
-    const json = await res.json();
-    if (!res.ok) return alert(flattenErrors(json).join("\n"));
+    try {
+      json =
+        currentStep === 1
+          ? await apiFetch(
+              endpoint,
+              tenantState.id,
+              {
+                method: "POST",
+                headers: {},
+                body,
+              }
+            )
+          : await apiFetch(
+              endpoint,
+              tenantState.id,
+              {
+                method: "POST",
+                body,
+              }
+            );
+    } catch (err) {
+      console.error(err);
+      return;
+    }
 
     if (json.tenant) {
       setTenantState((p) => ({ ...p, ...json.tenant }));

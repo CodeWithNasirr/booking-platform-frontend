@@ -6,20 +6,19 @@ import { useApp } from "@/contexts/AppContext";
 import OnboardingWizard from "./OnboardingWizard";
 
 export default function OnboardingPage() {
-  const { user, loadingUser, tenants, activeTenant, requiresOnboarding } = useApp();
+  const { user, loadingUser, tenants, activeTenant,authInitialized, requiresOnboarding } = useApp();
   const router = useRouter();
   const safeTenants = tenants || [];
 
   const activeTenantObj = safeTenants.find(
-  (t) => t.id === activeTenant
+    (t) => String(t.id) === String(activeTenant)
   );
  
 
 
   useEffect(() => {
-    if (loadingUser) return;
+    if (!authInitialized) return;
 
-    // Not logged in
     if (!user) {
       router.replace("/auth/login");
       return;
@@ -35,7 +34,9 @@ export default function OnboardingPage() {
     }
 
     // Get active tenant object
-    const tenant = safeTenants.find(t => t.id === activeTenant);
+    const tenant = safeTenants.find(
+      t => String(t.id) === String(activeTenant)
+    );
 
     if (!tenant) return;
 
@@ -46,10 +47,19 @@ export default function OnboardingPage() {
     }
 
       // ❗ Otherwise stay on onboarding
-  }, [user, loadingUser, safeTenants, activeTenant]);
+  }, [user, loadingUser, safeTenants, activeTenant,authInitialized]);
 
 
-  if (loadingUser) return <div>Loading...</div>;
+  if (loadingUser) {
+    return <div>Loading...</div>;
+  }
+   if (!authInitialized) {
+    return <div>Loading...</div>;
+  }
+
+  if (!activeTenantObj) {
+    return <div>Loading tenant...</div>;
+  }
 
   return <OnboardingWizard tenant={activeTenantObj} />;
 }

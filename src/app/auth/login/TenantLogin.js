@@ -105,7 +105,8 @@ export default function TenantLogin() {
 
       if (data.requires_onboarding) {
         const active = tenants.find((t) => t.id === data.active_tenant) || tenants[0];
-        router.push(`/auth/onboarding?step=${active.onboarding_step || 1}`);
+        // router.push(`/auth/onboarding?step=${active.onboarding_step || 1}`);
+        window.location.href =  `/auth/onboarding?step=${active.onboarding_step || 1}`;
         return;
       }
     

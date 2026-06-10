@@ -124,6 +124,11 @@ async function refreshAccessToken() {
     Cookies.remove("access_token");
     Cookies.remove("refresh_token");
 
+    console.error(
+      "REFRESH FAILED",
+      res.status,
+      window.location.pathname
+    );
     // clear impersonation too
     if (typeof window !== "undefined") {
       localStorage.removeItem("impersonation_token");
@@ -174,12 +179,18 @@ export async function apiFetch(
   const impersonationToken =
     Cookies.get("impersonation_token");
 
-  const makeRequest = (accessToken) =>
-    fetch(`${API_BASE}${endpoint}`, {
+
+  const makeRequest = (accessToken) => {
+    const isFormData =
+      options.body instanceof FormData;
+
+    return fetch(`${API_BASE}${endpoint}`, {
       ...options,
 
       headers: {
-        "Content-Type": "application/json",
+        ...(!isFormData && {
+          "Content-Type": "application/json",
+        }),
 
         ...(accessToken && {
           Authorization: `Bearer ${accessToken}`,
@@ -189,7 +200,6 @@ export async function apiFetch(
           "X-Tenant": activeTenant,
         }),
 
-        // 🔥 ADD IMPERSONATION HEADER
         ...(impersonationToken && {
           "X-Impersonate": impersonationToken,
         }),
@@ -199,6 +209,33 @@ export async function apiFetch(
 
       credentials: "include",
     });
+  };
+
+  // const makeRequest = (accessToken) =>
+  //   fetch(`${API_BASE}${endpoint}`, {
+  //     ...options,
+
+  //     headers: {
+  //       "Content-Type": "application/json",
+
+  //       ...(accessToken && {
+  //         Authorization: `Bearer ${accessToken}`,
+  //       }),
+
+  //       ...(activeTenant && {
+  //         "X-Tenant": activeTenant,
+  //       }),
+
+  //       // 🔥 ADD IMPERSONATION HEADER
+  //       ...(impersonationToken && {
+  //         "X-Impersonate": impersonationToken,
+  //       }),
+
+  //       ...options.headers,
+  //     },
+
+  //     credentials: "include",
+  //   });
 
   let res = await makeRequest(token);
 
@@ -211,7 +248,11 @@ export async function apiFetch(
   ) {
     try {
       isRefreshing = true;
-
+      console.error(
+        "REFRESH FAILED",
+        res.status,
+        window.location.pathname
+      );
       const newToken =
         await refreshAccessToken();
 

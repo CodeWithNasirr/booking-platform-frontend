@@ -20,6 +20,7 @@ import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
 import Cookies from "js-cookie";
 import { Button } from "@/app/ui/button";
 import { useSearchParams } from "next/navigation";
+import { COOKIE_OPTIONS } from "@/lib/cookieConfig";
 
 import { UserX } from "lucide-react";
 
@@ -32,7 +33,18 @@ export default function RegisterWizard({
 }) {
 //   const searchParams = useSearchParams();
   const router = useRouter();
-  const { t, isRTL, setUser, requiresOnboarding, tenants, activeTenant, setActiveTenant, selectTenant } = useApp();
+  const {
+    t,
+    isRTL,
+    setUser,
+    setTenants,
+    setRequiresOnboarding,
+    requiresOnboarding,
+    tenants,
+    activeTenant,
+    setActiveTenant,
+    selectTenant,
+  } = useApp();
 
   const { flags, loading: flagsLoading } = usePlatformFlags();
 
@@ -86,7 +98,9 @@ export default function RegisterWizard({
 
   if (requiresOnboarding) {
     const tenant =
-      tenants?.find((t) => t.id === activeTenant) || tenants?.[0];
+      tenants?.find(
+  (t) => String(t.id) === String(activeTenant)
+) || tenants?.[0];
 
     const step = tenant ? tenant.onboarding_step || 1 : 1;
     router.replace(`/auth/onboarding?step=${step}`);
@@ -208,16 +222,44 @@ export default function RegisterWizard({
       return;
     }
 
-    Cookies.set("access_token", data.access);
-    Cookies.set("refresh_token", data.refresh);
+    Cookies.remove("access_token", COOKIE_OPTIONS);
+    Cookies.remove("refresh_token", COOKIE_OPTIONS);
+    Cookies.remove("active_tenant", COOKIE_OPTIONS);
+
+    Cookies.set(
+      "access_token",
+      data.access,
+      COOKIE_OPTIONS
+    );
+
+    Cookies.set(
+      "refresh_token",
+      data.refresh,
+      COOKIE_OPTIONS
+    );
+    Cookies.set(
+      "active_tenant",
+      data.tenant.id,
+      COOKIE_OPTIONS
+    );
     setUser(data.user);
 
-    if (data.tenant?.id) {
-      Cookies.set("active_tenant", data.tenant.id);
-      selectTenant(data.tenant.id);
-    }
+    setTenants([
+      {
+        id: data.tenant.id,
+        name: data.tenant.name,
+        onboarding_step: data.tenant.onboarding_step,
+        onboarding_completed: false,
+      }
+    ]);
 
-    router.push(`/auth/onboarding?step=${data.tenant.onboarding_step || 1}`);
+    setRequiresOnboarding(true);
+
+    selectTenant(data.tenant.id);
+
+    router.push(
+      `/auth/onboarding?step=${data.tenant.onboarding_step || 1}`
+    );
   };
 
   /* ── RESEND CODE ── */

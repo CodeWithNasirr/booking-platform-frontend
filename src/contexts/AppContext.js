@@ -32,7 +32,12 @@ export function AppProvider({ children }) {
   const [tenantTimezone, setTenantTimezone] = useState("UTC");
   const BACKEND_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
-  const activeTenantObj =  tenants.find((t) => t.id === activeTenant) || tenants[0] || null;
+  const activeTenantObj =
+    tenants.find(
+      (t) => String(t.id) === String(activeTenant)
+    ) ||
+    tenants[0] ||
+    null;
 
   const hasProviders = activeTenantObj?.has_providers ?? false;
     
@@ -150,7 +155,12 @@ export function AppProvider({ children }) {
         setRequiresOnboarding(data.requires_onboarding || false);
 
         if (data.active_tenant) {
-          Cookies.set("active_tenant", data.active_tenant);
+          Cookies.set(
+            "active_tenant",
+            data.active_tenant,
+            COOKIE_OPTIONS
+          );
+
           setActiveTenant(data.active_tenant);
         }
       } catch (err) {
