@@ -58,7 +58,7 @@ export default function DashboardHome() {
     tenants,
     requiresOnboarding,
     activeTenant,
-    t, isRTL,hasProviders,
+    t, isRTL,hasProviders,language,
   } = useApp();
 
   const url = getTenantWebsiteUrl(tenants);
@@ -176,7 +176,7 @@ export default function DashboardHome() {
     }
 
     loadDashboard();
-  }, [user, tenantId]);
+  }, [user, tenantId,language]);
 
 
   /* ONBOARDING REDIRECT */

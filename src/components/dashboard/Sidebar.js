@@ -58,117 +58,115 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     router.push(`/dashboard/${page.replace("tenant-", "")}`);
   };
 
-  // ── Menu items with all gating metadata ──
-  const menuItems = [
-    {
-      key: "tenant-dashboard",
-      label: t("dashboard.title"),
-      icon: LayoutDashboard,
-    },
-    {
-      key: "tenant-services",
-      label: t("tenant.services"),
-      icon: Package,
-    },
-    {
-      key: "tenant-providers",
-      label: t("tenant.providers"),
-      icon: Users,
-      requiresProviders: true,
-    },
-    {
-      key: "tenant-bookings",
-      label: t("tenant.bookings"),
-      icon: Calendar,
-      integrationFeature: "online_booking",
-    },
-    {
-      key: "tenant-orders",
-      label: "Orders",
-      icon: ShoppingBag,
-    },
-    {
-      key: "tenant-users",
-      label: "Team Members",
-      icon: UsersRound,
-      requiresProviders: true,
-    },
-    {
-      key: "tenant-calendar",
-      label: t("tenant.calendar"),
-      icon: Calendar,
-    },
-    {
-      key: "tenant-schedule",
-      label: t("tenant.schedule") || "My Schedule",
-      icon: Calendar,
-      requiresIndividual: true,
-    },
-    {
-      key: "tenant-customers",
-      label: t("tenant.customers"),
-      icon: UsersRound,
-    },
-    {
-      key: "tenant-finance",
-      label: t("tenant.finance"),
-      icon: DollarSign,
-    },
-    {
-      key:"tenant-billing",
-      label: t("tenant.billing"),
-      icon: CreditCard,
-    },
-    {
-      key: "tenant-website",
-      label: t("tenant.website"),
-      icon: Globe,
-    },
-    {
-      key: "tenant-logs",
-      label: t("tenant.logs"),
-      icon: Globe,
-    },
-    {
-      key: "tenant-refunds",
-      label: t("tenant.refunds") || "Refunds",
-      icon: RotateCcw,
-    },
-    {
-      key: "tenant-analytics",
-      label: t("tenant.analytics"),
-      icon: BarChart3,
-      featureCode: "analytics",
-    },
-    {
-      key: "tenant-integrations",
-      label: t("tenant.integrations"),
-      icon: Zap,
-    },
-    {
-      key: "tenant-support",
-      label: t("tenant.support"),
-      icon: LifeBuoy,
-    },
-
-    {
-      key: "tenant-whatsapp",
-      label: "Manage WhatsApp",
-      icon: MessageCircle,
-      integrationFeature: "whatsapp_notifications",
-    },
-    {
-      key: "tenant-campaigns",
-      label: "Campaigns",
-      icon: Send,
-      integrationFeature: "whatsapp_notifications",
-    },
-    {
-      key: "tenant-settings",
-      label: t("tenant.settings"),
-      icon: Settings,
-    },
-  ];
+const menuItems = [
+  {
+    key: "tenant-dashboard",
+    label: t("dashboard.title"),
+    icon: LayoutDashboard,
+  },
+  {
+    key: "tenant-services",
+    label: t("tenant.services"),
+    icon: Package,
+  },
+  {
+    key: "tenant-providers",
+    label: t("tenant.providers"),
+    icon: Users,
+    requiresProviders: true,
+  },
+  {
+    key: "tenant-bookings",
+    label: t("tenant.bookings"),
+    icon: Calendar,
+    integrationFeature: "online_booking",
+  },
+  {
+    key: "tenant-orders",
+    label: t("tenant.orders"),
+    icon: ShoppingBag,
+  },
+  {
+    key: "tenant-users",
+    label: t("tenant.users"),
+    icon: UsersRound,
+    requiresProviders: true,
+  },
+  {
+    key: "tenant-calendar",
+    label: t("tenant.calendar"),
+    icon: Calendar,
+  },
+  {
+    key: "tenant-schedule",
+    label: t("tenant.schedule"),
+    icon: Calendar,
+    requiresIndividual: true,
+  },
+  {
+    key: "tenant-customers",
+    label: t("tenant.customers"),
+    icon: UsersRound,
+  },
+  {
+    key: "tenant-finance",
+    label: t("tenant.finance"),
+    icon: DollarSign,
+  },
+  {
+    key: "tenant-billing",
+    label: t("tenant.billing"),
+    icon: CreditCard,
+  },
+  {
+    key: "tenant-website",
+    label: t("tenant.website"),
+    icon: Globe,
+  },
+  {
+    key: "tenant-logs",
+    label: t("tenant.logs"),
+    icon: Globe,
+  },
+  {
+    key: "tenant-refunds",
+    label: t("tenant.refunds"),
+    icon: RotateCcw,
+  },
+  {
+    key: "tenant-analytics",
+    label: t("tenant.analytics"),
+    icon: BarChart3,
+    featureCode: "analytics",
+  },
+  {
+    key: "tenant-integrations",
+    label: t("tenant.integrations"),
+    icon: Zap,
+  },
+  {
+    key: "tenant-support",
+    label: t("tenant.support"),
+    icon: LifeBuoy,
+  },
+  {
+    key: "tenant-whatsapp",
+    label: t("tenant.whatsapp"),
+    icon: MessageCircle,
+    integrationFeature: "whatsapp_notifications",
+  },
+  {
+    key: "tenant-campaigns",
+    label: t("tenant.campaigns"),
+    icon: Send,
+    integrationFeature: "whatsapp_notifications",
+  },
+  {
+    key: "tenant-settings",
+    label: t("tenant.settings"),
+    icon: Settings,
+  },
+];
 
   // ── Four-layer gating: tenant type → plan → RBAC → (integration is visual only) ──
   const visibleItems = menuItems.filter((item) => {
@@ -207,12 +205,20 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     );
   };
 
+  const closedTransform = isRTL
+  ? "translate-x-full"
+  : "-translate-x-full";
+
   return (
-    <div
-      className={`${sidebarOpen ? "translate-x-0" : "-translate-x-full"}
-      lg:translate-x-0 fixed lg:static inset-y-0 ${isRTL ? "right-0" : "left-0"}
-      z-50 w-64 bg-white border-gray-200 ${isRTL ? "border-l" : "border-r"}
-      transition-transform duration-300`}
+   <div
+      className={`
+        ${sidebarOpen ? "translate-x-0" : closedTransform}
+        lg:translate-x-0
+        fixed lg:relative inset-y-0
+        ${isRTL ? "right-0 border-l" : "left-0 border-r"}
+        z-50 w-64 bg-white shrink-0
+        transition-transform duration-300
+      `}
     >
       <div className="flex flex-col h-full">
         {/* Logo */}
@@ -255,7 +261,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
                   go(item.key);
                   setSidebarOpen(false);
                 }}
-                className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all
+                className={`w-full flex items-center gap-3 ${isRTL ? "flex-row-reverse text-right" : "" } px-4 py-3 rounded-xl transition-all
                   ${
                     isActive
                       ? "bg-rose-50 text-[#8B1E3F]"
@@ -267,7 +273,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
                     isActive ? "text-[#8B1E3F]" : "text-gray-500"
                   }`}
                 />
-                <span className="font-medium whitespace-nowrap overflow-hidden text-ellipsis min-w-0">
+                <span className="flex-1 font-medium whitespace-nowrap overflow-hidden text-ellipsis min-w-0">
                   {item.label}
                 </span>
                 {dot}
@@ -283,8 +289,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
               logout();
               router.replace("/");
             }}
-            className="w-full flex items-center gap-3 px-4 py-3 rounded-xl
-              text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all"
+            className={`w-full flex items-center gap-3 ${isRTL ? "flex-row-reverse text-right" : ""} px-4 py-3 rounded-xl text-gray-700 hover:bg-red-50 hover:text-red-600 transition-all`}
           >
             <LogOut className="w-5 h-5" />
             <span>Logout</span>

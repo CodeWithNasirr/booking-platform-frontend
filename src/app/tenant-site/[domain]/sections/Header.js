@@ -113,7 +113,15 @@ export default function Header({ data, lang: propLang }) {
             >
           <div className="max-w-7xl mx-auto px-6 lg:px-8 h-20 flex items-center justify-between">
             {/* Logo */}
-            <Link href="/" className="flex items-center gap-3">
+           <Link
+            href="/"
+            onClick={(e) => {
+              if (window.self !== window.top) {
+                e.preventDefault();
+              }
+            }}
+            className="flex items-center gap-3"
+          >
               {logo_url || theme.logo_url ? (
                 <img 
                   src={logo_url || theme.logo_url} 
@@ -137,6 +145,11 @@ export default function Header({ data, lang: propLang }) {
             {/* CTA */}
             {resolvedCtaButton && (
               <Link
+                onClick={(e) => {
+                if (window.self !== window.top) {
+                  e.preventDefault();
+                }
+              }}
                 href={cta_url}
                 className="hidden md:inline-block px-6 py-3 rounded-xl text-white font-semibold hover:opacity-90 shadow-md transition-all"
                 style={ctaStyle}
@@ -175,6 +188,11 @@ export default function Header({ data, lang: propLang }) {
                 
                 {resolvedCtaButton && (
                   <Link
+                   onClick={(e) => {
+                    if (window.self !== window.top) {
+                      e.preventDefault();
+                    }
+                  }}
                     href={cta_url}
                     className="block w-full px-6 py-3 text-white text-center rounded-xl font-semibold"
                     style={ctaStyle}
@@ -229,6 +247,11 @@ export default function Header({ data, lang: propLang }) {
           <nav className="hidden md:flex gap-10">
             {resolvedNavigation.map((item, idx) => (
               <Link
+               onClick={(e) => {
+              if (window.self !== window.top) {
+                e.preventDefault();
+              }
+            }}
                 key={idx}
                 href={item.url}
                 className="text-white text-lg hover:text-white/80 transition-all font-medium"
@@ -239,7 +262,14 @@ export default function Header({ data, lang: propLang }) {
           </nav>
 
           {resolvedCtaButton && (
-            <Link className="hidden md:inline-block px-6 py-3 bg-white text-gray-900 rounded-xl font-semibold shadow hover:bg-gray-100">
+            <Link
+              onClick={(e) => {
+                if (window.self !== window.top) {
+                  e.preventDefault();
+                }
+              }}
+              className="hidden md:inline-block px-6 py-3 bg-white text-gray-900 rounded-xl font-semibold shadow hover:bg-gray-100"
+            >
               {resolvedCtaButton}
             </Link>
           )}
@@ -255,7 +285,11 @@ export default function Header({ data, lang: propLang }) {
         {mobileOpen && (
           <div className="md:hidden bg-white/10 backdrop-blur-xl border-t border-white/20 px-6 py-4 space-y-3 text-white animate-fade-down">
             {resolvedNavigation.map((item, idx) => (
-              <Link key={idx} href={item.url} className="block py-2 text-lg">
+              <Link  onClick={(e) => {
+              if (window.self !== window.top) {
+                e.preventDefault();
+              }
+            }} key={idx} href={item.url} className="block py-2 text-lg">
                 {item.label}
               </Link>
             ))}

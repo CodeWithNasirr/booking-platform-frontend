@@ -118,6 +118,8 @@ export async function fetchSite(domain) {
     }
 
     const data = await res.json();
+    console.log("fetchSite response", data);
+
     return {
       site: data.site,
       theme: data.theme,
@@ -127,7 +129,7 @@ export async function fetchSite(domain) {
       status: 200,
     };
   } catch (error) {
-    console.error("[fetchSite]", error);
+    // console.error("[fetchSite]", error);
     return {
       site: null,
       theme: null,

@@ -19,14 +19,20 @@ export function getDir(lang) {
   return isRTL(lang) ? "rtl" : "ltr";
 }
 
+
 export function setLanguage(lang) {
   Cookies.set("app_language", lang, { expires: 365 });
-  if (typeof document !== "undefined") {
-    document.documentElement.lang = lang;
-    document.documentElement.dir = getDir(lang);
-    // Notify every useTranslation() hook in the tree
-    window.dispatchEvent(new CustomEvent(LANG_CHANGE_EVENT, { detail: { lang } }));
-  }
+
+  document.documentElement.dir =
+    RTL_LANGUAGES.includes(lang) ? "rtl" : "ltr";
+
+  document.documentElement.lang = lang;
+
+  window.dispatchEvent(
+    new CustomEvent(LANG_CHANGE_EVENT, {
+      detail: { lang },
+    })
+  );
 }
 
 export function t(key, lang) {

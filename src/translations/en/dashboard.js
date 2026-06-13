@@ -30,6 +30,8 @@ export default{
 
   // Booking Fields
   "dashboard.booking.scheduled": "scheduled",
+  "dashboard.booking.refunded": "Refunded",
+
   "dashboard.booking.confirmed": "confirmed",
   "dashboard.booking.pending": "pending",
   "dashboard.booking.pending_payment": "Pending Payment",

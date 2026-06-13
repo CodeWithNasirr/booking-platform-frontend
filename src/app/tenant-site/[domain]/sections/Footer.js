@@ -4,6 +4,7 @@ import { useTenantLang } from "../../contexts/TenantLangContext";
 import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
 
 export default function Footer({ data, lang: propLang }) {
+  // console.log("Footer data ", data);
   const { language, isRTL } = useTenantLang();
   const lang = propLang || language;
   // console.log("Footer data ", data);

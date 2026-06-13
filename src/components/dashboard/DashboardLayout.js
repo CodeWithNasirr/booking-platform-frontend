@@ -15,7 +15,7 @@ import AnnouncementBanner from "@/components/dashboard/AnnouncementBanner";
 export default function DashboardLayout({ children }) {
   console.log("DashboardLayout mounted");
   const router = useRouter();
-  const { user, loadingUser, requiresOnboarding, tenants, activeTenant } = useApp();
+  const { user, loadingUser, requiresOnboarding, tenants, activeTenant,isRTL } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [roleChecked, setRoleChecked] = useState(false); 
 
@@ -99,7 +99,11 @@ export default function DashboardLayout({ children }) {
     <PlanProvider>
       {/* ── TenantRBACProvider wraps everything inside PlanProvider ── */}
       <TenantRBACProvider>
-        <div className="flex h-screen bg-background">
+        <div
+          className={`flex h-screen bg-background ${
+            isRTL ? "flex-row-reverse" : ""
+          }`}
+        >
           <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
           <div className="flex-1 flex flex-col overflow-hidden">

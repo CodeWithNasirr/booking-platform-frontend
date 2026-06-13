@@ -13,7 +13,8 @@ export default function LayoutRenderer({
   theme = {},
   site = {},
   rtlEnabled = false,
-  domain = "",      
+  domain = "",
+  show_powered_by = true,      
 }) {
   const { language, isRTL } = useTenantLang();
   const themeConfig = useTenantTheme();
@@ -35,6 +36,13 @@ export default function LayoutRenderer({
   const HeroComponent   = heroSection   ? mapSectionToComponent("hero")   : null;
   const FooterComponent = footerSection ? mapSectionToComponent("footer") : null;
 
+  const footerContent = footerSection
+    ? {
+        ...footerSection.content,
+        show_powered_by: site?.show_powered_by ?? true,
+      }
+    : null;
+    
   // ← derive a reliable domain string from the prop first, then site fields
   const resolvedDomain =
     domain ||
@@ -92,10 +100,12 @@ export default function LayoutRenderer({
           />
         ))}
       </main>
+        
+        
 
       {FooterComponent && footerSection && (
         <FooterComponent
-          data={resolveTranslatedContent(footerSection.content, language)}
+          data={resolveTranslatedContent(footerContent, language)}
           lang={language}
           theme={themeConfig}
         />

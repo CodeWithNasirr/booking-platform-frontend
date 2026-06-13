@@ -163,6 +163,7 @@ export default {
   // Booking Status
   "dashboard.booking.confirmed": "تصدیق شدہ",
   "dashboard.booking.pending": "زیر التواء",
+  "dashboard.booking.refunded": "رقم واپس کر دی گئی",
   "dashboard.booking.completed": "مکمل",
   "dashboard.booking.scheduled": "شیڈول شدہ",
   "dashboard.booking.cancelled": "منسوخ",

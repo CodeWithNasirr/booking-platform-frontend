@@ -1,10 +1,10 @@
 "use client";
 
 import { useApp } from "@/contexts/AppContext";
-import { t } from "@/lib/t";
+import { useTranslation } from "@/lib/t";
 
 export default function PublicFooter() {
-
+  const { t } = useTranslation();
   const year = new Date().getFullYear();
 
   return (

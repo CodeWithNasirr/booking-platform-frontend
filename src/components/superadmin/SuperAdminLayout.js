@@ -185,10 +185,22 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
     <div className="flex h-screen bg-gray-50">
       {/* ── Sidebar ──────────────────────────────────────────── */}
       <div
-        className={`${
-          sidebarOpen ? "translate-x-0" : "-translate-x-full"
-        } lg:translate-x-0 fixed lg:static inset-y-0 left-0 z-50 w-64 bg-white border-r border-gray-200 transition-transform duration-300 shadow-lg lg:shadow-none`}
-      >
+          className={`
+            ${
+              sidebarOpen
+                ? "translate-x-0"
+                : isRTL
+                ? "translate-x-full"
+                : "-translate-x-full"
+            }
+            lg:translate-x-0
+            fixed lg:static inset-y-0
+            ${isRTL ? "right-0 lg:left-0 lg:right-auto" : "left-0"}
+            z-50 w-64 bg-white border-r border-gray-200
+            transition-transform duration-300
+            shadow-lg lg:shadow-none
+          `}
+        >
         <div className="flex flex-col h-full">
           {/* Logo */}
           <div className="p-6 border-b border-gray-200">

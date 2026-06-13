@@ -9,7 +9,7 @@ import { useIntegrationStatus } from "@/app/dashboard/integrations/hooks/useInte
 import { useTenantRBAC } from "@/contexts/TenantRBACContext";
 
 export default function Topbar({ setSidebarOpen }) {
-  const { tenants } = useApp();
+  const { tenants,isRTL } = useApp();
   const { warnings, loading } = useIntegrationStatus();
   const { hasPermission } = useTenantRBAC();
 
@@ -19,22 +19,38 @@ export default function Topbar({ setSidebarOpen }) {
     <div className="bg-background border-b border-border">
       {/* ── Main topbar row ── */}
       <div className="px-6 py-4 flex justify-between items-center">
-        <button onClick={() => setSidebarOpen(true)} className="lg:hidden">
+        <button
+          onClick={() => setSidebarOpen(true)}
+          className={`lg:hidden ${isRTL ? "order-3" : "order-1"}`}
+        >
           <Menu />
         </button>
 
-        <div className="text-sm text-muted-foreground">
+        <div
+          className={`flex-1 text-sm text-muted-foreground ${
+            isRTL ? "text-right mr-4" : "text-left ml-4"
+          }`}
+        >
           Today: {new Date().toLocaleDateString()}
         </div>
 
-        <div className="flex items-center gap-3">
+        <div
+          className={`flex items-center gap-3 ${
+            isRTL ? "flex-row-reverse" : ""
+          }`}
+        >
           <LanguageSwitcher />
           <Bell className="w-5 h-5 text-muted-foreground" />
 
-          <div className="flex items-center gap-2 border border-border rounded-xl px-3 py-2">
+          <div
+            className={`flex items-center gap-2 border border-border rounded-xl px-3 py-2 ${
+              isRTL ? "flex-row-reverse" : ""
+            }`}
+          >
             <div className="w-8 h-8 bg-primary text-white rounded-lg flex items-center justify-center">
               {tenants[0]?.name?.charAt(0)}
             </div>
+
             <span className="hidden md:block text-sm font-medium">
               {tenants[0]?.name}
             </span>
