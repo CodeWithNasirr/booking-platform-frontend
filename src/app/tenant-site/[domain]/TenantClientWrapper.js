@@ -71,6 +71,7 @@ export default function TenantClientWrapper({
     templateName: site.template?.name,
     // ✅ IMPORTANT
     timezone: tenantTimezone,
+    currency: site.currency || "SAR",
   }), [site, theme]);
 
   return (

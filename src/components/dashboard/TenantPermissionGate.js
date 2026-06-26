@@ -32,7 +32,7 @@
 
 import { useTenantRBAC } from "@/contexts/TenantRBACContext";
 import { Shield } from "lucide-react";
-
+import { useApp } from "@/contexts/AppContext";
 export default function TenantPermissionGate({
   permission,
   permissions,
@@ -43,7 +43,7 @@ export default function TenantPermissionGate({
 }) {
   const { hasPermission, hasAnyPermission, hasAllPermissions, loading } =
     useTenantRBAC();
-
+  const { t } = useApp();
   // Don't render anything while loading
   if (loading) return null;
 
@@ -72,9 +72,9 @@ export default function TenantPermissionGate({
   return (
     <div className="flex flex-col items-center justify-center py-20 text-gray-500">
       <Shield className="w-12 h-12 mb-3 text-gray-300" />
-      <p className="text-sm font-medium">Access Denied</p>
+     <p className="text-sm font-medium">{t('common.accessDenied')}</p>
       <p className="text-xs text-gray-400 mt-1">
-        You don't have permission to view this content.
+        {t('common.noPermission')}
       </p>
     </div>
   );

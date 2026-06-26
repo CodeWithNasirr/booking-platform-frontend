@@ -28,6 +28,7 @@ export default function PricingPage() {
           `${process.env.NEXT_PUBLIC_API_URL}/api/v1/billing/plans/`
         );
         const data = await res.json();
+
         setPlans(data);
       } catch (err) {
         console.error("Failed to load plans:", err);
@@ -203,7 +204,11 @@ export default function PricingPage() {
                   <div className="mb-6">
                     <div className="flex items-baseline gap-1">
                       <span className="text-4xl font-extrabold text-slate-900">
-                        {isFree ? "Free" : `$${price}`}
+                        {isFree ? "Free" : new Intl.NumberFormat("en-SA", {
+                          style: "currency",
+                          currency: plan.currency,
+                          maximumFractionDigits: 0,
+                        }).format(price)}
                       </span>
                       {!isFree && (
                         <span className="text-slate-500 text-sm">/month</span>

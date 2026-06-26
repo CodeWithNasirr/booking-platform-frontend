@@ -19,20 +19,21 @@ import {
 } from 'lucide-react'
 import { useState, useRef, useEffect } from 'react'
 import { useTenantPermission } from "@/lib/useTenantPermission";
+import { useApp } from '@/contexts/AppContext'
 
-const ROLE_OPTIONS = [
-  { value: '', label: 'All Roles' },
-  { value: 'owner', label: 'Owner' },
-  { value: 'admin', label: 'Admin' },
-  { value: 'sub_admin', label: 'Sub Admin' },
-  { value: 'provider', label: 'Provider' },
-  { value: 'staff', label: 'Staff' },
+const ROLE_OPTIONS = (t) => [
+  { value: '', label: t('users.filters.allRoles') },
+  { value: 'owner', label: t('users.roles.owner') },
+  { value: 'admin', label: t('users.roles.admin') },
+  { value: 'sub_admin', label: t('users.roles.sub_admin') },
+  { value: 'provider', label: t('users.roles.provider') },
+  { value: 'staff', label: t('users.roles.staff') },
 ]
 
-const STATUS_OPTIONS = [
-  { value: 'active', label: 'Active' },
-  { value: 'inactive', label: 'Inactive' },
-  { value: 'all', label: 'All' },
+const STATUS_OPTIONS = (t) => [
+  { value: 'active', label: t('common.active') },
+  { value: 'inactive', label: t('common.inactive') },
+  { value: 'all', label: t('common.all') },
 ]
 
 const ROLE_BADGE = {
@@ -45,27 +46,34 @@ const ROLE_BADGE = {
 }
 
 
-function RoleBadge({ role }) {
+function RoleBadge({ role, t }) {
   const config = ROLE_BADGE[role] || ROLE_BADGE.customer
   const Icon = config.icon
+
   return (
     <span
       className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${config.bg}`}
     >
       <Icon className="w-3 h-3" />
-      {role.replace('_', ' ').replace(/\b\w/g, (l) => l.toUpperCase())}
+      {t(`users.roles.${role}`)}
     </span>
   )
 }
 
-function StatusDot({ active }) {
+function StatusDot({ active, t }) {
   return (
     <span className="inline-flex items-center gap-1.5">
       <span
-        className={`w-2 h-2 rounded-full ${active ? 'bg-emerald-500' : 'bg-gray-300'}`}
+        className={`w-2 h-2 rounded-full ${
+          active ? 'bg-emerald-500' : 'bg-gray-300'
+        }`}
       />
-      <span className={`text-xs font-medium ${active ? 'text-emerald-700' : 'text-gray-500'}`}>
-        {active ? 'Active' : 'Inactive'}
+      <span
+        className={`text-xs font-medium ${
+          active ? 'text-emerald-700' : 'text-gray-500'
+        }`}
+      >
+        {active ? t('common.active') : t('common.inactive')}
       </span>
     </span>
   )
@@ -89,7 +97,7 @@ function Avatar({ name, email }) {
 }
 
 // ── Action dropdown ──
-function ActionMenu({ member, onEdit, onDelete, onReactivate, onResendInvite }) {
+function ActionMenu({ t , member, onEdit, onDelete, onReactivate, onResendInvite }) {
   const [open, setOpen] = useState(false)
   const ref = useRef(null)
 
@@ -119,7 +127,7 @@ function ActionMenu({ member, onEdit, onDelete, onReactivate, onResendInvite }) 
             className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#8B1E3F]/5 transition-colors"
           >
             <Edit2 className="w-4 h-4" />
-            Edit Member
+           {t('users.actions.edit')}
           </button>
 
           {!member.is_user_active && (
@@ -128,7 +136,7 @@ function ActionMenu({ member, onEdit, onDelete, onReactivate, onResendInvite }) 
               className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-gray-700 hover:bg-[#8B1E3F]/5 transition-colors"
             >
               <Send className="w-4 h-4" />
-              Resend Invite
+              {t('users.actions.resendInvite')}
             </button>
           )}
 
@@ -138,7 +146,7 @@ function ActionMenu({ member, onEdit, onDelete, onReactivate, onResendInvite }) 
               className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-emerald-700 hover:bg-emerald-50 transition-colors"
             >
               <RotateCcw className="w-4 h-4" />
-              Reactivate
+              {t('users.actions.reactivate')}
             </button>
           )}
 
@@ -150,7 +158,7 @@ function ActionMenu({ member, onEdit, onDelete, onReactivate, onResendInvite }) 
                 className="w-full flex items-center gap-2 px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 transition-colors"
               >
                 <Trash2 className="w-4 h-4" />
-                Deactivate
+                {t('users.actions.deactivate')}
               </button>
             </>
           )}
@@ -181,7 +189,7 @@ export default function UsersTable({
   totalCount,
   onPageChange,
 }) {
-  
+  const { t } = useApp()
   return (
     <div className="bg-white rounded-2xl border border-[#8B1E3F]/10 shadow-sm overflow-hidden">
       {/* Toolbar */}
@@ -193,7 +201,7 @@ export default function UsersTable({
             type="text"
             value={searchQuery}
             onChange={(e) => onSearchChange(e.target.value)}
-            placeholder="Search by name, email, or phone…"
+            placeholder={t('users.searchPlaceholder')}
             className="w-full pl-10 pr-4 py-2.5 rounded-xl border border-gray-200 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none transition-all text-sm"
           />
         </div>
@@ -204,7 +212,7 @@ export default function UsersTable({
           onChange={(e) => onRoleFilterChange(e.target.value)}
           className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none"
         >
-          {ROLE_OPTIONS.map((opt) => (
+        {ROLE_OPTIONS(t).map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>
@@ -217,7 +225,7 @@ export default function UsersTable({
           onChange={(e) => onStatusFilterChange(e.target.value)}
           className="px-4 py-2.5 rounded-xl border border-gray-200 text-sm bg-white focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none"
         >
-          {STATUS_OPTIONS.map((opt) => (
+        {STATUS_OPTIONS(t).map((opt) => (
             <option key={opt.value} value={opt.value}>
               {opt.label}
             </option>
@@ -231,23 +239,23 @@ export default function UsersTable({
           <thead>
             <tr className="bg-gray-50/80">
               <th className="text-left px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                Member
+                {t('users.table.member')}
               </th>
               <th className="text-left px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                Role
+                {t('users.table.role')}
               </th>
               <th className="text-left px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                Status
+                {t('users.table.status')}
               </th>
               <th className="text-left px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                Last Login
+               {t('users.table.lastLogin')}
               </th>
               <th className="text-left px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                Joined
+                {t('users.table.joined')}
               </th>
               {canManage && (
                 <th className="text-right px-6 py-3.5 text-xs font-bold text-gray-500 uppercase tracking-wider">
-                  Actions
+                  {t('users.table.actions')}
                 </th>
               )}
             </tr>
@@ -258,16 +266,16 @@ export default function UsersTable({
               <tr>
                 <td colSpan={6} className="px-6 py-16 text-center">
                   <Loader2 className="w-6 h-6 animate-spin text-[#8B1E3F] mx-auto" />
-                  <p className="text-sm text-gray-500 mt-2">Loading members…</p>
+                  <p className="text-sm text-gray-500 mt-2">{t('users.loadingMembers')}</p>
                 </td>
               </tr>
             ) : members.length === 0 ? (
               <tr>
                 <td colSpan={6} className="px-6 py-16 text-center">
                   <UsersIcon className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 font-medium">No members found</p>
+                  <p className="text-gray-500 font-medium"> {t('users.noMembersFound')}</p>
                   <p className="text-sm text-gray-400 mt-1">
-                    Try adjusting your filters or invite a new member.
+                   {t('users.noMembersDescription')}
                   </p>
                 </td>
               </tr>
@@ -283,7 +291,7 @@ export default function UsersTable({
                       <Avatar name={m.name} email={m.email} />
                       <div className="min-w-0">
                         <p className="font-semibold text-gray-900 truncate">
-                          {m.name || 'Pending'}
+                          {m.name || t('users.pending')}
                         </p>
                         <p className="text-sm text-gray-500 truncate">{m.email}</p>
                       </div>
@@ -292,12 +300,12 @@ export default function UsersTable({
 
                   {/* Role */}
                   <td className="px-6 py-4">
-                    <RoleBadge role={m.role} />
+                    <RoleBadge role={m.role} t={t} />
                   </td>
 
                   {/* Status */}
                   <td className="px-6 py-4">
-                    <StatusDot active={m.is_active} />
+                    <StatusDot active={m.is_active} t={t} />
                   </td>
 
                   {/* Last login */}
@@ -324,6 +332,7 @@ export default function UsersTable({
                   <td className="px-6 py-4 text-right">
                     {canManage && (
                       <ActionMenu
+                        t={t}
                         member={m}
                         onEdit={onEdit}
                         onDelete={onDelete}
@@ -343,9 +352,13 @@ export default function UsersTable({
       {totalPages > 1 && (
         <div className="px-6 py-4 border-t border-gray-100 flex items-center justify-between">
           <p className="text-sm text-gray-600">
-            Showing <span className="font-medium">{(page - 1) * 20 + 1}</span> to{' '}
-            <span className="font-medium">{Math.min(page * 20, totalCount)}</span> of{' '}
-            <span className="font-medium">{totalCount}</span> members
+            {t('users.pagination.showing')}{" "}
+            <span className="font-medium">{(page - 1) * 20 + 1}</span>{" "}
+            {t('users.pagination.to')}{" "}
+            <span className="font-medium">{Math.min(page * 20, totalCount)}</span>{" "}
+            {t('users.pagination.of')}{" "}
+            <span className="font-medium">{totalCount}</span>{" "}
+            {t('users.pagination.members')}
           </p>
           <div className="flex items-center gap-2">
             <button

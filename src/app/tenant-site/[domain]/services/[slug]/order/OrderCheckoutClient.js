@@ -56,7 +56,13 @@ export default function OrderCheckoutClient({
           );
         }
 
-        setService(service);
+        setService({
+          ...service,
+          currency:
+            service.currency ||
+            site?.currency ||
+            "USD",
+        });
       } catch (err) {
         setError(err.message);
       } finally {

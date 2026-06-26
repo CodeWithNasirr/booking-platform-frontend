@@ -9,6 +9,7 @@ import {
 } from "lucide-react";
 import SuperAdminLayout from "@/components/superadmin/SuperAdminLayout";
 import { useSuperAdmin } from "@/contexts/Superadmincontext";
+import { useTranslation } from "@/lib/t";
 import {
   fetchPlatformSettings,
   updatePlatformSettings,
@@ -18,6 +19,7 @@ const MAROON = "#8B1E3F";
 
 export default function SettingsPage() {
   const { hasPermission } = useSuperAdmin();
+  const { t } = useTranslation();
   const canEdit = hasPermission("system.manage_settings");
 
   const [data, setData] = useState(null);
@@ -50,9 +52,9 @@ export default function SettingsPage() {
     setSaving(true);
     try {
       await updatePlatformSettings(data);
-      showToast("Settings saved successfully");
+      showToast(t("settings_save_success"));
     } catch (e) {
-      showToast(e.message || "Failed to save", "error");
+      showToast(e.message || t("settings_save_failed"), "error");
     } finally {
       setSaving(false);
     }
@@ -70,16 +72,16 @@ export default function SettingsPage() {
   };
 
   const tabs = [
-    { id: "fees", label: "Fees & Pricing", icon: DollarSign },
-    { id: "limits", label: "Limits", icon: Shield },
-    { id: "features", label: "Feature Flags", icon: Zap },
-    { id: "gateway", label: "Gateway Config", icon: Settings },
-    { id: "general", label: "General", icon: Globe },
+    { id: "fees", label: t("settings_tab_fees"), icon: DollarSign },
+    { id: "limits", label: t("settings_tab_limits"), icon: Shield },
+    { id: "features", label: t("settings_tab_features"), icon: Zap },
+    { id: "gateway", label: t("settings_tab_gateway"), icon: Settings },
+    { id: "general", label: t("settings_tab_general"), icon: Globe },
   ];
 
   if (loading || !data) {
     return (
-      <SuperAdminLayout title="Platform Settings" breadcrumbs={[{ label: "Settings" }]}>
+      <SuperAdminLayout title={t("settings_title")} breadcrumbs={[{ label: t("settings_breadcrumb") }]}>
         <div className="flex items-center justify-center py-32">
           <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
         </div>
@@ -89,9 +91,9 @@ export default function SettingsPage() {
 
   return (
     <SuperAdminLayout
-      title="Platform Settings"
-      description="Configure platform-wide fees, limits, and features"
-      breadcrumbs={[{ label: "Settings" }]}
+      title={t("settings_title")}
+      description={t("settings_description")}
+      breadcrumbs={[{ label: t("settings_breadcrumb") }]}
     >
       {/* Tabs */}
       <div className="bg-white border border-gray-200 p-1 rounded-xl inline-flex flex-wrap gap-1 mb-6">
@@ -116,8 +118,8 @@ export default function SettingsPage() {
 
       {/* ═══ FEES ═══ */}
       {activeTab === "fees" && (
-        <Section title="Fees & Pricing" desc="Platform commission and pricing controls">
-          <FieldRow label="Default Platform Fee (%)" hint="Applied to all new tenants">
+        <Section title={t("settings_section_fees")} desc={t("settings_section_fees_desc")}>
+          <FieldRow label={t("settings_default_fee")} hint={t("settings_default_fee_hint")}>
             <NumberInput
               value={data.fees?.default_platform_fee_percent}
               onChange={v => updateField("fees", "default_platform_fee_percent", v)}
@@ -125,7 +127,7 @@ export default function SettingsPage() {
               disabled={!canEdit}
             />
           </FieldRow>
-          <FieldRow label="Minimum Fee (%)" hint="Floor for custom tenant fees">
+          <FieldRow label={t("settings_min_fee")} hint={t("settings_min_fee_hint")}>
             <NumberInput
               value={data.fees?.min_platform_fee_percent}
               onChange={v => updateField("fees", "min_platform_fee_percent", v)}
@@ -133,7 +135,7 @@ export default function SettingsPage() {
               disabled={!canEdit}
             />
           </FieldRow>
-          <FieldRow label="Maximum Fee (%)" hint="Cap for custom tenant fees">
+          <FieldRow label={t("settings_max_fee")} hint={t("settings_max_fee_hint")}>
             <NumberInput
               value={data.fees?.max_platform_fee_percent}
               onChange={v => updateField("fees", "max_platform_fee_percent", v)}
@@ -146,9 +148,9 @@ export default function SettingsPage() {
 
       {/* ═══ LIMITS ═══ */}
       {activeTab === "limits" && (
-        <Section title="Resource Limits" desc="Maximum allowed resources per tenant (0 = unlimited)">
+        <Section title={t("settings_section_limits")} desc={t("settings_section_limits_desc")}>
           {Object.entries(data.limits || {}).map(([key, val]) => (
-            <FieldRow key={key} label={formatLabel(key)} hint={`Current: ${val === 0 ? "Unlimited" : val}`}>
+            <FieldRow key={key} label={formatLabel(key, t)} hint={t("settings_current_value", { val: val === 0 ? t("unlimited") : val })}>
               <NumberInput
                 value={val}
                 onChange={v => updateField("limits", key, v)}
@@ -162,9 +164,9 @@ export default function SettingsPage() {
 
       {/* ═══ FEATURES ═══ */}
       {activeTab === "features" && (
-        <Section title="Feature Flags" desc="Enable or disable platform-wide features">
+        <Section title={t("settings_section_features")} desc={t("settings_section_features_desc")}>
           {Object.entries(data.feature_flags || {}).map(([key, val]) => (
-            <FieldRow key={key} label={formatLabel(key)}>
+            <FieldRow key={key} label={formatLabel(key, t)}>
               <ToggleSwitch
                 value={val}
                 onChange={v => updateField("feature_flags", key, v)}
@@ -177,26 +179,26 @@ export default function SettingsPage() {
 
       {/* ═══ GATEWAY ═══ */}
       {activeTab === "gateway" && (
-        <Section title="Gateway Configuration" desc="Default payment gateway settings">
-          <FieldRow label="Default Provider" hint="Gateway used for new tenants">
+        <Section title={t("settings_section_gateway")} desc={t("settings_section_gateway_desc")}>
+          <FieldRow label={t("settings_default_provider")} hint={t("settings_default_provider_hint")}>
             <select
               value={data.gateway_config?.default_provider || "stripe"}
               onChange={e => updateField("gateway_config", "default_provider", e.target.value)}
               disabled={!canEdit}
               className="px-4 py-2.5 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#8B1E3F]/20 focus:border-[#8B1E3F] text-sm"
             >
-              <option value="stripe">Stripe</option>
-              <option value="hyperpay">HyperPay</option>
+              <option value="stripe">{t("provider_stripe")}</option>
+              <option value="hyperpay">{t("provider_hyperpay")}</option>
             </select>
           </FieldRow>
-          <FieldRow label="HyperPay Sandbox Mode">
+          <FieldRow label={t("settings_hyperpay_sandbox")}>
             <ToggleSwitch
               value={data.gateway_config?.hyperpay_sandbox}
               onChange={v => updateField("gateway_config", "hyperpay_sandbox", v)}
               disabled={!canEdit}
             />
           </FieldRow>
-          <FieldRow label="Stripe Webhook Tolerance (seconds)">
+          <FieldRow label={t("settings_stripe_webhook")}>
             <NumberInput
               value={data.gateway_config?.stripe_webhook_tolerance}
               onChange={v => updateField("gateway_config", "stripe_webhook_tolerance", v)}
@@ -209,8 +211,8 @@ export default function SettingsPage() {
 
       {/* ═══ GENERAL ═══ */}
       {activeTab === "general" && (
-        <Section title="General Settings" desc="Platform contact and maintenance">
-          <FieldRow label="Maintenance Mode">
+        <Section title={t("settings_section_general")} desc={t("settings_section_general_desc")}>
+          <FieldRow label={t("settings_maintenance_mode")}>
             <ToggleSwitch
               value={data.feature_flags?.maintenance_mode}
               onChange={v => updateField("feature_flags", "maintenance_mode", v)}
@@ -219,7 +221,7 @@ export default function SettingsPage() {
             />
           </FieldRow>
           {data.feature_flags?.maintenance_mode && (
-            <FieldRow label="Maintenance Message">
+            <FieldRow label={t("settings_maintenance_message")}>
               <textarea
                 value={data.maintenance_message || ""}
                 onChange={e => updateTopLevel("maintenance_message", e.target.value)}
@@ -229,7 +231,7 @@ export default function SettingsPage() {
               />
             </FieldRow>
           )}
-          <FieldRow label="Support Email" icon={Mail}>
+          <FieldRow label={t("settings_support_email")} icon={Mail}>
             <input
               type="email"
               value={data.support_email || ""}
@@ -238,7 +240,7 @@ export default function SettingsPage() {
               className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-[#8B1E3F]/20 text-sm"
             />
           </FieldRow>
-          <FieldRow label="Support Phone" icon={Phone}>
+          <FieldRow label={t("settings_support_phone")} icon={Phone}>
             <input
               type="tel"
               value={data.support_phone || ""}
@@ -260,7 +262,7 @@ export default function SettingsPage() {
             style={{ backgroundColor: MAROON }}
           >
             {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Save className="w-4 h-4" />}
-            {saving ? "Saving..." : "Save Settings"}
+            {saving ? t("settings_saving") : t("settings_save")}
           </button>
         </div>
       )}
@@ -349,6 +351,10 @@ function ToggleSwitch({ value, onChange, disabled, danger }) {
   );
 }
 
-function formatLabel(key) {
+function formatLabel(key, t) {
+  // Try to get translation first, fallback to title-case
+  const transKey = `settings_label_${key}`;
+  const translated = t(transKey);
+  if (translated !== transKey) return translated;
   return key.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
 }

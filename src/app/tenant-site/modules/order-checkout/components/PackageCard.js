@@ -2,8 +2,9 @@
 "use client";
 
 import { resolveTranslated } from "../../../[domain]/utils/resolveTranslated";
-
-export default function PackageCard({ pkg, selected, onSelect, theme, lang }) {
+import { formatCurrency } from "@/lib/currency";
+export default function PackageCard({ pkg, selected, onSelect, theme, lang , currency}) {
+  console.log(currency,"currency")
   const name = resolveTranslated(pkg.name || pkg.title, lang) || pkg.name;
   const desc = resolveTranslated(pkg.description, lang);
   const color = theme.primary_color || "#3B82F6";
@@ -19,7 +20,7 @@ export default function PackageCard({ pkg, selected, onSelect, theme, lang }) {
       <div className="flex justify-between items-start mb-2">
         <h4 className="font-bold text-gray-900">{name}</h4>
         <span className="text-xl font-bold" style={{ color }}>
-          ${Number(pkg.price).toFixed(2)}
+          {formatCurrency(pkg.price, currency)}
         </span>
       </div>
       {desc && <p className="text-sm text-gray-500 mb-3">{desc}</p>}

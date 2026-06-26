@@ -4,7 +4,7 @@ import { useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { MoreVertical, DollarSign, Clock } from "lucide-react";
 import { DropdownMenu } from "./DropdownMenu";
-
+import { formatCurrency } from "@/lib/currency";
 
 export function ServiceCard({
   service,
@@ -21,11 +21,12 @@ export function ServiceCard({
   onRestore,
 }) {
   const isDeleted = viewMode === "deleted";
-  const { t, isRTL } = useApp();
+  const { t, isRTL,tenants } = useApp();
   const buttonRef = useRef(null);
 
   const hasAnyAction = canEdit || canDelete || canCreate;
 
+  const tenantCurrency =  tenants[0]?.default_currency || "SAR";
 
   /* ===============================
      Order Type Badge (i18n)
@@ -165,8 +166,13 @@ export function ServiceCard({
       <div className="flex items-center justify-between pt-4 border-t border-gray-200">
         <div className="flex items-center gap-4 text-sm text-gray-600">
           <div className="flex items-center gap-1">
-            <DollarSign className="w-4 h-4" />
-            <span className="font-medium">${service.price}</span>
+            {/* <DollarSign className="w-4 h-4" /> */}
+            <span className="font-medium">
+              {formatCurrency(
+                service.price,
+                service.currency || tenantCurrency
+              )}
+            </span>
           </div>
 
           {service.duration > 0 && (

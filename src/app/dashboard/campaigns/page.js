@@ -14,17 +14,17 @@ import {
 import useBlockBackNavigation from '@/lib/useBlockBackNavigation'
 
 const STATUS_TABS = [
-  { key: 'all', label: 'All', color: 'bg-gray-800' },
-  { key: 'draft', label: 'Draft', color: 'bg-red-400' },
-  { key: 'pending', label: 'Pending', color: 'bg-amber-400' },
-  { key: 'active', label: 'Active', color: 'bg-green-500' },
-  { key: 'suspended', label: 'Suspended', color: 'bg-purple-500' },
-  { key: 'finished', label: 'Finished', color: 'bg-green-600' },
-  { key: 'failed', label: 'Failed', color: 'bg-red-500' },
+  { key: 'all', labelKey: 'campaigns.status.all', color: 'bg-gray-800' },
+  { key: 'draft', labelKey: 'campaigns.status.draft', color: 'bg-red-400' },
+  { key: 'pending', labelKey: 'campaigns.status.pending', color: 'bg-amber-400' },
+  { key: 'active', labelKey: 'campaigns.status.active', color: 'bg-green-500' },
+  { key: 'suspended', labelKey: 'campaigns.status.suspended', color: 'bg-purple-500' },
+  { key: 'finished', labelKey: 'campaigns.status.finished', color: 'bg-green-600' },
+  { key: 'failed', labelKey: 'campaigns.status.failed', color: 'bg-red-500' },
 ]
 
 export default function CampaignsPage() {
-  const { user, loadingUser, requiresOnboarding, activeTenant } = useApp()
+  const { user, loadingUser, requiresOnboarding, activeTenant, t } = useApp()
   const router = useRouter()
   const searchParams = useSearchParams()
 
@@ -77,7 +77,7 @@ export default function CampaignsPage() {
   }
 
   const handleDelete = async (id) => {
-    if (!confirm('Delete this campaign?')) return
+    if (!confirm(t('campaigns.confirmDelete'))) return
     setActionLoading(id)
     try {
       await deleteCampaign(activeTenant, id)
@@ -115,12 +115,12 @@ export default function CampaignsPage() {
       {/* Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Campaigns</h1>
-          <p className="text-sm text-gray-500 mt-1">Home → Campaigns</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('campaigns.title')}</h1>
+          <p className="text-sm text-gray-500 mt-1">{t('campaigns.breadcrumb')}</p>
         </div>
         <button onClick={() => router.push('/dashboard/campaigns/create')}
           className="flex items-center gap-2 px-5 py-2.5 rounded-xl text-white bg-gradient-to-br from-[#8B1E3F] to-[#6B1630] hover:opacity-90 transition-all shadow-md font-medium text-sm">
-          <Plus className="w-4 h-4" /> New Campaign
+          <Plus className="w-4 h-4" /> {t('campaigns.newCampaign')}
         </button>
       </div>
 
@@ -134,7 +134,7 @@ export default function CampaignsPage() {
                 : 'bg-white border-gray-200 text-gray-600 hover:border-gray-400'
             }`}>
             <div className={`w-2.5 h-2.5 rounded-full ${tab.color}`} />
-            {tab.label}
+            {t(tab.labelKey)}
             {counts[tab.key] !== undefined && (
               <span className="text-xs text-gray-400">({counts[tab.key]})</span>
             )}
@@ -149,12 +149,12 @@ export default function CampaignsPage() {
           <input type="text" value={searchInput}
             onChange={(e) => setSearchInput(e.target.value)}
             onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-            placeholder="Search"
+            placeholder={t('campaigns.searchPlaceholder')}
             className="w-full pl-11 pr-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none text-sm" />
         </div>
         <button onClick={handleSearch}
           className="flex items-center gap-2 px-6 py-3 rounded-xl bg-gray-900 text-white font-medium text-sm hover:bg-gray-800 transition-colors">
-          <Search className="w-4 h-4" /> Search
+          <Search className="w-4 h-4" /> {t('campaigns.search')}
         </button>
       </div>
 
@@ -164,12 +164,12 @@ export default function CampaignsPage() {
           <table className="w-full">
             <thead>
               <tr className="bg-gray-50 border-b border-gray-200">
-                <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Campaign Name</th>
-                <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Targeted Audience</th>
-                <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Date</th>
-                <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Status</th>
-                <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Created At</th>
-                <th className="text-right px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">Actions</th>
+                <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">{t('campaigns.table.name')}</th>
+                <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">{t('campaigns.table.audience')}</th>
+                <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">{t('campaigns.table.date')}</th>
+                <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">{t('campaigns.table.status')}</th>
+                <th className="text-left px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">{t('campaigns.table.createdAt')}</th>
+                <th className="text-right px-6 py-3 text-xs font-bold text-gray-500 uppercase tracking-wider">{t('campaigns.table.actions')}</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-gray-100">
@@ -182,7 +182,7 @@ export default function CampaignsPage() {
               ) : campaigns.length === 0 ? (
                 <tr>
                   <td colSpan={6} className="text-center py-12 text-gray-500 text-sm">
-                    No data available
+                    {t('campaigns.empty')}
                   </td>
                 </tr>
               ) : (
@@ -191,7 +191,7 @@ export default function CampaignsPage() {
                     <td className="px-6 py-4">
                       <p className="text-sm font-medium text-gray-900">{c.name}</p>
                       {c.total_recipients > 0 && (
-                        <p className="text-xs text-gray-500">{c.sent_count}/{c.total_recipients} sent</p>
+                        <p className="text-xs text-gray-500">{c.sent_count}/{c.total_recipients} {t('campaigns.sent')}</p>
                       )}
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">{c.audience_display}</td>
@@ -199,7 +199,7 @@ export default function CampaignsPage() {
                       {c.scheduled_at ? new Date(c.scheduled_at).toLocaleDateString() : '-'}
                     </td>
                     <td className="px-6 py-4">
-                      <CampaignStatusBadge status={c.status} />
+                      <CampaignStatusBadge status={c.status} t={t} />
                     </td>
                     <td className="px-6 py-4 text-sm text-gray-600">
                       {new Date(c.created_at).toLocaleDateString()}
@@ -207,25 +207,25 @@ export default function CampaignsPage() {
                     <td className="px-6 py-4">
                       <div className="flex items-center justify-end gap-1">
                         <button onClick={() => router.push(`/dashboard/campaigns/${c.id}`)}
-                          className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50" title="View">
+                          className="p-1.5 rounded-lg text-gray-400 hover:text-blue-600 hover:bg-blue-50" title={t('campaigns.actions.view')}>
                           <Eye className="w-4 h-4" />
                         </button>
                         {c.status === 'draft' && (
                           <button onClick={() => handleStart(c.id)}
                             disabled={actionLoading === c.id}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50" title="Start">
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-green-600 hover:bg-green-50" title={t('campaigns.actions.start')}>
                             {actionLoading === c.id ? <Loader2 className="w-4 h-4 animate-spin" /> : <Play className="w-4 h-4" />}
                           </button>
                         )}
                         {c.status === 'active' && (
                           <button onClick={() => handleSuspend(c.id)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50" title="Suspend">
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-amber-600 hover:bg-amber-50" title={t('campaigns.actions.suspend')}>
                             <Pause className="w-4 h-4" />
                           </button>
                         )}
                         {(c.status === 'draft' || c.status === 'pending') && (
                           <button onClick={() => handleDelete(c.id)}
-                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50" title="Delete">
+                            className="p-1.5 rounded-lg text-gray-400 hover:text-red-600 hover:bg-red-50" title={t('campaigns.actions.delete')}>
                             <Trash2 className="w-4 h-4" />
                           </button>
                         )}
@@ -241,22 +241,22 @@ export default function CampaignsPage() {
         {/* Pagination */}
         <div className="flex items-center justify-between px-6 py-4 border-t border-gray-200 bg-gray-50/50">
           <div className="flex items-center gap-2 text-sm text-gray-600">
-            Show
+            {t('campaigns.pagination.show')}
             <select className="border border-gray-300 rounded-lg px-2 py-1 text-sm bg-white" value={pageSize} disabled>
               <option value={10}>10</option>
             </select>
-            entries
+            {t('campaigns.pagination.entries')}
           </div>
           <div className="text-sm text-gray-600">
-            Showing {from} to {to} of {total} entries
+            {t('campaigns.pagination.showing', { from, to, total })}
           </div>
           <div className="flex items-center gap-1">
             <button onClick={() => setPage(1)} disabled={page === 1}
-              className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-200 disabled:opacity-40">First</button>
+              className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-200 disabled:opacity-40">{t('campaigns.pagination.first')}</button>
             <button onClick={() => setPage(p => Math.max(1, p - 1))} disabled={page === 1}
-              className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-200 disabled:opacity-40">Previous</button>
+              className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-200 disabled:opacity-40">{t('campaigns.pagination.previous')}</button>
             <button onClick={() => setPage(p => Math.min(totalPages, p + 1))} disabled={page >= totalPages}
-              className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-200 disabled:opacity-40">Next</button>
+              className="px-3 py-1.5 rounded-lg text-sm text-gray-600 hover:bg-gray-200 disabled:opacity-40">{t('campaigns.pagination.next')}</button>
           </div>
         </div>
       </div>
@@ -264,19 +264,19 @@ export default function CampaignsPage() {
   )
 }
 
-function CampaignStatusBadge({ status }) {
+function CampaignStatusBadge({ status, t }) {
   const cfg = {
-    draft:     { label: 'Draft',     cls: 'bg-gray-100 text-gray-700 border-gray-200' },
-    pending:   { label: 'Pending',   cls: 'bg-amber-50 text-amber-700 border-amber-200' },
-    active:    { label: 'Active',    cls: 'bg-green-50 text-green-700 border-green-200' },
-    suspended: { label: 'Suspended', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
-    finished:  { label: 'Finished',  cls: 'bg-blue-50 text-blue-700 border-blue-200' },
-    failed:    { label: 'Failed',    cls: 'bg-red-50 text-red-700 border-red-200' },
-  }[status] || { label: status, cls: 'bg-gray-100 text-gray-700' }
+    draft:     { labelKey: 'campaigns.status.draft',     cls: 'bg-gray-100 text-gray-700 border-gray-200' },
+    pending:   { labelKey: 'campaigns.status.pending',   cls: 'bg-amber-50 text-amber-700 border-amber-200' },
+    active:    { labelKey: 'campaigns.status.active',    cls: 'bg-green-50 text-green-700 border-green-200' },
+    suspended: { labelKey: 'campaigns.status.suspended', cls: 'bg-purple-50 text-purple-700 border-purple-200' },
+    finished:  { labelKey: 'campaigns.status.finished',  cls: 'bg-blue-50 text-blue-700 border-blue-200' },
+    failed:    { labelKey: 'campaigns.status.failed',    cls: 'bg-red-50 text-red-700 border-red-200' },
+  }[status] || { labelKey: status, cls: 'bg-gray-100 text-gray-700' }
 
   return (
     <span className={`inline-flex px-2.5 py-1 rounded-full text-xs font-bold border ${cfg.cls}`}>
-      {cfg.label}
+      {t(cfg.labelKey)}
     </span>
   )
 }

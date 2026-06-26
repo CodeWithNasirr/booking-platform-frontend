@@ -2,9 +2,10 @@
 "use client";
 
 import { resolveTranslated } from "../../../[domain]/utils/resolveTranslated";
-
-export default function OrderSummary({ service, pkg, price, deliveryDays, revisionsAllowed, theme, lang, isRTL }) {
+import { formatCurrency } from "@/lib/currency";
+export default function OrderSummary({ service, pkg, price, deliveryDays, revisionsAllowed , currency, theme, lang, isRTL}) {
   const title = resolveTranslated(service.name, lang);
+
   const pkgName = pkg ? resolveTranslated(pkg.name || pkg.title, lang) || pkg.name : null;
   const color = theme.primary_color || "#3B82F6";
 
@@ -31,7 +32,7 @@ export default function OrderSummary({ service, pkg, price, deliveryDays, revisi
           {resolveTranslated({ en: "Total", ar: "المجموع", ur: "کل" }, lang)}
         </span>
         <span className="text-2xl font-bold" style={{ color }}>
-          ${Number(price).toFixed(2)}
+          {formatCurrency(price, currency)}
         </span>
       </div>
     </div>

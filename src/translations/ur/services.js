@@ -1,0 +1,160 @@
+export default {
+  // Services
+  "services.title": "خدمات",
+  "services.manageDesc": "اپنی خدمات اور قیمتوں کا انتظام کریں",
+
+  "services.recycleBin": "ری سائیکل بن",
+  "services.recycleDesc": "خدمات بحال کریں یا مستقل طور پر حذف کریں",
+  "services.recycleEmpty": "ری سائیکل بن خالی ہے",
+  "services.recycleWarningTitle": "ری سائیکل بن",
+  "services.recycleWarningDesc": "یہ خدمات غیر فعال ہیں اور صارفین سے مخفی ہیں",
+
+  "services.viewActive": "فعال خدمات دیکھیں",
+  "services.addNewService": "خدمت شامل کریں",
+  "services.backToServices": "خدمات پر واپس جائیں",
+
+  "services.active": "فعال",
+  "services.inactive": "غیر فعال",
+  "services.deleted": "حذف شدہ",
+
+  "services.searchPlaceholder": "خدمات تلاش کریں...",
+  "services.allCategories": "تمام زمرے",
+
+  "table.service": "خدمت",
+  "table.type": "قسم",
+  "table.priceModel": "قیمت کا ماڈل",
+  "table.price": "قیمت",
+  "table.status": "حالت",
+  "table.actions": "کارروائیاں",
+
+  "modal.addService": "نئی خدمت شامل کریں",
+  "modal.editService": "خدمت میں ترمیم کریں",
+  "modal.create": "خدمت بنائیں",
+  "modal.update": "خدمت اپ ڈیٹ کریں",
+  "modal.cancel": "منسوخ کریں",
+
+  "services.tabs.basic": "بنیادی",
+  "services.tabs.pricing": "قیمتیں",
+  "services.tabs.packages": "پیکجز اور اضافی سہولیات",
+  "services.tabs.availability": "شیڈول",
+  "services.tabs.advanced": "اعلیٰ ترتیبات",
+
+  "services.form.name": "خدمت کا نام",
+  "services.form.namePlaceholder": "مثال: لوگو ڈیزائن",
+
+  "services.form.category": "زمرہ",
+  "services.form.selectCategory": "زمرہ منتخب کریں",
+
+  "services.form.duration": "دورانیہ (منٹ)",
+  "services.form.initialMeeting": "ابتدائی ملاقات",
+  "services.form.durationExampleShort": "مثال: 30",
+  "services.form.durationExampleLong": "مثال: 60",
+
+  "services.form.serviceType": "خدمت کی قسم",
+
+  "services.form.shortDescription": "مختصر تفصیل",
+  "services.form.shortDescriptionPlaceholder": "مختصر وضاحت...",
+
+  "serviceType.online": "آن لائن خدمت",
+  "serviceType.digital": "ڈیجیٹل خدمت",
+
+  "order.booking": "بکنگ",
+  "order.milestone": "پروجیکٹ",
+  "order.hybrid": "ہائبرڈ",
+
+  "orderType.booking": "بکنگ",
+  "orderType.milestone": "پروجیکٹ",
+  "orderType.hybrid": "ہائبرڈ",
+  "orderType.order": "آرڈر",
+
+  "status.deleted": "حذف شدہ",
+  "status.inactive": "غیر فعال",
+  "status.active": "فعال",
+
+  "pricing.fixed": "مقررہ",
+  "pricing.hourly": "فی گھنٹہ",
+  "pricing.package": "پیکج",
+  "pricing.custom": "حسب ضرورت",
+
+  "common.minutesShort": "منٹ",
+
+  "services.buttons.edit": "ترمیم",
+  "services.buttons.duplicate": "نقل بنائیں",
+  "services.buttons.activate": "فعال کریں",
+  "services.buttons.deactivate": "غیر فعال کریں",
+  "services.buttons.moveToBin": "بن میں منتقل کریں",
+  "services.buttons.restore": "بحال کریں",
+  "services.buttons.deleteForever": "ہمیشہ کے لیے حذف کریں",
+
+  "services.categories": "زمرے",
+  "services.categoriesDesc": "اپنی خدمات کو منظم کریں",
+  "services.addCategory": "زمرہ شامل کریں",
+  "services.newCategory": "نیا زمرہ",
+  "services.categoryName": "زمرے کا نام *",
+  "services.categoryIcon": "آئیکن (ایموجی یا Lucide آئیکن کا نام)",
+  "services.categoryDescription": "تفصیل (اختیاری)",
+  "services.noCategories": "ابھی کوئی زمرہ موجود نہیں",
+  "services.categoryRequired": "زمرے کا نام ضروری ہے",
+  "services.deleteCategoryConfirm": "کیا آپ \"{{name}}\" زمرہ حذف کرنا چاہتے ہیں؟",
+
+  "services.packages.addonsTitle": "اضافی سہولیات",
+  "services.packages.addonsDesc": "تمام قیمتوں کے ماڈلز کے لیے دستیاب ہیں۔ صارفین چیک آؤٹ کے دوران انہیں شامل کر سکتے ہیں۔",
+
+  "services.pricing.orderType": "آرڈر کی قسم",
+  "services.pricing.pricingModel": "قیمت کا ماڈل",
+  "services.pricing.basePrice": "بنیادی قیمت ($)",
+  "services.pricing.hourlyRate": "فی گھنٹہ نرخ ($)",
+
+  "services.pricing.projectPhaseSettings": "پروجیکٹ مرحلہ ترتیبات",
+  "services.pricing.milestoneSettings": "سنگِ میل ترتیبات",
+  "services.pricing.deliveryDays": "ترسیل کے دن",
+  "services.pricing.afterMeeting": "ملاقات کے بعد",
+  "services.pricing.revisions": "نظرثانیاں",
+  "services.pricing.requireDeposit": "پیشگی رقم لازمی",
+  "services.pricing.depositPercentage": "پیشگی رقم کا فیصد",
+
+  "order.bookingDesc": "ایک بار کی ملاقات یا خدمت",
+  "order.milestoneDesc": "سنگِ میلوں اور مراحل پر مبنی",
+  "order.hybridDesc": "بکنگ جو بعد میں پروجیکٹ میں تبدیل ہو",
+
+  "pricing.fixedDesc": "خدمت کے لیے مقررہ قیمت",
+  "pricing.hourlyDesc": "کام کے گھنٹوں کے حساب سے",
+  "pricing.packageDesc": "متعدد خدمات کا پیکج",
+  "pricing.customDesc": "استفسار کے بعد قیمت طے ہوگی",
+
+  "packages.title": "پیکج درجات",
+  "packages.subtitle": "بیسک، اسٹینڈرڈ اور پریمیم درجے بنائیں",
+  "packages.addTier": "درجہ شامل کریں",
+  "packages.empty": "ابھی کوئی پیکج موجود نہیں۔ پہلا درجہ شامل کریں۔",
+  "packages.namePlaceholder": "پیکج کا نام (مثال: بیسک)",
+  "packages.price": "قیمت",
+  "packages.deliveryDays": "ترسیل کے دن",
+  "packages.revisions": "نظرثانیاں (-1 لامحدود کے لیے)",
+  "packages.features": "خصوصیات (ہر لائن میں ایک)",
+  "packages.mostPopular": "سب سے مقبول پیکج",
+
+  "availability.weeklySchedule": "ہفتہ وار شیڈول",
+  "availability.slot30": "30 منٹ کے سلاٹس",
+  "availability.slot60": "1 گھنٹے کے سلاٹس",
+  "availability.slot90": "1.5 گھنٹے کے سلاٹس",
+  "availability.slot120": "2 گھنٹے کے سلاٹس",
+
+  "days.monday": "پیر",
+  "days.tuesday": "منگل",
+  "days.wednesday": "بدھ",
+  "days.thursday": "جمعرات",
+  "days.friday": "جمعہ",
+  "days.saturday": "ہفتہ",
+  "days.sunday": "اتوار",
+
+  "addons.title": "اپ سیلز اور اضافی سہولیات",
+  "addons.namePlaceholder": "اضافی سہولت کا نام (مثال: اضافی نظرثانی)",
+  "addons.price": "قیمت",
+  "addons.additionalDays": "+دن",
+  "addons.add": "اضافی سہولت شامل کریں",
+
+  "advanced.fullDescription": "مکمل تفصیل",
+  "advanced.imageUrl": "تصویر کا URL",
+  "advanced.activeStatus": "فعال حالت",
+  "advanced.activeHint": "صارفین کو نظر آئے گی",
+};

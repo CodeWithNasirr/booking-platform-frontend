@@ -42,41 +42,6 @@ import { apiFetch } from "@/lib/apiClient";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "/api";
 
-async function fetchWithAuth(endpoint, activeTenant, options = {}) {
-  const token = Cookies.get("access_token");
-  if (!activeTenant) throw new Error("Tenant not ready");
-
-  const res = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers: {
-      "Content-Type": "application/json",
-      ...(token && { Authorization: `Bearer ${token}` }),
-      "X-Tenant": activeTenant,
-      ...options.headers,
-    },
-    credentials: "include",
-
-  });
-
-  let data = null;
-  try {
-    data = await res.json();
-  } catch {
-    data = null;
-  }
-
-  if (!res.ok) {
-    const message =
-      data?.detail || data?.message || `Request failed: ${res.status}`;
-    const error = new Error(message);
-    error.status = res.status;
-    error.data = data;
-    throw error;
-  }
-
-  return data;
-}
-
 const financeAPI = {
   // Stats
   getStats: (params, t) =>
@@ -122,41 +87,41 @@ const financeAPI = {
 
 // ─── Constants ───────────────────────────────────────────────────────────────
 
-const DATE_RANGES = [
-  { label: "This Week", value: "7d" },
-  { label: "This Month", value: "30d" },
-  { label: "This Quarter", value: "90d" },
-  { label: "Last Month", value: "last_month" },
-  { label: "This Year", value: "this_year" },
-];
+const DATE_RANGES = (t) => [
+  { label: t('finance.dateRanges.thisWeek'), value: '7d' },
+  { label: t('finance.dateRanges.thisMonth'), value: '30d' },
+  { label: t('finance.dateRanges.thisQuarter'), value: '90d' },
+  { label: t('finance.dateRanges.lastMonth'), value: 'last_month' },
+  { label: t('finance.dateRanges.thisYear'), value: 'this_year' },
+]
 
-const TRANSACTION_TYPES = [
-  { label: "All Types", value: "" },
-  { label: "Payment", value: "payment" },
-  { label: "Refund", value: "refund" },
-  { label: "Payout", value: "payout" },
-  { label: "Transfer", value: "transfer" },
-  { label: "Platform Fee", value: "fee" },
-];
+const TRANSACTION_TYPES = (t) => [
+  { label: t('finance.filters.allTypes'), value: '' },
+  { label: t('finance.types.payment'), value: 'payment' },
+  { label: t('finance.types.refund'), value: 'refund' },
+  { label: t('finance.types.payout'), value: 'payout' },
+  { label: t('finance.types.transfer'), value: 'transfer' },
+  { label: t('finance.types.fee'), value: 'fee' },
+]
 
-const TRANSACTION_STATUSES = [
-  { label: "All Statuses", value: "" },
-  { label: "Pending", value: "pending" },
-  { label: "Processing", value: "processing" },
-  { label: "Completed", value: "completed" },
-  { label: "Failed", value: "failed" },
-  { label: "Cancelled", value: "cancelled" },
-  { label: "Refunded", value: "refunded" },
-];
+const TRANSACTION_STATUSES = (t) => [
+  { label: t('finance.filters.allStatuses'), value: '' },
+  { label: t('finance.status.pending'), value: 'pending' },
+  { label: t('finance.status.processing'), value: 'processing' },
+  { label: t('finance.status.completed'), value: 'completed' },
+  { label: t('finance.status.failed'), value: 'failed' },
+  { label: t('finance.status.cancelled'), value: 'cancelled' },
+  { label: t('finance.status.refunded'), value: 'refunded' },
+]
 
-const INVOICE_STATUSES = [
-  { label: "All Statuses", value: "" },
-  { label: "Draft", value: "draft" },
-  { label: "Sent", value: "sent" },
-  { label: "Paid", value: "paid" },
-  { label: "Overdue", value: "overdue" },
-  { label: "Cancelled", value: "cancelled" },
-];
+const INVOICE_STATUSES = (t) => [
+  { label: t('finance.filters.allStatuses'), value: '' },
+  { label: t('finance.invoiceStatus.draft'), value: 'draft' },
+  { label: t('finance.invoiceStatus.sent'), value: 'sent' },
+  { label: t('finance.invoiceStatus.paid'), value: 'paid' },
+  { label: t('finance.invoiceStatus.overdue'), value: 'overdue' },
+  { label: t('finance.invoiceStatus.cancelled'), value: 'cancelled' },
+]
 
 const PAYOUT_STATUSES = [
   { label: "All Statuses", value: "" },
@@ -237,6 +202,8 @@ function toText(val, fallback = "—") {
   return fallback;
 }
 
+
+
 // ─── Reusable Components ─────────────────────────────────────────────────────
 
 function StatCard({
@@ -295,7 +262,7 @@ function StatCard({
   );
 }
 
-function StatusBadge({ status, type = "transaction" }) {
+function StatusBadge({ status, type = "transaction", t } ) {
   const configs = {
     transaction: {
       pending: { bg: "bg-amber-100", text: "text-amber-700", border: "border-amber-200", icon: Clock },
@@ -329,8 +296,7 @@ function StatusBadge({ status, type = "transaction" }) {
     icon: AlertCircle,
   };
 
-  const label = status?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
-
+  const label = t(`finance.status.${status}`)
   return (
     <span
       className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-full border ${config.bg} ${config.text} ${config.border}`}
@@ -340,7 +306,7 @@ function StatusBadge({ status, type = "transaction" }) {
   );
 }
 
-function TypeBadge({ type }) {
+function TypeBadge({ type, t }) {  
   const configs = {
     payment: { bg: "bg-green-100", text: "text-green-700" },
     refund: { bg: "bg-red-100", text: "text-red-700" },
@@ -349,7 +315,7 @@ function TypeBadge({ type }) {
     fee: { bg: "bg-gray-100", text: "text-gray-600" },
   };
   const config = configs[type] || { bg: "bg-gray-100", text: "text-gray-600" };
-  const label = type?.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase()) || type;
+  const label = t(`finance.types.${type}`) || type;
 
   return (
     <span
@@ -467,7 +433,7 @@ function SkeletonRows({ count = 5 }) {
 
 // ─── Transactions Tab ────────────────────────────────────────────────────────
 
-function TransactionsTab({ dateRange, activeTenant }) {
+function TransactionsTab({ dateRange, activeTenant, t }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -527,13 +493,13 @@ function TransactionsTab({ dateRange, activeTenant }) {
           <FilterSelect
             value={typeFilter}
             onChange={setTypeFilter}
-            options={TRANSACTION_TYPES}
+            options={TRANSACTION_TYPES(t)}
             className="min-w-[140px]"
           />
           <FilterSelect
             value={statusFilter}
             onChange={setStatusFilter}
-            options={TRANSACTION_STATUSES}
+            options={TRANSACTION_STATUSES(t)}
             className="min-w-[140px]"
           />
         </div>
@@ -612,10 +578,10 @@ function TransactionsTab({ dateRange, activeTenant }) {
                       </div>
                     </td>
                     <td className="py-4 px-4">
-                      <TypeBadge type={txn.transaction_type} />
+                      <TypeBadge type={txn.transaction_type} t={t} />
                     </td>
                     <td className="py-4 px-4">
-                      <StatusBadge status={txn.status} type="transaction" />
+                      <StatusBadge status={txn.status} type="transaction" t={t} />
                     </td>
                     <td className="py-4 px-4">
                       <div className="text-sm">
@@ -691,7 +657,7 @@ function TransactionsTab({ dateRange, activeTenant }) {
 
 // ─── Invoices Tab ────────────────────────────────────────────────────────────
 
-function InvoicesTab({ dateRange, activeTenant }) {
+function InvoicesTab({ dateRange, activeTenant , t}) {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -749,6 +715,42 @@ function InvoicesTab({ dateRange, activeTenant }) {
     }
   };
 
+  const handleDownloadInvoice = async (invoiceId) => {
+  try {
+    const token = Cookies.get("access_token");
+
+    const response = await fetch(
+      `${API_BASE}/api/v1/finance/invoices/${invoiceId}/download/`,
+      {
+        method: "GET",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "X-Tenant": activeTenant,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error(`Download failed: ${response.status}`);
+    }
+
+    const blob = await response.blob();
+
+    const url = window.URL.createObjectURL(blob);
+
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `invoice-${invoiceId}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+
+    document.body.removeChild(a);
+    window.URL.revokeObjectURL(url);
+  } catch (err) {
+    console.error("Invoice download failed:", err);
+  }
+};
+
   return (
     <div>
       <div className="flex flex-col sm:flex-row gap-3 mb-5">
@@ -760,7 +762,7 @@ function InvoicesTab({ dateRange, activeTenant }) {
         <FilterSelect
           value={statusFilter}
           onChange={setStatusFilter}
-          options={INVOICE_STATUSES}
+          options={INVOICE_STATUSES(t)}
           className="min-w-[140px]"
         />
       </div>
@@ -855,7 +857,7 @@ function InvoicesTab({ dateRange, activeTenant }) {
                       </span>
                     </td>
                     <td className="py-4 px-4">
-                      <StatusBadge status={inv.status} type="invoice" />
+                      <StatusBadge status={inv.status} type="invoice" t={t} />
                     </td>
                     <td className="py-4 px-4">
                       <div className="flex items-center gap-1">
@@ -873,7 +875,8 @@ function InvoicesTab({ dateRange, activeTenant }) {
                             )}
                           </button>
                         )}
-                        <button
+                       <button
+                          onClick={() => handleDownloadInvoice(inv.id)}
                           className="inline-flex items-center gap-2 px-4 py-2 rounded-lg border border-gray-300 text-sm font-medium text-gray-700 hover:bg-[#8B1E3F]/5 hover:border-[#8B1E3F]/30 transition-all"
                           title="Download PDF"
                         >
@@ -901,168 +904,175 @@ function InvoicesTab({ dateRange, activeTenant }) {
 
 // ─── Payouts Tab ─────────────────────────────────────────────────────────────
 
-function PayoutsTab({ dateRange, activeTenant }) {
-  const [payouts, setPayouts] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [page, setPage] = useState(1);
-  const [totalCount, setTotalCount] = useState(0);
-  const [statusFilter, setStatusFilter] = useState("");
+// function PayoutsTab({ dateRange, activeTenant }) {
+//   const [payouts, setPayouts] = useState([]);
+//   const [loading, setLoading] = useState(true);
+//   const [page, setPage] = useState(1);
+//   const [totalCount, setTotalCount] = useState(0);
+//   const [statusFilter, setStatusFilter] = useState("");
 
-  const totalPages = Math.ceil(totalCount / PAGE_SIZE);
+//   const totalPages = Math.ceil(totalCount / PAGE_SIZE);
 
-  const loadPayouts = useCallback(async () => {
-    if (!activeTenant) return;
-    setLoading(true);
-    try {
-      const params = {
-        ...getDateRangeParams(dateRange),
-        page,
-        page_size: PAGE_SIZE,
-        ...(statusFilter && { status: statusFilter }),
-      };
-      const data = await financeAPI.getPayouts(params, activeTenant);
-      setPayouts(data.results || data || []);
-      setTotalCount(data.count || data?.length || 0);
-    } catch (err) {
-      console.error("Failed to load payouts:", err);
-    } finally {
-      setLoading(false);
-    }
-  }, [dateRange, page, statusFilter, activeTenant]);
+//   const loadPayouts = useCallback(async () => {
+//     if (!activeTenant) return;
+//     setLoading(true);
+//     try {
+//       const params = {
+//         ...getDateRangeParams(dateRange),
+//         page,
+//         page_size: PAGE_SIZE,
+//         ...(statusFilter && { status: statusFilter }),
+//       };
+//       const data = await financeAPI.getPayouts(params, activeTenant);
+//       setPayouts(data.results || data || []);
+//       setTotalCount(data.count || data?.length || 0);
+//     } catch (err) {
+//       console.error("Failed to load payouts:", err);
+//     } finally {
+//       setLoading(false);
+//     }
+//   }, [dateRange, page, statusFilter, activeTenant]);
 
-  useEffect(() => {
-    loadPayouts();
-  }, [loadPayouts]);
+//   useEffect(() => {
+//     loadPayouts();
+//   }, [loadPayouts]);
 
-  useEffect(() => {
-    setPage(1);
-  }, [statusFilter, dateRange]);
+//   useEffect(() => {
+//     setPage(1);
+//   }, [statusFilter, dateRange]);
 
-  return (
-    <div>
-      <div className="flex flex-col sm:flex-row gap-3 mb-5">
-        <FilterSelect
-          value={statusFilter}
-          onChange={setStatusFilter}
-          options={PAYOUT_STATUSES}
-          className="sm:w-48"
-        />
-      </div>
+//   return (
+//     <div>
+//       <div className="flex flex-col sm:flex-row gap-3 mb-5">
+//         <FilterSelect
+//           value={statusFilter}
+//           onChange={setStatusFilter}
+//           options={PAYOUT_STATUSES}
+//           className="sm:w-48"
+//         />
+//       </div>
 
-      {loading ? (
-        <SkeletonRows />
-      ) : payouts.length === 0 ? (
-        <EmptyState
-          icon={Banknote}
-          title="No payouts found"
-          description="Payouts are created when providers are paid for completed services"
-        />
-      ) : (
-        <>
-          <div className="space-y-4">
-            {payouts.map((po) => (
-              <div
-                key={po.id}
-                className="p-6 rounded-xl border border-gray-200 hover:border-[#8B1E3F]/30 hover:shadow-lg transition-all duration-300 bg-white group"
-              >
-                <div className="flex items-start justify-between mb-6">
-                  <div className="flex items-start gap-4">
-                    <div
-                      className={`w-14 h-14 rounded-xl ${
-                        po.status === "paid" || po.status === "completed"
-                          ? "bg-green-100 text-green-600"
-                          : "bg-amber-100 text-amber-600"
-                      } flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}
-                    >
-                      {po.status === "paid" || po.status === "completed" ? (
-                        <CheckCircle className="w-7 h-7" />
-                      ) : (
-                        <Clock className="w-7 h-7" />
-                      )}
-                    </div>
-                    <div>
-                      <h3 className="text-lg font-bold text-gray-900 mb-1">
-                        {toText(po.provider_name, "Provider")}
-                      </h3>
-                      {po.period && (
-                        <p className="text-sm text-[#8B1E3F] font-medium mb-1">
-                          {po.period}
-                        </p>
-                      )}
-                      {po.stripe_payout_id && (
-                        <p className="text-xs text-gray-400 font-mono">
-                          {po.stripe_payout_id}
-                        </p>
-                      )}
-                    </div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-3xl font-bold text-gray-900">
-                      {formatCurrency(po.amount, po.currency)}
-                    </div>
-                    <div className="mt-3">
-                      <StatusBadge status={po.status} type="payout" />
-                    </div>
-                  </div>
-                </div>
-                <div className="flex items-center justify-between pt-6 border-t border-gray-100">
-                  <div className="flex items-center gap-6 text-sm text-gray-600">
-                    <div className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                        <Calendar className="w-4 h-4 text-gray-500" />
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400">Scheduled</p>
-                        <p className="font-medium text-gray-900">
-                          {formatDate(po.scheduled_for)}
-                        </p>
-                      </div>
-                    </div>
-                    {po.paid_at && (
-                      <div className="flex items-center gap-2">
-                        <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
-                          <CheckCircle className="w-4 h-4 text-green-500" />
-                        </div>
-                        <div>
-                          <p className="text-xs text-gray-400">Paid At</p>
-                          <p className="font-medium text-gray-900">
-                            {formatDateTime(po.paid_at)}
-                          </p>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                  <button className="px-5 py-2.5 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-[#8B1E3F] hover:text-white hover:border-[#8B1E3F] transition-all">
-                    View Details
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-          <Pagination
-            page={page}
-            totalPages={totalPages}
-            totalCount={totalCount}
-            onPageChange={setPage}
-          />
-        </>
-      )}
-    </div>
-  );
-}
+//       {loading ? (
+//         <SkeletonRows />
+//       ) : payouts.length === 0 ? (
+//         <EmptyState
+//           icon={Banknote}
+//           title="No payouts found"
+//           description="Payouts are created when providers are paid for completed services"
+//         />
+//       ) : (
+//         <>
+//           <div className="space-y-4">
+//             {payouts.map((po) => (
+//               <div
+//                 key={po.id}
+//                 className="p-6 rounded-xl border border-gray-200 hover:border-[#8B1E3F]/30 hover:shadow-lg transition-all duration-300 bg-white group"
+//               >
+//                 <div className="flex items-start justify-between mb-6">
+//                   <div className="flex items-start gap-4">
+//                     <div
+//                       className={`w-14 h-14 rounded-xl ${
+//                         po.status === "paid" || po.status === "completed"
+//                           ? "bg-green-100 text-green-600"
+//                           : "bg-amber-100 text-amber-600"
+//                       } flex items-center justify-center shadow-sm group-hover:scale-105 transition-transform`}
+//                     >
+//                       {po.status === "paid" || po.status === "completed" ? (
+//                         <CheckCircle className="w-7 h-7" />
+//                       ) : (
+//                         <Clock className="w-7 h-7" />
+//                       )}
+//                     </div>
+//                     <div>
+//                       <h3 className="text-lg font-bold text-gray-900 mb-1">
+//                         {toText(po.provider_name, "Provider")}
+//                       </h3>
+//                       {po.period && (
+//                         <p className="text-sm text-[#8B1E3F] font-medium mb-1">
+//                           {po.period}
+//                         </p>
+//                       )}
+//                       {po.stripe_payout_id && (
+//                         <p className="text-xs text-gray-400 font-mono">
+//                           {po.stripe_payout_id}
+//                         </p>
+//                       )}
+//                     </div>
+//                   </div>
+//                   <div className="text-right">
+//                     <div className="text-3xl font-bold text-gray-900">
+//                       {formatCurrency(po.amount, po.currency)}
+//                     </div>
+//                     <div className="mt-3">
+//                       <StatusBadge status={po.status} type="payout" />
+//                     </div>
+//                   </div>
+//                 </div>
+//                 <div className="flex items-center justify-between pt-6 border-t border-gray-100">
+//                   <div className="flex items-center gap-6 text-sm text-gray-600">
+//                     <div className="flex items-center gap-2">
+//                       <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+//                         <Calendar className="w-4 h-4 text-gray-500" />
+//                       </div>
+//                       <div>
+//                         <p className="text-xs text-gray-400">Scheduled</p>
+//                         <p className="font-medium text-gray-900">
+//                           {formatDate(po.scheduled_for)}
+//                         </p>
+//                       </div>
+//                     </div>
+//                     {po.paid_at && (
+//                       <div className="flex items-center gap-2">
+//                         <div className="w-8 h-8 rounded-lg bg-gray-100 flex items-center justify-center">
+//                           <CheckCircle className="w-4 h-4 text-green-500" />
+//                         </div>
+//                         <div>
+//                           <p className="text-xs text-gray-400">Paid At</p>
+//                           <p className="font-medium text-gray-900">
+//                             {formatDateTime(po.paid_at)}
+//                           </p>
+//                         </div>
+//                       </div>
+//                     )}
+//                   </div>
+//                   <button className="px-5 py-2.5 rounded-xl border border-gray-300 text-sm font-medium text-gray-700 hover:bg-[#8B1E3F] hover:text-white hover:border-[#8B1E3F] transition-all">
+//                     View Details
+//                   </button>
+//                 </div>
+//               </div>
+//             ))}
+//           </div>
+//           <Pagination
+//             page={page}
+//             totalPages={totalPages}
+//             totalCount={totalCount}
+//             onPageChange={setPage}
+//           />
+//         </>
+//       )}
+//     </div>
+//   );
+// }
+
 
 // ─── Tab Config ──────────────────────────────────────────────────────────────
-
-const TABS = [
-  { id: "transactions", label: "Transactions", icon: CreditCard },
-  { id: "invoices", label: "Invoices", icon: FileText },
-  { id: "payouts", label: "Payouts", icon: DollarSign },
+const TABS = (t) => [
+  {
+    id: "transactions",
+    label: t("finance.tabs.transactions"),
+    icon: CreditCard,
+  },
+  {
+    id: "invoices",
+    label: t("finance.tabs.invoices"),
+    icon: FileText,
+  },
 ];
 
 // ─── Main Page Component ─────────────────────────────────────────────────────
 
 export default function FinancePage() {
-  const { user, loadingUser, requiresOnboarding, activeTenant } = useApp();
+  const { user, loadingUser, requiresOnboarding, activeTenant,t } = useApp();
   const router = useRouter();
   const [dateRange, setDateRange] = useState("30d");
   const [activeTab, setActiveTab] = useState("transactions");
@@ -1114,10 +1124,10 @@ export default function FinancePage() {
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
           <h1 className="text-3xl font-bold text-gray-900">
-            Finance & Payments
+            {t('finance.title')}
           </h1>
           <p className="text-gray-600 mt-1">
-            Manage revenue, transactions, and payouts
+            {t('finance.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-3">
@@ -1126,7 +1136,7 @@ export default function FinancePage() {
             onChange={(e) => setDateRange(e.target.value)}
             className="px-4 py-2.5 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none bg-white cursor-pointer hover:border-[#8B1E3F]/50 transition-colors shadow-sm"
           >
-            {DATE_RANGES.map((r) => (
+            {DATE_RANGES(t).map((r) => (
               <option key={r.value} value={r.value}>
                 {r.label}
               </option>
@@ -1145,7 +1155,7 @@ export default function FinancePage() {
 
           <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-white hover:border-[#8B1E3F]/30 transition-all shadow-sm">
             <Download className="w-4 h-4" />
-            Export Report
+            {t('finance.exportReport')}
           </button>
         </div>
       </div>
@@ -1153,15 +1163,15 @@ export default function FinancePage() {
       {/* ── Stat Cards ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
-          title="Total Revenue"
+          title={t('finance.stats.totalRevenue')}
           value={formatCurrency(stats?.total_revenue || 0)}
           change={stats?.revenue_change}
-          detail="vs previous period"
+          detail={t('finance.stats.vsPreviousPeriod')}
           icon={DollarSign}
           color="from-green-500 to-green-600"
           loading={statsLoading}
         />
-        <StatCard
+        {/* <StatCard
           title="Pending Payouts"
           value={formatCurrency(stats?.pending_payouts || 0)}
           change={
@@ -1177,7 +1187,7 @@ export default function FinancePage() {
           icon={Clock}
           color="from-amber-500 to-amber-600"
           loading={statsLoading}
-        />
+        /> */}
         <StatCard
           title="Completed Bookings"
           value={stats?.completed_bookings?.toLocaleString() || "0"}
@@ -1210,7 +1220,7 @@ export default function FinancePage() {
         {/* Tab Headers */}
         <div className="border-b border-[#8B1E3F]/10 px-6 bg-white">
           <div className="flex items-center gap-8 -mb-px">
-            {TABS.map((tab) => {
+            {TABS(t).map((tab) => {
               const Icon = tab.icon;
               const isActive = activeTab === tab.id;
               return (
@@ -1237,20 +1247,22 @@ export default function FinancePage() {
             <TransactionsTab
               dateRange={dateRange}
               activeTenant={activeTenant}
+              t={t}
             />
           )}
           {activeTab === "invoices" && (
             <InvoicesTab
               dateRange={dateRange}
               activeTenant={activeTenant}
+              t={t}
             />
           )}
-          {activeTab === "payouts" && (
+          {/* {activeTab === "payouts" && (
             <PayoutsTab
               dateRange={dateRange}
               activeTenant={activeTenant}
             />
-          )}
+          )} */}
         </div>
       </div>
     </div>

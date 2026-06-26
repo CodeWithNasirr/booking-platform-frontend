@@ -23,7 +23,15 @@ import {
 
 // Hours to display (9 AM to 9 PM)
 const HOURS = Array.from({ length: 13 }, (_, i) => i + 9);
-const DAYS_OF_WEEK = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+const DAYS_OF_WEEK = (t) => [
+  t('calendar.days.monday'),
+  t('calendar.days.tuesday'),
+  t('calendar.days.wednesday'),
+  t('calendar.days.thursday'),
+  t('calendar.days.friday'),
+  t('calendar.days.saturday'),
+  t('calendar.days.sunday'),
+]
 
 //  const { allowed: canView } = useTenantPermission("bookings.view");
 
@@ -42,21 +50,21 @@ const STATUS_COLORS = {
   revision_requested: 'bg-amber-500',
 };
 
-const STATUS_LABELS = {
-  draft: 'Draft',
-  pending_payment: 'Pending Payment',
-  deposit_paid: 'Deposit Paid',
-  paid: 'Paid',
-  confirmed: 'Confirmed',
-  scheduled: 'Scheduled',
-  in_progress: 'In Progress',
-  delivered: 'Delivered',
-  completed: 'Completed',
-  revision_requested: 'Revision',
-};
+const STATUS_LABELS = (t) => ({
+  draft: t('bookingStatus.draft'),
+  pending_payment: t('bookingStatus.pendingPayment'),
+  deposit_paid: t('bookingStatus.depositPaid'),
+  paid: t('bookingStatus.paid'),
+  confirmed: t('bookingStatus.confirmed'),
+  scheduled: t('bookingStatus.scheduled'),
+  in_progress: t('bookingStatus.inProgress'),
+  delivered: t('bookingStatus.delivered'),
+  completed: t('bookingStatus.completed'),
+  revision_requested: t('bookingStatus.revisionRequested'),
+});
 
 export default function CalendarPage() {
-  const { user, loadingUser, requiresOnboarding } = useApp();
+  const { user, loadingUser, requiresOnboarding, t, language, isRTL } = useApp();
   const router = useRouter();
   const calendar = useCalendar();
 
@@ -100,8 +108,8 @@ export default function CalendarPage() {
       {/* Header */}
       <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-bold text-gray-900">Calendar</h1>
-          <p className="text-gray-600 mt-1">View and manage your bookings schedule</p>
+          <h1 className="text-3xl font-bold text-gray-900">{t('calendar.title')}</h1>
+          <p className="text-gray-600 mt-1">{t('calendar.subtitle')}</p>
         </div>
 
         <div className="flex gap-3">
@@ -117,7 +125,7 @@ export default function CalendarPage() {
             className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 transition"
           >
             <List className="w-4 h-4" />
-            List View
+            {t('calendar.listView')}
           </button>
           {canManage && (
             <button
@@ -125,7 +133,7 @@ export default function CalendarPage() {
               className="inline-flex items-center justify-center gap-2 px-5 py-3 rounded-xl text-white bg-gradient-to-br from-primary to-primary/80 hover:opacity-90 transition-opacity font-medium shadow-sm"
             >
               <Plus className="w-4 h-4" />
-              New Booking
+              {t('calendar.newBooking')}
             </button>
           )}
         </div>
@@ -140,7 +148,11 @@ export default function CalendarPage() {
               onClick={() => calendar.navigateDate('prev')}
               className="h-10 w-10 rounded-xl border border-gray-300 hover:bg-gray-50 transition flex items-center justify-center"
             >
+            {isRTL ? (
+              <ChevronRight className="w-4 h-4" />
+            ) : (
               <ChevronLeft className="w-4 h-4" />
+            )}
             </button>
             <div className="min-w-[240px] text-center">
               <p className="font-semibold text-gray-900">{calendar.displayDate}</p>
@@ -149,13 +161,17 @@ export default function CalendarPage() {
               onClick={() => calendar.navigateDate('next')}
               className="h-10 w-10 rounded-xl border border-gray-300 hover:bg-gray-50 transition flex items-center justify-center"
             >
-              <ChevronRight className="w-4 h-4" />
+              {isRTL ? (
+                <ChevronLeft className="w-4 h-4" />
+              ) : (
+                <ChevronRight className="w-4 h-4" />
+              )}
             </button>
             <button
               onClick={calendar.goToToday}
               className="px-4 py-2 rounded-xl border border-gray-300 hover:bg-gray-50 transition font-medium text-gray-700"
             >
-              Today
+              {t('calendar.today')}
             </button>
           </div>
 
@@ -185,7 +201,7 @@ export default function CalendarPage() {
                       : 'text-gray-600 hover:text-gray-900'
                   }`}
                 >
-                  {mode}
+                  {t(`calendar.views.${mode}`)}
                 </button>
               ))}
             </div>
@@ -201,7 +217,7 @@ export default function CalendarPage() {
             onClick={calendar.fetchBookings}
             className="mt-2 text-red-600 underline hover:no-underline"
           >
-            Try again
+          {t('common.tryAgain')}
           </button>
         </div>
       )}
@@ -236,6 +252,7 @@ export default function CalendarPage() {
             getBookingsForDate={calendar.getBookingsForDate}
             onDateClick={calendar.goToDate}
             onBookingClick={handleBookingClick}
+            t={t}
           />
         )}
       </div>
@@ -243,9 +260,9 @@ export default function CalendarPage() {
       {/* Legend */}
       <div className="bg-white border border-gray-200 rounded-xl p-4">
         <div className="flex items-center gap-6 flex-wrap">
-          <p className="text-sm font-medium text-gray-600">Status:</p>
+          <p className="text-sm font-medium text-gray-600">{t('common.status')}:</p>
           <div className="flex flex-wrap gap-4">
-            {Object.entries(STATUS_LABELS).slice(0, 6).map(([status, label]) => (
+            {Object.entries(STATUS_LABELS(t)).slice(0, 6).map(([status, label]) => (
               <div key={status} className="flex items-center gap-2">
                 <div className={`w-4 h-4 rounded ${STATUS_COLORS[status]}`} />
                 <span className="text-sm text-gray-700">{label}</span>
@@ -262,10 +279,11 @@ export default function CalendarPage() {
             schedule={calendar.todaySchedule}
             loading={calendar.loadingToday}
             onBookingClick={handleBookingClick}
+            t={t}
           />
         </div>
         <div>
-          <QuickStats stats={calendar.stats} loading={calendar.loadingStats} />
+          <QuickStats stats={calendar.stats} loading={calendar.loadingStats} t={t} />
         </div>
       </div>
     </div>
@@ -458,7 +476,7 @@ function WeekView({ weekDates, getBookingsForDate, onBookingClick }) {
 // MONTH VIEW COMPONENT
 // =====================================================
 
-function MonthView({ monthDates, getBookingsForDate, onDateClick, onBookingClick }) {
+function MonthView({ monthDates, getBookingsForDate, onDateClick, onBookingClick, t }) {
   return (
     <div className="p-6">
       {/* Month Header */}
@@ -531,13 +549,13 @@ function MonthView({ monthDates, getBookingsForDate, onDateClick, onBookingClick
 // TODAY'S SCHEDULE COMPONENT
 // =====================================================
 
-function TodaySchedule({ schedule, loading, onBookingClick }) {
+function TodaySchedule({ schedule, loading, onBookingClick , t}) {
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-6">
       <div className="flex items-center justify-between mb-4">
-        <h3 className="font-semibold text-gray-900">Today&apos;s Schedule</h3>
+        <h3 className="font-semibold text-gray-900">{t('calendar.todaySchedule')}</h3>
         {schedule?.count > 0 && (
-          <span className="text-sm text-gray-500">{schedule.count} bookings</span>
+          <span className="text-sm text-gray-500">{schedule.count} {t('calendar.bookings')}</span>
         )}
       </div>
 
@@ -548,7 +566,7 @@ function TodaySchedule({ schedule, loading, onBookingClick }) {
       ) : !schedule?.bookings?.length ? (
         <div className="text-center py-8 text-gray-500">
           <CalendarIcon className="w-12 h-12 mx-auto mb-2 text-gray-300" />
-          <p>No bookings scheduled for today</p>
+          <p>{t('calendar.noBookingsToday')}</p>
         </div>
       ) : (
         <div className="space-y-3">
@@ -592,24 +610,24 @@ function TodaySchedule({ schedule, loading, onBookingClick }) {
 // QUICK STATS COMPONENT
 // =====================================================
 
-function QuickStats({ stats, loading }) {
+function QuickStats({ stats, loading,t }) {
   const statsList = [
     {
-      label: 'Today',
+      label: t('calendar.today'),
       value: stats?.today ?? 0,
       icon: CalendarIcon,
       bgColor: 'bg-primary/10',
       iconBg: 'bg-primary',
     },
     {
-      label: 'This Week',
+      label: t('calendar.thisWeek'),
       value: stats?.this_week ?? 0,
       icon: Clock,
       bgColor: 'bg-purple-50',
       iconBg: 'bg-purple-500',
     },
     {
-      label: 'This Month',
+      label: t('calendar.thisMonth'),
       value: stats?.this_month ?? 0,
       icon: User,
       bgColor: 'bg-green-50',
@@ -619,7 +637,7 @@ function QuickStats({ stats, loading }) {
 
   return (
     <div className="bg-white border border-gray-200 rounded-xl p-6">
-      <h3 className="font-semibold text-gray-900 mb-4">Quick Stats</h3>
+      <h3 className="font-semibold text-gray-900 mb-4">{t('calendar.quickStats')}</h3>
 
       {loading ? (
         <div className="flex items-center justify-center py-8">

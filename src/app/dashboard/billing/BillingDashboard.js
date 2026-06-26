@@ -56,7 +56,7 @@ const STATUS_LABELS = {
 };
 
 export default function BillingDashboard() {
-  const { activeTenant } = useApp();
+  const { activeTenant, t } = useApp();
   const router = useRouter();
   const searchParams = useSearchParams();
 
@@ -155,33 +155,33 @@ export default function BillingDashboard() {
       {/* Page Header */}
       <div className="flex items-center justify-between">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">My Plan</h1>
-          <p className="text-sm text-gray-500 mt-1">Home &gt; My Plan</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t("billing.myPlan")}</h1>
+          <p className="text-sm text-gray-500 mt-1">{t("billing.breadcrumb")}</p>
         </div>
       </div>
 
       {/* Checkout banners */}
       {checkoutBanner === "success" && (
-        <Banner type="success" icon={Check} title="Payment successful!" message="Your subscription has been activated. Changes may take a moment to reflect." onDismiss={() => setCheckoutBanner(null)} />
+        <Banner type="success" icon={Check} title={t("billing.paymentSuccess")} message={t("billing.paymentSuccessDesc")} onDismiss={() => setCheckoutBanner(null)} />
       )}
       {checkoutBanner === "upgraded" && (
-        <Banner type="success" icon={Zap} title="Plan updated!" message="Your subscription has been changed successfully." onDismiss={() => setCheckoutBanner(null)} />
+        <Banner type="success" icon={Zap} title={t("billing.planUpdated")} message={t("billing.planUpdatedDesc")} onDismiss={() => setCheckoutBanner(null)} />
       )}
       {checkoutBanner === "cancelled" && (
-        <Banner type="warning" icon={AlertTriangle} title="Checkout cancelled" message="You can try again anytime." onDismiss={() => setCheckoutBanner(null)} />
+        <Banner type="warning" icon={AlertTriangle} title={t("billing.checkoutCancelled")} message={t("billing.checkoutCancelledDesc")} onDismiss={() => setCheckoutBanner(null)} />
       )}
 
       {/* ═══════ MY PLAN ═══════ */}
-      <Section title="My Plan">
+      <Section title={t("billing.myPlan")}>
         {sub ? (
-          <CurrentPlanCard sub={sub} onManage={handleManageBilling} onViewPlans={() => setShowPlans(true)} actionLoading={actionLoading} />
+          <CurrentPlanCard sub={sub} t={t} onManage={handleManageBilling} onViewPlans={() => setShowPlans(true)} actionLoading={actionLoading} />
         ) : (
-          <EmptyState icon={Sparkles} title="No Active Subscription" message="Choose a plan that fits your needs and start your journey with us." ctaLabel="View Plans" onCta={() => setShowPlans(true)} />
+          <EmptyState icon={Sparkles} title={t("billing.noActiveSubscription")} message={t("billing.choosePlan")} ctaLabel={t("billing.viewPlans")} onCta={() => setShowPlans(true)} />
         )}
       </Section>
 
       {/* ═══════ UPCOMING SUBSCRIPTIONS ═══════ */}
-      <Section title="Upcoming Subscriptions" subtitle="Subscriptions you've paid for that will start soon.">
+      <Section  title = {t("billing.upcomingSubscriptions")} subtitle={t("billing.upcomingSubscriptionsDesc")}>
         {dashboard?.upcoming?.length > 0 ? (
           <div className="space-y-3">
             {dashboard.upcoming.map((item) => (
@@ -197,44 +197,44 @@ export default function BillingDashboard() {
                     </p>
                   </div>
                 </div>
-                <StatusBadge status={item.status} />
+                <StatusBadge status={item.status} t={t} />
               </div>
             ))}
           </div>
         ) : (
-          <EmptyState icon={CalendarClock} title="No Upcoming Subscriptions" message="When you renew early, your upcoming subscription will appear here." />
+          <EmptyState icon={CalendarClock} title={t("billing.upcomingSubscriptions")} message={t("billing.upcomingSubscriptionsDesc")} />
         )}
       </Section>
 
       {/* ═══════ ADD-ONS ═══════ */}
-      <CollapsibleSection title="Add-ons" subtitle="Extend your plan with additional resources." expanded={expandedSections.addons} onToggle={() => toggleSection("addons")}>
-        <EmptyState icon={Package} title="No Active Subscription" message="You can purchase add-ons after subscribing to a plan." />
+      <CollapsibleSection title={t("billing.addons")} subtitle={t("billing.addonsDesc")} expanded={expandedSections.addons} onToggle={() => toggleSection("addons")}>
+        <EmptyState icon={Package} title={t("billing.noActiveSubscription")} message={t("billing.noAddons")} />
       </CollapsibleSection>
 
       {/* ═══════ USAGE ═══════ */}
       {dashboard?.usage && sub && (
-        <Section title="Current Usage" subtitle="Your resource usage this billing period.">
+        <Section  title={t("billing.currentUsage")} subtitle={t("billing.currentUsageDesc")}>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <UsageCard icon={Users} label="Providers" usage={dashboard.usage.max_providers} />
-            <UsageCard icon={Package} label="Services" usage={dashboard.usage.max_services} />
-            <UsageCard icon={Calendar} label="Monthly Bookings" usage={dashboard.usage.max_bookings_monthly} />
+            <UsageCard icon={Users} label={t("billing.providers")} usage={dashboard.usage.max_providers}  t={t} />
+            <UsageCard icon={Package} label={t("billing.services")} usage={dashboard.usage.max_services}  t={t} />
+            <UsageCard icon={Calendar} label={t("billing.monthlyBookings")} usage={dashboard.usage.max_bookings_monthly}  t={t} />
           </div>
         </Section>
       )}
 
       {/* ═══════ INVOICES ═══════ */}
       {dashboard?.invoices?.length > 0 && (
-        <Section title="Recent Invoices" subtitle="Your payment receipts.">
+        <Section  title={t("billing.recentInvoices")} subtitle={t("billing.recentInvoicesDesc")}>
           <div className="overflow-hidden border border-gray-200 rounded-xl">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 text-gray-600 font-medium">Invoice</th>
-                  <th className="text-left px-4 py-3 text-gray-600 font-medium">Description</th>
-                  <th className="text-left px-4 py-3 text-gray-600 font-medium">Amount</th>
-                  <th className="text-left px-4 py-3 text-gray-600 font-medium">Date</th>
-                  <th className="text-left px-4 py-3 text-gray-600 font-medium">Status</th>
-                  <th className="text-left px-4 py-3 text-gray-600 font-medium"></th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium">{t("billing.invoice")}</th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium">{t("billing.description")}</th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium">{t("billing.amount")}</th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium">{t("billing.date")}</th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium">{t("billing.status")}</th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium">{t("billing.downloadPdf")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -261,16 +261,16 @@ export default function BillingDashboard() {
       )}
 
       {/* ═══════ SUBSCRIPTION HISTORY ═══════ */}
-      <CollapsibleSection title="Subscription History" subtitle="Your previous subscriptions and invoices." expanded={expandedSections.history} onToggle={() => toggleSection("history")}>
+      <CollapsibleSection title={t("billing.subscriptionHistory")} subtitle={t("billing.subscriptionHistoryDesc")} expanded={expandedSections.history} onToggle={() => toggleSection("history")}>
         {dashboard?.history?.length > 0 ? (
           <div className="overflow-hidden border border-gray-200 rounded-xl">
             <table className="w-full text-sm">
               <thead className="bg-gray-50 border-b border-gray-200">
                 <tr>
-                  <th className="text-left px-4 py-3 text-gray-600 font-medium">Change</th>
-                  <th className="text-left px-4 py-3 text-gray-600 font-medium">From → To</th>
-                  <th className="text-left px-4 py-3 text-gray-600 font-medium">Date</th>
-                  <th className="text-left px-4 py-3 text-gray-600 font-medium">Status</th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium">{t("billing.change")}</th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium">{t("billing.fromTo")}</th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium">{t("billing.date")}</th>
+                  <th className="text-left px-4 py-3 text-gray-600 font-medium">{t("billing.status")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -281,14 +281,14 @@ export default function BillingDashboard() {
                       <span className="capitalize">{item.current_plan}</span> → <span className="capitalize font-medium">{item.requested_plan}</span>
                     </td>
                     <td className="px-4 py-3 text-gray-500">{new Date(item.created_at).toLocaleDateString()}</td>
-                    <td className="px-4 py-3"><StatusBadge status={item.status} /></td>
+                    <td className="px-4 py-3"><StatusBadge status={item.status} t={t} /></td>
                   </tr>
                 ))}
               </tbody>
             </table>
           </div>
         ) : (
-          <EmptyState icon={Receipt} title="No Subscription History" message="Your past subscriptions will appear here." />
+          <EmptyState icon={Receipt} title={t("billing.noSubscriptionHistory")} message={t("billing.subscriptionHistoryDesc")} />
         )}
       </CollapsibleSection>
 
@@ -304,6 +304,7 @@ export default function BillingDashboard() {
           onClose={() => setShowPlans(false)}
           actionLoading={actionLoading}
           getPrice={getPrice}
+          t={t}
         />
       )}
     </div>
@@ -315,7 +316,7 @@ export default function BillingDashboard() {
 // SUBCOMPONENTS
 // ═══════════════════════════════════════════════════════════════════
 
-function CurrentPlanCard({ sub, onManage, onViewPlans, actionLoading }) {
+function CurrentPlanCard({ sub, t , onManage, onViewPlans, actionLoading }) {
   return (
     <div className="rounded-xl border border-gray-200 overflow-hidden">
       <div className="bg-gradient-to-r from-[#8B1E3F] to-[#6B1630] p-5 text-white">
@@ -323,28 +324,30 @@ function CurrentPlanCard({ sub, onManage, onViewPlans, actionLoading }) {
           <div className="flex items-center gap-3">
             <Crown className="w-5 h-5 text-amber-300" />
             <div>
-              <h3 className="text-lg font-bold">{sub.plan?.name || "—"} Plan</h3>
-              <p className="text-white/60 text-sm mt-0.5">{sub.billing_interval === "year" ? "Yearly" : "Monthly"} billing</p>
+              <h3 className="text-lg font-bold">{sub.plan?.name || "—"} {t("billing.plan")}</h3>
+              <p className="text-white/60 text-sm mt-0.5">{sub.billing_interval === "year"
+  ? t("billing.yearlyBilling")
+  : t("billing.monthlyBilling")}</p>
             </div>
           </div>
-          <StatusBadge status={sub.status} dark />
+          <StatusBadge status={sub.status} t={t} />
         </div>
       </div>
 
       <div className="p-5 bg-white space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <InfoBlock label="Price" value={`$${sub.current_price}/${sub.billing_interval === "year" ? "yr" : "mo"}`} />
+          <InfoBlock label={t("billing.price")} value={`$${sub.current_price}/${sub.billing_interval === "year" ? "yr" : "mo"}`} />
           {sub.is_trialing && sub.days_remaining_in_trial > 0 && (
-            <InfoBlock label="Trial Remaining" value={`${sub.days_remaining_in_trial} days`} warn={sub.days_remaining_in_trial <= 3} />
+            <InfoBlock label={t("billing.trialRemaining")} value={`${sub.days_remaining_in_trial} ${t("billing.days")}`} warn={sub.days_remaining_in_trial <= 3} />
           )}
           {sub.current_period_end && (
-            <InfoBlock label={sub.cancel_at_period_end ? "Access Ends" : "Next Renewal"} value={new Date(sub.current_period_end).toLocaleDateString()} warn={sub.cancel_at_period_end} />
+            <InfoBlock label={sub.cancel_at_period_end ? t("billing.accessEnds") : t("billing.nextRenewal")} value={new Date(sub.current_period_end).toLocaleDateString()} warn={sub.cancel_at_period_end} />
           )}
         </div>
 
         {sub.plan?.features?.length > 0 && (
           <div className="pt-4 border-t border-gray-100">
-            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">Plan Features</p>
+            <p className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">{t("billing.planFeatures")}</p>
             <div className="grid grid-cols-2 gap-2">
               {sub.plan.features.map((f, i) => (
                 <div key={i} className="flex items-center gap-2 text-sm">
@@ -360,16 +363,16 @@ function CurrentPlanCard({ sub, onManage, onViewPlans, actionLoading }) {
 
         <div className="flex flex-wrap gap-3 pt-4 border-t border-gray-100">
           <button onClick={onViewPlans} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-gradient-to-r from-[#8B1E3F] to-[#6B1630] text-white font-medium hover:opacity-90 text-sm">
-            <CreditCard className="w-4 h-4" /> View Plans
+            <CreditCard className="w-4 h-4" /> {t("billing.viewPlans")}
           </button>
           {sub.has_stripe_subscription && (
             <>
               <button onClick={onManage} disabled={actionLoading === "portal"} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-[#8B1E3F]/20 text-[#8B1E3F] font-medium hover:bg-[#8B1E3F]/5 text-sm">
                 {actionLoading === "portal" ? <Loader2 className="w-4 h-4 animate-spin" /> : <CreditCard className="w-4 h-4" />}
-                Manage Billing <ExternalLink className="w-3 h-3" />
+                {t("billing.manageBilling")} <ExternalLink className="w-3 h-3" />
               </button>
               <button onClick={onManage} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl border border-gray-200 text-gray-600 font-medium hover:bg-gray-50 text-sm">
-                <Receipt className="w-4 h-4" /> View Invoices <ExternalLink className="w-3 h-3" />
+                <Receipt className="w-4 h-4" /> {t("billing.viewInvoices")} <ExternalLink className="w-3 h-3" />
               </button>
             </>
           )}
@@ -378,7 +381,7 @@ function CurrentPlanCard({ sub, onManage, onViewPlans, actionLoading }) {
         {sub.cancel_at_period_end && (
           <div className="flex items-center gap-2 p-3 bg-red-50 border border-red-100 rounded-xl">
             <AlertTriangle className="w-4 h-4 text-red-600 flex-shrink-0" />
-            <p className="text-sm text-red-700">Subscription set to cancel at end of current period.</p>
+            <p className="text-sm text-red-700">{t("billing.cancelAtPeriodEnd")}</p>
           </div>
         )}
       </div>
@@ -386,18 +389,18 @@ function CurrentPlanCard({ sub, onManage, onViewPlans, actionLoading }) {
   );
 }
 
-function PlanPickerModal({ plans, currentTier, billingInterval,currentInterval,onIntervalChange, onSelect, onClose, actionLoading, getPrice }) {
+function PlanPickerModal({ plans, currentTier, billingInterval,currentInterval,onIntervalChange, onSelect, onClose, actionLoading, getPrice , t}) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
       <div className="relative w-full max-w-4xl bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
         <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
-          <h2 className="text-xl font-bold text-gray-900">Choose a Plan</h2>
+          <h2 className="text-xl font-bold text-gray-900">{t("billing.choosePlan")}</h2>
           <div className="flex items-center gap-4">
             <div className="inline-flex items-center p-1 bg-gray-100 rounded-xl">
-              <button onClick={() => onIntervalChange("month")} className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${billingInterval === "month" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}>Monthly</button>
+              <button onClick={() => onIntervalChange("month")} className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all ${billingInterval === "month" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}>{t("billing.monthly")}</button>
               <button onClick={() => onIntervalChange("year")} className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-all flex items-center gap-1.5 ${billingInterval === "year" ? "bg-white text-gray-900 shadow-sm" : "text-gray-500"}`}>
-                Yearly <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-bold">-20%</span>
+                {t("billing.yearly")} <span className="px-1.5 py-0.5 rounded bg-emerald-100 text-emerald-700 text-[10px] font-bold">-20%</span>
               </button>
             </div>
             <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
@@ -416,8 +419,8 @@ function PlanPickerModal({ plans, currentTier, billingInterval,currentInterval,o
             return (
               <div key={plan.id} className={`rounded-xl border p-5 flex flex-col ${isCurrent ? "border-[#8B1E3F] ring-2 ring-[#8B1E3F]/20 bg-[#8B1E3F]/5" : plan.is_popular ? "border-rose-200 bg-rose-50/50" : "border-gray-200 bg-white"}`}>
                 <div className="flex items-center gap-2 mb-3">
-                  {isCurrent && <span className="px-2.5 py-0.5 rounded-full bg-[#8B1E3F] text-white text-xs font-bold">Current</span>}
-                  {plan.is_popular && !isCurrent && <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1"><Star className="w-3 h-3 fill-current" />Popular</span>}
+                  {isCurrent && <span className="px-2.5 py-0.5 rounded-full bg-[#8B1E3F] text-white text-xs font-bold">{t("billing.current")}</span>}
+                  {plan.is_popular && !isCurrent && <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1"><Star className="w-3 h-3 fill-current" />{t("billing.popular")}</span>}
                 </div>
                 <h4 className="font-bold text-gray-900 mb-1">{plan.name}</h4>
                 <p className="text-xs text-gray-500 mb-3">{plan.tagline}</p>
@@ -436,10 +439,10 @@ function PlanPickerModal({ plans, currentTier, billingInterval,currentInterval,o
                   ))}
                 </div>
                 {isCurrent ? (
-                  <div className="py-2.5 rounded-xl text-center text-sm font-medium text-[#8B1E3F] bg-[#8B1E3F]/10">Current Plan</div>
+                  <div className="py-2.5 rounded-xl text-center text-sm font-medium text-[#8B1E3F] bg-[#8B1E3F]/10">{t("billing.currentPlan")}</div>
                 ) : (
                   <button onClick={() => onSelect(plan.tier)} disabled={isLoading} className={`w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 ${isFree ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-gradient-to-r from-[#8B1E3F] to-[#6B1630] text-white hover:opacity-90 shadow-md"}`}>
-                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{isFree ? "Switch to Free" : <>Upgrade <ArrowRight className="w-3.5 h-3.5" /></>}</>}
+                    {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{isFree ? t("billing.switchToFree") : <> {t("billing.upgrade")} <ArrowRight className="w-3.5 h-3.5" /></>}</>}
                   </button>
                 )}
               </div>
@@ -451,7 +454,7 @@ function PlanPickerModal({ plans, currentTier, billingInterval,currentInterval,o
   );
 }
 
-function UsageCard({ icon: Icon, label, usage }) {
+function UsageCard({ icon: Icon, label, usage, t }) {
   if (!usage) return null;
   const pct = usage.unlimited ? 0 : Math.min(usage.percentage, 100);
   return (
@@ -465,7 +468,7 @@ function UsageCard({ icon: Icon, label, usage }) {
         <span className="text-sm text-gray-500">/ {usage.unlimited ? "∞" : usage.limit}</span>
       </div>
       {!usage.unlimited && <div className="w-full h-1.5 rounded-full bg-gray-100"><div className={`h-full rounded-full ${pct >= 80 ? "bg-red-500" : "bg-[#8B1E3F]"}`} style={{ width: `${pct}%` }} /></div>}
-      {usage.unlimited && <p className="text-xs text-gray-400">Unlimited</p>}
+      {usage.unlimited && <p className="text-xs text-gray-400">{t("billing.unlimited")}</p>}
     </div>
   );
 }
@@ -514,11 +517,23 @@ function EmptyState({ icon: Icon, title, message, ctaLabel, onCta }) {
   );
 }
 
-function StatusBadge({ status, dark = false }) {
+function StatusBadge({ status, dark = false, t }) {
   const style = STATUS_STYLES[status] || STATUS_STYLES.pending;
-  const label = STATUS_LABELS[status] || status;
-  if (dark) return <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white/90">{label}</span>;
-  return <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${style}`}>{label}</span>;
+  const label = t?.(`billing.status.${status}`) || status;
+
+  if (dark) {
+    return (
+      <span className="px-2.5 py-0.5 rounded-full text-xs font-bold bg-white/20 text-white/90">
+        {label}
+      </span>
+    );
+  }
+
+  return (
+    <span className={`px-2.5 py-0.5 rounded-full text-xs font-bold border ${style}`}>
+      {label}
+    </span>
+  );
 }
 
 function InfoBlock({ label, value, warn = false }) {

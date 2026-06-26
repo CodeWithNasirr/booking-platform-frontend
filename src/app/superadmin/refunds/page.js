@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useSuperAdmin } from "@/contexts/Superadmincontext";
 import SuperAdminLayout from "@/components/superadmin/SuperAdminLayout";
+import { useTranslation } from "@/lib/t";
 import Cookies from "js-cookie";
 import {
   Shield,
@@ -49,12 +50,25 @@ function formatDate(d) {
   return new Date(d).toLocaleDateString("en-US", { month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" });
 }
 
-function timeAgo(d) {
+function timeAgo(d, t) {
   if (!d) return "";
-  const hrs = Math.floor((Date.now() - new Date(d).getTime()) / 3600000);
-  if (hrs < 1) return `${Math.floor((Date.now() - new Date(d).getTime()) / 60000)}m ago`;
-  if (hrs < 24) return `${hrs}h ago`;
-  return `${Math.floor(hrs / 24)}d ago`;
+
+  const diff = Date.now() - new Date(d).getTime();
+  const hrs = Math.floor(diff / 3600000);
+
+  if (hrs < 1) {
+    return t("time_minutes_ago", {
+      m: Math.floor(diff / 60000),
+    });
+  }
+
+  if (hrs < 24) {
+    return t("time_hours_ago", { h: hrs });
+  }
+
+  return t("time_days_ago", {
+    d: Math.floor(hrs / 24),
+  });
 }
 
 const REFUND_STATUS = {
@@ -74,12 +88,12 @@ const DISPUTE_STATUS = {
   closed:         { bg: "bg-gray-100",    text: "text-gray-600",    dot: "bg-gray-400" },
 };
 
-function StatusBadge({ status, map }) {
+function StatusBadge({ status, map, t }) {
   const s = map[status] || { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400" };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
-      {status?.replace(/_/g, " ")}
+      {t(`monitoring_status_${status}`) || status?.replace(/_/g, " ")}
     </span>
   );
 }
@@ -119,7 +133,7 @@ function TabButton({ active, onClick, icon: Icon, label, count, urgent }) {
    ════════════════════════════════════════════════════ */
 
 export default function PlatformMonitoringPage() {
-  const { t } = useSuperAdmin();
+  const { t } = useTranslation();
   const [tab, setTab] = useState("overview");
   const [loading, setLoading] = useState(true);
 
@@ -150,9 +164,9 @@ export default function PlatformMonitoringPage() {
   async function triggerReconciliation() {
     try {
       await platformPost("/api/v1/platform/reconciliation/run/");
-      showToast("Reconciliation triggered");
+      showToast(t("monitoring_reconciliation_triggered"));
       setTimeout(loadAll, 5000);
-    } catch { showToast("Failed", "error"); }
+    } catch { showToast(t("monitoring_failed"), "error"); }
   }
 
   const failedRefunds = refunds.length;
@@ -160,9 +174,9 @@ export default function PlatformMonitoringPage() {
 
   return (
     <SuperAdminLayout
-      title="Platform Monitoring"
-      description="Read-only financial health monitoring — refunds and disputes are managed by tenant admins"
-      breadcrumbs={[{ label: "Monitoring" }]}
+      title={t("monitoring_title")}
+      description={t("monitoring_description")}
+      breadcrumbs={[{ label: t("monitoring_breadcrumb") }]}
     >
       <div className="space-y-6">
         {toast && (
@@ -175,27 +189,27 @@ export default function PlatformMonitoringPage() {
         <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg w-fit">
           <MonitorCheck className="w-4 h-4 text-blue-600" />
           <span className="text-xs font-medium text-blue-700">
-            Monitoring Only — Refund approvals and dispute responses are handled by tenant admins
+            {t("monitoring_badge")}
           </span>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-          <StatCard icon={XCircle} label="Failed Refunds" value={failedRefunds} color="from-red-500 to-red-600" />
-          <StatCard icon={Shield} label="Open Disputes" value={urgentDisputes} color="from-amber-500 to-amber-600" />
-          <StatCard icon={Activity} label="Stuck Payments" value={reconciliation?.stuck_bookings ?? "—"} color="from-purple-500 to-purple-600" />
-          <StatCard icon={Activity} label="Stuck Orders" value={reconciliation?.stuck_orders ?? "—"} color="from-indigo-500 to-indigo-600" />
-          <StatCard icon={FileWarning} label="Webhook Errors" value={webhookFailures.length} color="from-gray-500 to-gray-600" />
+          <StatCard icon={XCircle} label={t("monitoring_stat_failed_refunds")} value={failedRefunds} color="from-red-500 to-red-600" />
+          <StatCard icon={Shield} label={t("monitoring_stat_open_disputes")} value={urgentDisputes} color="from-amber-500 to-amber-600" />
+          <StatCard icon={Activity} label={t("monitoring_stat_stuck_payments")} value={reconciliation?.stuck_bookings ?? "—"} color="from-purple-500 to-purple-600" />
+          <StatCard icon={Activity} label={t("monitoring_stat_stuck_orders")} value={reconciliation?.stuck_orders ?? "—"} color="from-indigo-500 to-indigo-600" />
+          <StatCard icon={FileWarning} label={t("monitoring_stat_webhook_errors")} value={webhookFailures.length} color="from-gray-500 to-gray-600" />
         </div>
 
         {/* Tabs */}
         <div className="border-b border-gray-200">
           <div className="flex gap-0 overflow-x-auto">
-            <TabButton active={tab === "overview"} onClick={() => setTab("overview")} icon={Activity} label="Overview" />
-            <TabButton active={tab === "failed-refunds"} onClick={() => setTab("failed-refunds")} icon={XCircle} label="Failed Refunds" count={failedRefunds} urgent={failedRefunds > 0} />
-            <TabButton active={tab === "disputes"} onClick={() => setTab("disputes")} icon={Shield} label="Disputes" count={urgentDisputes} urgent={urgentDisputes > 0} />
-            <TabButton active={tab === "reconciliation"} onClick={() => setTab("reconciliation")} icon={ArrowRightLeft} label="Reconciliation" />
-            <TabButton active={tab === "webhooks"} onClick={() => setTab("webhooks")} icon={Zap} label="Webhooks" count={webhookFailures.length} />
+            <TabButton active={tab === "overview"} onClick={() => setTab("overview")} icon={Activity} label={t("monitoring_tab_overview")} />
+            <TabButton active={tab === "failed-refunds"} onClick={() => setTab("failed-refunds")} icon={XCircle} label={t("monitoring_tab_failed_refunds")} count={failedRefunds} urgent={failedRefunds > 0} />
+            <TabButton active={tab === "disputes"} onClick={() => setTab("disputes")} icon={Shield} label={t("monitoring_tab_disputes")} count={urgentDisputes} urgent={urgentDisputes > 0} />
+            <TabButton active={tab === "reconciliation"} onClick={() => setTab("reconciliation")} icon={ArrowRightLeft} label={t("monitoring_tab_reconciliation")} />
+            <TabButton active={tab === "webhooks"} onClick={() => setTab("webhooks")} icon={Zap} label={t("monitoring_tab_webhooks")} count={webhookFailures.length} />
           </div>
         </div>
 
@@ -206,8 +220,8 @@ export default function PlatformMonitoringPage() {
               <div className="bg-red-50 border border-red-200 rounded-xl p-4 flex items-start gap-3">
                 <AlertTriangle className="w-5 h-5 text-red-500 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-red-800">{failedRefunds} refund(s) have failed across tenants</p>
-                  <p className="text-xs text-red-600 mt-1">Tenant admins have been notified. Check the Failed Refunds tab for details.</p>
+                  <p className="text-sm font-medium text-red-800">{t("monitoring_failed_refunds_alert", { count: failedRefunds })}</p>
+                  <p className="text-xs text-red-600 mt-1">{t("monitoring_failed_refunds_sub")}</p>
                 </div>
               </div>
             )}
@@ -215,8 +229,8 @@ export default function PlatformMonitoringPage() {
               <div className="bg-amber-50 border border-amber-200 rounded-xl p-4 flex items-start gap-3">
                 <Shield className="w-5 h-5 text-amber-500 mt-0.5 shrink-0" />
                 <div>
-                  <p className="text-sm font-medium text-amber-800">{urgentDisputes} dispute(s) need tenant response</p>
-                  <p className="text-xs text-amber-600 mt-1">Tenant admins must respond before evidence deadlines expire.</p>
+                  <p className="text-sm font-medium text-amber-800">{t("monitoring_disputes_alert", { count: urgentDisputes })}</p>
+                  <p className="text-xs text-amber-600 mt-1">{t("monitoring_disputes_sub")}</p>
                 </div>
               </div>
             )}
@@ -225,17 +239,17 @@ export default function PlatformMonitoringPage() {
                 <Activity className="w-5 h-5 text-purple-500 mt-0.5 shrink-0" />
                 <div>
                   <p className="text-sm font-medium text-purple-800">
-                    {(reconciliation?.stuck_bookings || 0) + (reconciliation?.stuck_orders || 0)} payment(s) stuck in pending
+                    {t("monitoring_stuck_payments_alert", { count: (reconciliation?.stuck_bookings || 0) + (reconciliation?.stuck_orders || 0) })}
                   </p>
-                  <p className="text-xs text-purple-600 mt-1">Run reconciliation to recover missed webhook payments.</p>
+                  <p className="text-xs text-purple-600 mt-1">{t("monitoring_stuck_payments_sub")}</p>
                 </div>
               </div>
             )}
             {failedRefunds === 0 && urgentDisputes === 0 && !reconciliation?.stuck_bookings && (
               <div className="bg-emerald-50 border border-emerald-200 rounded-xl p-6 text-center">
                 <CheckCircle className="w-10 h-10 text-emerald-400 mx-auto mb-3" />
-                <p className="text-sm font-medium text-emerald-800">All systems healthy</p>
-                <p className="text-xs text-emerald-600 mt-1">No failed refunds, open disputes, or stuck payments</p>
+                <p className="text-sm font-medium text-emerald-800">{t("monitoring_all_healthy")}</p>
+                <p className="text-xs text-emerald-600 mt-1">{t("monitoring_all_healthy_sub")}</p>
               </div>
             )}
           </div>
@@ -245,18 +259,18 @@ export default function PlatformMonitoringPage() {
         {tab === "failed-refunds" && (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             {refunds.length === 0 ? (
-              <div className="text-center py-16"><CheckCircle className="w-10 h-10 text-emerald-300 mx-auto mb-3" /><p className="text-sm text-gray-500">No failed refunds</p></div>
+              <div className="text-center py-16"><CheckCircle className="w-10 h-10 text-emerald-300 mx-auto mb-3" /><p className="text-sm text-gray-500">{t("monitoring_no_failed_refunds")}</p></div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="bg-gray-50 text-left">
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Refund #</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Tenant</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Amount</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Error</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Retries</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Failed At</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_refund_number")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_tenant")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_amount")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_error")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_retries")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_failed_at")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -267,7 +281,7 @@ export default function PlatformMonitoringPage() {
                         <td className="px-5 py-3.5 text-sm font-semibold text-gray-900">{r.currency} {r.customer_refund}</td>
                         <td className="px-5 py-3.5 text-xs text-red-600 max-w-xs truncate">{r.last_error?.slice(0, 80)}</td>
                         <td className="px-5 py-3.5 text-xs text-gray-500">{r.retry_count}/{r.max_retries}</td>
-                        <td className="px-5 py-3.5 text-xs text-gray-500">{timeAgo(r.failed_at || r.created_at)}</td>
+                        <td className="px-5 py-3.5 text-xs text-gray-500">{timeAgo(r.failed_at || r.created_at, t)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -281,18 +295,18 @@ export default function PlatformMonitoringPage() {
         {tab === "disputes" && (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             {disputes.length === 0 ? (
-              <div className="text-center py-16"><CheckCircle className="w-10 h-10 text-emerald-300 mx-auto mb-3" /><p className="text-sm text-gray-500">No open disputes</p></div>
+              <div className="text-center py-16"><CheckCircle className="w-10 h-10 text-emerald-300 mx-auto mb-3" /><p className="text-sm text-gray-500">{t("monitoring_no_disputes")}</p></div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="bg-gray-50 text-left">
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Dispute #</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Tenant</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Amount</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Reason</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Status</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Deadline</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_dispute_number")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_tenant")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_amount")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_reason")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_status")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_deadline")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -305,12 +319,12 @@ export default function PlatformMonitoringPage() {
                           <td className="px-5 py-3.5 text-xs text-gray-600">{d.tenant_name || "—"}</td>
                           <td className="px-5 py-3.5 text-sm font-semibold text-gray-900">{d.currency} {d.amount}</td>
                           <td className="px-5 py-3.5 text-xs text-gray-600">{d.reason?.replace(/_/g, " ")}</td>
-                          <td className="px-5 py-3.5"><StatusBadge status={d.status} map={DISPUTE_STATUS} /></td>
+                          <td className="px-5 py-3.5"><StatusBadge status={d.status} map={DISPUTE_STATUS} t={t} /></td>
                           <td className="px-5 py-3.5">
                             {d.evidence_due_by ? (
                               <span className={`text-xs ${isUrgent ? "text-red-600 font-semibold" : "text-gray-500"}`}>
                                 {isUrgent && <Timer className="w-3 h-3 inline mr-1" />}
-                                {hoursLeft < 1 ? "<1h" : `${Math.floor(hoursLeft)}h`} left
+                                {hoursLeft < 1 ? t("monitoring_less_than_1h") : t("monitoring_hours_left", { h: Math.floor(hoursLeft) })}
                               </span>
                             ) : "—"}
                           </td>
@@ -329,30 +343,30 @@ export default function PlatformMonitoringPage() {
           <div className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">Payment Reconciliation</h3>
-                <p className="text-sm text-gray-500 mt-1">Detects payments stuck due to missed webhooks</p>
+                <h3 className="text-lg font-semibold text-gray-900">{t("monitoring_reconciliation_title")}</h3>
+                <p className="text-sm text-gray-500 mt-1">{t("monitoring_reconciliation_desc")}</p>
               </div>
               <button onClick={triggerReconciliation}
                 className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg"
                 style={{ backgroundColor: MAROON }}>
-                <RefreshCw className="w-4 h-4" /> Run Reconciliation
+                <RefreshCw className="w-4 h-4" /> {t("monitoring_run_reconciliation")}
               </button>
             </div>
             <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
               <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <div className="text-sm font-medium text-gray-700 mb-2">Stuck Bookings</div>
+                <div className="text-sm font-medium text-gray-700 mb-2">{t("monitoring_stuck_bookings")}</div>
                 <div className="text-3xl font-semibold text-gray-900">{reconciliation?.stuck_bookings ?? "—"}</div>
-                <p className="text-xs text-gray-400 mt-1">pending_payment &gt; 1 hour</p>
+                <p className="text-xs text-gray-400 mt-1">{t("monitoring_stuck_bookings_sub")}</p>
               </div>
               <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <div className="text-sm font-medium text-gray-700 mb-2">Stuck Orders</div>
+                <div className="text-sm font-medium text-gray-700 mb-2">{t("monitoring_stuck_orders")}</div>
                 <div className="text-3xl font-semibold text-gray-900">{reconciliation?.stuck_orders ?? "—"}</div>
-                <p className="text-xs text-gray-400 mt-1">pending_payment &gt; 1 hour</p>
+                <p className="text-xs text-gray-400 mt-1">{t("monitoring_stuck_orders_sub")}</p>
               </div>
               <div className="bg-white rounded-xl border border-gray-200 p-5">
-                <div className="text-sm font-medium text-gray-700 mb-2">Stale Schedules</div>
+                <div className="text-sm font-medium text-gray-700 mb-2">{t("monitoring_stale_schedules")}</div>
                 <div className="text-3xl font-semibold text-gray-900">{reconciliation?.stale_schedules ?? "—"}</div>
-                <p className="text-xs text-gray-400 mt-1">Booked slots for terminated bookings</p>
+                <p className="text-xs text-gray-400 mt-1">{t("monitoring_stale_schedules_sub")}</p>
               </div>
             </div>
           </div>
@@ -362,17 +376,17 @@ export default function PlatformMonitoringPage() {
         {tab === "webhooks" && (
           <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
             {webhookFailures.length === 0 ? (
-              <div className="text-center py-16"><CheckCircle className="w-10 h-10 text-emerald-300 mx-auto mb-3" /><p className="text-sm text-gray-500">No failed webhooks</p></div>
+              <div className="text-center py-16"><CheckCircle className="w-10 h-10 text-emerald-300 mx-auto mb-3" /><p className="text-sm text-gray-500">{t("monitoring_no_webhooks")}</p></div>
             ) : (
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
                     <tr className="bg-gray-50 text-left">
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Event ID</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Type</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Provider</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Error</th>
-                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">Time</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_event_id")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_type")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_provider")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_error")}</th>
+                      <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase">{t("monitoring_col_time")}</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-100">
@@ -382,7 +396,7 @@ export default function PlatformMonitoringPage() {
                         <td className="px-5 py-3.5 text-xs text-gray-700">{w.event_type}</td>
                         <td className="px-5 py-3.5 text-xs text-gray-600">{w.provider}</td>
                         <td className="px-5 py-3.5 text-xs text-red-600 max-w-xs truncate">{w.error?.slice(0, 80)}</td>
-                        <td className="px-5 py-3.5 text-xs text-gray-500">{timeAgo(w.created_at)}</td>
+                        <td className="px-5 py-3.5 text-xs text-gray-500">{timeAgo(w.created_at, t)}</td>
                       </tr>
                     ))}
                   </tbody>

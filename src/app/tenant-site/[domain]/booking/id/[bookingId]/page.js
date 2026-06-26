@@ -2,7 +2,7 @@ import { notFound } from "next/navigation";
 import { fetchSite } from "../../../utils/fetchSite";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL;
-
+import { formatCurrency } from "@/lib/currency";
 export default async function BookingDetailsPage({ params }) {
   const { domain, bookingId } = await params;
 
@@ -100,15 +100,30 @@ export default async function BookingDetailsPage({ params }) {
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
             <span>Subtotal</span>
-            <span>${booking.subtotal}</span>
+            <span>
+              {formatCurrency(
+                booking.subtotal,
+                booking.currency || site?.currency || "USD"
+              )}
+            </span>
           </div>
           <div className="flex justify-between">
             <span>Platform Fee</span>
-            <span>${booking.platform_fee}</span>
+            <span>
+  {formatCurrency(
+    booking.platform_fee,
+    booking.currency || site?.currency || "USD"
+  )}
+</span>
           </div>
           <div className="flex justify-between font-semibold text-base border-t pt-2">
             <span>Total Paid</span>
-            <span>${booking.amount_paid}</span>
+                  <span>
+        {formatCurrency(
+          booking.amount_paid,
+          booking.currency || site?.currency || "USD"
+        )}
+      </span>
           </div>
         </div>
       </div>

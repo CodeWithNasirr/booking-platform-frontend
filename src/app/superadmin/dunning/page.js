@@ -7,9 +7,11 @@ import {
   XCircle, Clock, Zap,
 } from "lucide-react";
 import SuperAdminLayout from "@/components/superadmin/SuperAdminLayout";
+import { useTranslation } from "@/lib/t";
 import { fetchDunningStatus, retryDunning, runDunningBatch } from "@/lib/platformApi";
 
 export default function DunningPage() {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [retrying, setRetrying] = useState(null);
@@ -39,24 +41,24 @@ export default function DunningPage() {
     setRetrying(subId);
     try {
       await retryDunning(subId);
-      showToast("Retry initiated successfully");
+      showToast(t("dunning_retry_success"));
       load();
     } catch (e) {
-      showToast(e.message || "Retry failed", "error");
+      showToast(e.message || t("dunning_retry_failed"), "error");
     } finally {
       setRetrying(null);
     }
   };
 
   const handleBatchRun = async () => {
-    if (!confirm("Run dunning process for all past-due subscriptions?")) return;
+    if (!confirm(t("dunning_batch_confirm"))) return;
     setRunningBatch(true);
     try {
       const result = await runDunningBatch();
-      showToast(`Dunning complete: ${result.retried} retried, ${result.cancelled} cancelled`);
+      showToast(t("dunning_batch_complete", { retried: result.retried, cancelled: result.cancelled }));
       load();
     } catch (e) {
-      showToast(e.message || "Batch run failed", "error");
+      showToast(e.message || t("dunning_batch_failed"), "error");
     } finally {
       setRunningBatch(false);
     }
@@ -64,7 +66,7 @@ export default function DunningPage() {
 
   if (loading || !data) {
     return (
-      <SuperAdminLayout title="Failed Payment Recovery" breadcrumbs={[{ label: "Dunning" }]}>
+      <SuperAdminLayout title={t("dunning_title")} breadcrumbs={[{ label: t("dunning_breadcrumb") }]}>
         <div className="flex items-center justify-center py-32">
           <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
         </div>
@@ -77,35 +79,35 @@ export default function DunningPage() {
 
   return (
     <SuperAdminLayout
-      title="Failed Payment Recovery"
-      description="Manage past-due subscriptions and retry failed payments"
-      breadcrumbs={[{ label: "Dunning" }]}
+      title={t("dunning_title")}
+      description={t("dunning_description")}
+      breadcrumbs={[{ label: t("dunning_breadcrumb") }]}
     >
       {/* Summary Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
         <SummaryCard
-          label="Total Past Due"
+          label={t("dunning_total_past_due")}
           value={data.total_past_due || 0}
           icon={AlertTriangle}
           color="text-red-600"
           bg="bg-red-50 border-red-200"
         />
         <SummaryCard
-          label="Never Retried"
+          label={t("dunning_never_retried")}
           value={byAttempts[0] || 0}
           icon={Clock}
           color="text-amber-600"
           bg="bg-amber-50 border-amber-200"
         />
         <SummaryCard
-          label="1-2 Attempts"
+          label={t("dunning_1_2_attempts")}
           value={(byAttempts[1] || 0) + (byAttempts[2] || 0)}
           icon={RefreshCw}
           color="text-blue-600"
           bg="bg-blue-50 border-blue-200"
         />
         <SummaryCard
-          label="4+ Attempts (at risk)"
+          label={t("dunning_4_plus_attempts")}
           value={byAttempts["4+"] || 0}
           icon={XCircle}
           color="text-red-600"
@@ -122,7 +124,7 @@ export default function DunningPage() {
           style={{ backgroundColor: "#8B1E3F" }}
         >
           {runningBatch ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
-          {runningBatch ? "Running..." : "Run Dunning Now"}
+          {runningBatch ? t("dunning_running") : t("dunning_run_now")}
         </button>
       </div>
 
@@ -131,21 +133,21 @@ export default function DunningPage() {
         {subs.length === 0 ? (
           <div className="text-center py-16 text-gray-500">
             <CheckCircle2 className="w-10 h-10 mx-auto mb-3 text-green-400" />
-            <p className="font-medium">No past-due subscriptions</p>
-            <p className="text-sm text-gray-400 mt-1">All payments are up to date</p>
+            <p className="font-medium">{t("dunning_no_past_due")}</p>
+            <p className="text-sm text-gray-400 mt-1">{t("dunning_all_up_to_date")}</p>
           </div>
         ) : (
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="bg-gray-50 border-b border-gray-200">
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Tenant</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Tier</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Gateway</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Attempts</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Period End</th>
-                  <th className="px-4 py-3 text-left font-medium text-gray-600">Last Retry</th>
-                  <th className="px-4 py-3 text-right font-medium text-gray-600">Action</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">{t("dunning_col_tenant")}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">{t("dunning_col_tier")}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">{t("dunning_col_gateway")}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">{t("dunning_col_attempts")}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">{t("dunning_col_period_end")}</th>
+                  <th className="px-4 py-3 text-left font-medium text-gray-600">{t("dunning_col_last_retry")}</th>
+                  <th className="px-4 py-3 text-right font-medium text-gray-600">{t("dunning_col_action")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -177,7 +179,7 @@ export default function DunningPage() {
                         {sub.current_period_end ? new Date(sub.current_period_end).toLocaleDateString() : "—"}
                       </td>
                       <td className="px-4 py-3 text-gray-500 text-xs">
-                        {lastRetry ? new Date(lastRetry).toLocaleString() : "Never"}
+                        {lastRetry ? new Date(lastRetry).toLocaleString() : t("dunning_never")}
                       </td>
                       <td className="px-4 py-3 text-right">
                         <button
@@ -191,7 +193,7 @@ export default function DunningPage() {
                           ) : (
                             <Play className="w-3 h-3" />
                           )}
-                          Retry
+                          {t("dunning_retry")}
                         </button>
                       </td>
                     </tr>

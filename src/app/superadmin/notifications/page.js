@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@/lib/t";
 import {
   Mail,
   Search,
@@ -43,50 +44,42 @@ import {
 
 const MAROON = "#800020";
 
-const LOG_STATUS = {
-  queued:    { bg: "bg-amber-50",   text: "text-amber-700",   dot: "bg-amber-500",   icon: Clock },
-  sent:      { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500", icon: CheckCircle },
-  delivered: { bg: "bg-blue-50",    text: "text-blue-700",    dot: "bg-blue-500",    icon: CheckCircle },
-  failed:    { bg: "bg-red-50",     text: "text-red-700",     dot: "bg-red-500",     icon: XCircle },
-  bounced:   { bg: "bg-gray-100",   text: "text-gray-600",    dot: "bg-gray-400",    icon: XCircle },
-};
+function StatusBadge({ status, t }) {
+  const LOG_STATUS = {
+    queued:    { bg: "bg-amber-50",   text: "text-amber-700",   dot: "bg-amber-500",   icon: Clock,      label: t("superadmin.billing.log_status_queued") },
+    sent:      { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500", icon: CheckCircle, label: t("superadmin.billing.log_status_sent") },
+    delivered: { bg: "bg-blue-50",    text: "text-blue-700",    dot: "bg-blue-500",    icon: CheckCircle, label: t("superadmin.billing.log_status_delivered") },
+    failed:    { bg: "bg-red-50",     text: "text-red-700",     dot: "bg-red-500",     icon: XCircle,    label: t("superadmin.billing.log_status_failed") },
+    bounced:   { bg: "bg-gray-100",   text: "text-gray-600",    dot: "bg-gray-400",    icon: XCircle,    label: t("superadmin.billing.log_status_bounced") },
+  };
 
-const CATEGORY_MAP = {
-  booking:  { label: "Bookings",  color: "bg-blue-50 text-blue-700" },
-  order:    { label: "Orders",    color: "bg-purple-50 text-purple-700" },
-  billing:  { label: "Billing",   color: "bg-amber-50 text-amber-700" },
-  platform: { label: "Platform",  color: "bg-gray-100 text-gray-700" },
-  ticket:   { label: "Tickets",   color: "bg-teal-50 text-teal-700" },
-  document: { label: "Documents", color: "bg-indigo-50 text-indigo-700" },
-  payment:  { label: "Payments",  color: "bg-emerald-50 text-emerald-700" },
-  dunning:  { label: "Dunning",   color: "bg-red-50 text-red-700" },
-  tenant:   { label: "Tenant",    color: "bg-cyan-50 text-cyan-700" },
-  invoice:  { label: "Invoices",  color: "bg-orange-50 text-orange-700" },
-  provider: { label: "Provider",  color: "bg-pink-50 text-pink-700" },
-  subscription: { label: "Subscriptions", color: "bg-violet-50 text-violet-700" },
-};
-
-function getCategoryFromCode(eventCode) {
-  const prefix = (eventCode || "").split("_")[0];
-  return CATEGORY_MAP[prefix] || { label: "Other", color: "bg-gray-50 text-gray-600" };
-}
-
-/* ────────────────────────────────────────────
-   Shared Components
-   ──────────────────────────────────────────── */
-
-function StatusBadge({ status }) {
-  const s = LOG_STATUS[status] || { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400" };
+  const s = LOG_STATUS[status] || { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400", label: status };
   return (
     <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>
       <span className={`w-1.5 h-1.5 rounded-full ${s.dot}`} />
-      {status}
+      {s.label}
     </span>
   );
 }
 
-function CategoryBadge({ eventCode }) {
-  const cat = getCategoryFromCode(eventCode);
+function CategoryBadge({ eventCode, t }) {
+  const CATEGORY_MAP = {
+    booking:  { label: t("superadmin.billing.cat_booking"),  color: "bg-blue-50 text-blue-700" },
+    order:    { label: t("superadmin.billing.cat_order"),    color: "bg-purple-50 text-purple-700" },
+    billing:  { label: t("superadmin.billing.cat_billing"),   color: "bg-amber-50 text-amber-700" },
+    platform: { label: t("superadmin.billing.cat_platform"),  color: "bg-gray-100 text-gray-700" },
+    ticket:   { label: t("superadmin.billing.cat_ticket"),   color: "bg-teal-50 text-teal-700" },
+    document: { label: t("superadmin.billing.cat_document"), color: "bg-indigo-50 text-indigo-700" },
+    payment:  { label: t("superadmin.billing.cat_payment"),  color: "bg-emerald-50 text-emerald-700" },
+    dunning:  { label: t("superadmin.billing.cat_dunning"),  color: "bg-red-50 text-red-700" },
+    tenant:   { label: t("superadmin.billing.cat_tenant"),   color: "bg-cyan-50 text-cyan-700" },
+    invoice:  { label: t("superadmin.billing.cat_invoice"),  color: "bg-orange-50 text-orange-700" },
+    provider: { label: t("superadmin.billing.cat_provider"), color: "bg-pink-50 text-pink-700" },
+    subscription: { label: t("superadmin.billing.cat_subscription"), color: "bg-violet-50 text-violet-700" },
+  };
+
+  const prefix = (eventCode || "").split("_")[0];
+  const cat = CATEGORY_MAP[prefix] || { label: t("superadmin.billing.cat_other"), color: "bg-gray-50 text-gray-600" };
   return (
     <span className={`inline-flex items-center px-2 py-0.5 rounded text-[10px] font-semibold uppercase tracking-wider ${cat.color}`}>
       {cat.label}
@@ -139,19 +132,17 @@ function humanizeEventCode(code) {
    Variable Chip — click-to-insert
    ──────────────────────────────────────────── */
 
-function VariableChip({ variable, onInsert, onCopy }) {
+function VariableChip({ variable, onInsert, onCopy, t }) {
   const [copied, setCopied] = useState(false);
 
   async function handleCopy(e) {
     e.stopPropagation();
-
     const text = `{{ ${variable.key} }}`;
 
     try {
       if (navigator?.clipboard?.writeText) {
         await navigator.clipboard.writeText(text);
       } else {
-        // fallback
         const textarea = document.createElement("textarea");
         textarea.value = text;
         document.body.appendChild(textarea);
@@ -159,22 +150,19 @@ function VariableChip({ variable, onInsert, onCopy }) {
         document.execCommand("copy");
         document.body.removeChild(textarea);
       }
-
       setCopied(true);
       setTimeout(() => setCopied(false), 1200);
-
       onCopy?.();
-
     } catch (err) {
       console.error("Copy failed", err);
     }
-}
+  }
 
   return (
     <div
       className="group flex items-center justify-between gap-2 px-2.5 py-2 rounded-lg border border-gray-200 hover:border-[#800020]/40 hover:bg-[#800020]/[0.02] cursor-pointer transition-all"
       onClick={() => onInsert(variable.key)}
-      title={`Click to insert {{ ${variable.key} }}`}
+      title={t("superadmin.billing.variable_click_insert", { key: variable.key })}
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-1.5">
@@ -185,14 +173,14 @@ function VariableChip({ variable, onInsert, onCopy }) {
         <div className="flex items-center gap-2 mt-0.5">
           <span className="text-[11px] text-gray-500 truncate">{variable.label}</span>
           <span className="text-[10px] text-gray-400 italic hidden sm:inline truncate">
-            e.g. {variable.example}
+            {t("superadmin.billing.variable_example_prefix")} {variable.example}
           </span>
         </div>
       </div>
       <button
         onClick={handleCopy}
         className="p-1 rounded opacity-0 group-hover:opacity-100 hover:bg-gray-100 transition-all shrink-0"
-        title="Copy to clipboard"
+        title={t("superadmin.billing.copy_to_clipboard")}
       >
         {copied
           ? <CheckCircle className="w-3.5 h-3.5 text-emerald-500" />
@@ -202,7 +190,6 @@ function VariableChip({ variable, onInsert, onCopy }) {
     </div>
   );
 }
-
 
 async function copyText(text) {
   try {
@@ -221,17 +208,15 @@ async function copyText(text) {
   }
 }
 
-
 /* ────────────────────────────────────────────
    Variable Sidebar Panel
    ──────────────────────────────────────────── */
 
-function VariableSidebar({ variables, variablesGrouped, conditionals, onInsert, activeField }) {
+function VariableSidebar({ variables, variablesGrouped, conditionals, onInsert, activeField, t }) {
   const [search, setSearch] = useState("");
   const [expandedGroups, setExpandedGroups] = useState({});
   const [showConditionals, setShowConditionals] = useState(false);
 
-  // Auto-expand all groups on first load
   useEffect(() => {
     if (variablesGrouped) {
       const all = {};
@@ -259,7 +244,6 @@ function VariableSidebar({ variables, variablesGrouped, conditionals, onInsert, 
   }
 
   const totalVars = variables?.length || 0;
-  const filteredCount = Object.values(filteredGrouped).flat().length;
 
   return (
     <div className="flex flex-col h-full">
@@ -270,8 +254,8 @@ function VariableSidebar({ variables, variablesGrouped, conditionals, onInsert, 
             <Braces className="w-4 h-4 text-[#800020]" />
           </div>
           <div>
-            <h4 className="text-sm font-semibold text-gray-900">Variables</h4>
-            <p className="text-[10px] text-gray-400">{totalVars} available</p>
+            <h4 className="text-sm font-semibold text-gray-900">{t("superadmin.billing.variables_title")}</h4>
+            <p className="text-[10px] text-gray-400">{t("superadmin.billing.variables_count", { count: totalVars })}</p>
           </div>
         </div>
 
@@ -282,14 +266,11 @@ function VariableSidebar({ variables, variablesGrouped, conditionals, onInsert, 
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Search variables..."
+            placeholder={t("superadmin.billing.variables_search_placeholder")}
             className="w-full rounded-lg border border-gray-200 pl-8 pr-3 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-[#800020]/20 focus:border-[#800020]"
           />
           {search && (
-            <button
-              onClick={() => setSearch("")}
-              className="absolute right-2 top-1/2 -translate-y-1/2"
-            >
+            <button onClick={() => setSearch("")} className="absolute right-2 top-1/2 -translate-y-1/2">
               <X className="w-3 h-3 text-gray-400" />
             </button>
           )}
@@ -300,7 +281,7 @@ function VariableSidebar({ variables, variablesGrouped, conditionals, onInsert, 
           <div className="flex items-center gap-1.5 mt-2 px-2 py-1 rounded bg-[#800020]/5">
             <MousePointerClick className="w-3 h-3 text-[#800020]" />
             <span className="text-[10px] font-medium text-[#800020]">
-              Inserting into: {activeField === "subject" ? "Subject" : activeField === "bodyHtml" ? "HTML Body" : "Plaintext"}
+              {t("superadmin.billing.inserting_into")}: {activeField === "subject" ? t("superadmin.billing.field_subject") : activeField === "bodyHtml" ? t("superadmin.billing.field_html_body") : t("superadmin.billing.field_plaintext")}
             </span>
           </div>
         )}
@@ -312,7 +293,7 @@ function VariableSidebar({ variables, variablesGrouped, conditionals, onInsert, 
           <div className="text-center py-8">
             <Hash className="w-6 h-6 text-gray-300 mx-auto mb-2" />
             <p className="text-xs text-gray-400">
-              {search ? "No matching variables" : "No variables for this event"}
+              {search ? t("superadmin.billing.no_matching_variables") : t("superadmin.billing.no_variables_for_event")}
             </p>
           </div>
         ) : (
@@ -338,6 +319,7 @@ function VariableSidebar({ variables, variablesGrouped, conditionals, onInsert, 
                       variable={v}
                       onInsert={onInsert}
                       onCopy={() => {}}
+                      t={t}
                     />
                   ))}
                 </div>
@@ -355,7 +337,7 @@ function VariableSidebar({ variables, variablesGrouped, conditionals, onInsert, 
         >
           <div className="flex items-center gap-1.5">
             <Lightbulb className="w-3.5 h-3.5 text-amber-500" />
-            <span>Conditional Syntax</span>
+            <span>{t("superadmin.billing.conditional_syntax")}</span>
           </div>
           <ChevronDown className={`w-3.5 h-3.5 transition-transform ${showConditionals ? "rotate-180" : ""}`} />
         </button>
@@ -372,15 +354,16 @@ function VariableSidebar({ variables, variablesGrouped, conditionals, onInsert, 
                   onClick={() => copyText(cond.code)}
                   className="mt-1 inline-flex items-center gap-1 text-[10px] text-[#800020] hover:underline"
                 >
-                  <Copy className="w-2.5 h-2.5" /> Copy
+                  <Copy className="w-2.5 h-2.5" /> {t("superadmin.billing.copy")}
                 </button>
               </div>
             ))}
 
-            <div className="px-2 py-1.5 bg-blue-50/50 rounded text-[10px] text-blue-600 leading-relaxed">
-              <strong>Tip:</strong> Use <code className="bg-blue-100/50 px-1 rounded">{"{{ variable }}"}</code> for values.
-              Use <code className="bg-blue-100/50 px-1 rounded">{"{% if variable %}...{% endif %}"}</code> for conditional blocks.
-            </div>
+            <div className="px-2 py-1.5 bg-blue-50/50 rounded text-[10px] text-blue-600 leading-relaxed"
+              dangerouslySetInnerHTML={{
+                __html: t("superadmin.billing.variable_tip"),
+              }}
+            />
           </div>
         )}
       </div>
@@ -392,7 +375,7 @@ function VariableSidebar({ variables, variablesGrouped, conditionals, onInsert, 
    Edit Template Modal (Enhanced)
    ──────────────────────────────────────────── */
 
-function EditModal({ template, onClose, onSave, saving }) {
+function EditModal({ template, onClose, onSave, saving, t }) {
   const [subject, setSubject] = useState("");
   const [bodyHtml, setBodyHtml] = useState("");
   const [bodyText, setBodyText] = useState("");
@@ -401,19 +384,16 @@ function EditModal({ template, onClose, onSave, saving }) {
   const [previewing, setPreviewing] = useState(false);
   const [previewSubject, setPreviewSubject] = useState(null);
 
-  // Variables from backend
   const [variables, setVariables] = useState([]);
   const [variablesGrouped, setVariablesGrouped] = useState({});
   const [conditionals, setConditionals] = useState([]);
   const [varsLoading, setVarsLoading] = useState(false);
 
-  // Track which field is active for variable insertion
   const [activeField, setActiveField] = useState("bodyHtml");
   const subjectRef = useRef(null);
   const bodyHtmlRef = useRef(null);
   const bodyTextRef = useRef(null);
 
-  // Load template data
   useEffect(() => {
     if (template) {
       setSubject(template.subject || "");
@@ -423,7 +403,6 @@ function EditModal({ template, onClose, onSave, saving }) {
       setPreviewHtml(null);
       setPreviewSubject(null);
 
-      // Load variables from API
       if (template.variables) {
         setVariables(template.variables);
         setVariablesGrouped(template.variables_grouped || {});
@@ -451,7 +430,6 @@ function EditModal({ template, onClose, onSave, saving }) {
     }
   }
 
-  // Insert variable at cursor position in the active field
   function insertVariable(key) {
     const tag = `{{ ${key} }}`;
     const fieldMap = {
@@ -471,14 +449,12 @@ function EditModal({ template, onClose, onSave, saving }) {
       const newValue = before + tag + after;
       field.setter(newValue);
 
-      // Restore cursor position after React re-render
       requestAnimationFrame(() => {
         el.focus();
         const newPos = start + tag.length;
         el.setSelectionRange(newPos, newPos);
       });
     } else {
-      // Fallback: append
       field.setter(field.value + tag);
     }
   }
@@ -490,7 +466,7 @@ function EditModal({ template, onClose, onSave, saving }) {
       setPreviewHtml(data.body_html);
       setPreviewSubject(data.subject);
     } catch {
-      setPreviewHtml("<p style='color:red'>Preview failed</p>");
+      setPreviewHtml("<p style='color:red'>" + t("superadmin.billing.preview_failed") + "</p>");
     } finally {
       setPreviewing(false);
     }
@@ -515,16 +491,16 @@ function EditModal({ template, onClose, onSave, saving }) {
         <div className="flex items-center justify-between px-5 py-4 border-b border-gray-200 shrink-0">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
-              Edit Template
+              {t("superadmin.billing.edit_template_title")}
             </h3>
             <div className="flex items-center gap-2 mt-1">
-              <CategoryBadge eventCode={template.event_code} />
+              <CategoryBadge eventCode={template.event_code} t={t} />
               <code className="text-xs text-gray-400 bg-gray-50 px-1.5 py-0.5 rounded">
                 {template.event_code}
               </code>
               {variables.length > 0 && (
                 <span className="text-[10px] text-gray-400">
-                  · {variables.length} variable{variables.length !== 1 ? "s" : ""}
+                  · {t("superadmin.billing.variable_count_label", { count: variables.length })}
                 </span>
               )}
             </div>
@@ -542,7 +518,7 @@ function EditModal({ template, onClose, onSave, saving }) {
 
             {/* Active toggle */}
             <div className="flex items-center justify-between">
-              <span className="text-sm font-medium text-gray-700">Template Active</span>
+              <span className="text-sm font-medium text-gray-700">{t("superadmin.billing.template_active_label")}</span>
               <button
                 onClick={() => setIsActive(!isActive)}
                 className={`relative inline-flex h-6 w-11 items-center rounded-full transition-colors ${
@@ -558,7 +534,7 @@ function EditModal({ template, onClose, onSave, saving }) {
             {/* Subject */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Subject Line
+                {t("superadmin.billing.subject_line_label")}
               </label>
               <input
                 ref={subjectRef}
@@ -568,7 +544,7 @@ function EditModal({ template, onClose, onSave, saving }) {
                 className={`w-full rounded-lg border px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800020]/30 focus:border-[#800020] transition-colors ${
                   activeField === "subject" ? "border-[#800020]/40 bg-[#800020]/[0.01]" : "border-gray-300"
                 }`}
-                placeholder="Email subject with {{ variables }}"
+                placeholder={t("superadmin.billing.subject_placeholder")}
               />
             </div>
 
@@ -576,7 +552,7 @@ function EditModal({ template, onClose, onSave, saving }) {
             <div>
               <div className="flex items-center justify-between mb-1">
                 <label className="block text-sm font-medium text-gray-700">
-                  HTML Body
+                  {t("superadmin.billing.html_body_label")}
                 </label>
                 <span className="text-[10px] text-gray-400 flex items-center gap-1">
                   <Code className="w-3 h-3" /> HTML + {"{{ variables }}"}
@@ -598,8 +574,8 @@ function EditModal({ template, onClose, onSave, saving }) {
             {/* Plaintext Body */}
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-1">
-                Plaintext Fallback
-                <span className="text-gray-400 font-normal ml-1">(optional)</span>
+                {t("superadmin.billing.plaintext_label")}
+                <span className="text-gray-400 font-normal ml-1">({t("common.optional")})</span>
               </label>
               <textarea
                 ref={bodyTextRef}
@@ -622,7 +598,7 @@ function EditModal({ template, onClose, onSave, saving }) {
                 className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 disabled:opacity-50"
               >
                 {previewing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Eye className="w-4 h-4" />}
-                Preview with Sample Data
+                {t("superadmin.billing.preview_with_sample")}
               </button>
 
               {previewHtml && (
@@ -630,11 +606,11 @@ function EditModal({ template, onClose, onSave, saving }) {
                   <div className="bg-gray-50 px-3 py-2 border-b border-gray-200">
                     <div className="flex items-center gap-2">
                       <Eye className="w-3.5 h-3.5 text-gray-400" />
-                      <span className="text-xs font-medium text-gray-500">Preview</span>
+                      <span className="text-xs font-medium text-gray-500">{t("superadmin.billing.preview_label")}</span>
                     </div>
                     {previewSubject && (
                       <p className="text-xs text-gray-700 mt-1 font-medium">
-                        Subject: {previewSubject}
+                        {t("superadmin.billing.preview_subject_prefix")}: {previewSubject}
                       </p>
                     )}
                   </div>
@@ -660,6 +636,7 @@ function EditModal({ template, onClose, onSave, saving }) {
                 conditionals={conditionals}
                 onInsert={insertVariable}
                 activeField={activeField}
+                t={t}
               />
             )}
           </div>
@@ -672,7 +649,7 @@ function EditModal({ template, onClose, onSave, saving }) {
             disabled={saving}
             className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50"
           >
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={handleSave}
@@ -681,7 +658,7 @@ function EditModal({ template, onClose, onSave, saving }) {
             style={{ backgroundColor: MAROON }}
           >
             {saving && <Loader2 className="w-4 h-4 animate-spin" />}
-            Save Template
+            {t("superadmin.billing.save_template")}
           </button>
         </div>
       </div>
@@ -693,8 +670,17 @@ function EditModal({ template, onClose, onSave, saving }) {
    Log Detail Modal
    ──────────────────────────────────────────── */
 
-function LogDetailModal({ log, onClose }) {
+function LogDetailModal({ log, onClose, t }) {
   if (!log) return null;
+
+  const LOG_STATUS = {
+    queued:    { bg: "bg-amber-50",   text: "text-amber-700",   dot: "bg-amber-500",   icon: Clock },
+    sent:      { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500", icon: CheckCircle },
+    delivered: { bg: "bg-blue-50",    text: "text-blue-700",    dot: "bg-blue-500",    icon: CheckCircle },
+    failed:    { bg: "bg-red-50",     text: "text-red-700",     dot: "bg-red-500",     icon: XCircle },
+    bounced:   { bg: "bg-gray-100",   text: "text-gray-600",    dot: "bg-gray-400",    icon: XCircle },
+  };
+
   const s = LOG_STATUS[log.status] || LOG_STATUS.queued;
   const StatusIcon = s.icon || Clock;
 
@@ -702,7 +688,7 @@ function LogDetailModal({ log, onClose }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between p-5 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Delivery Details</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{t("superadmin.billing.delivery_details_title")}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100">
             <X className="w-5 h-5 text-gray-500" />
           </button>
@@ -719,12 +705,12 @@ function LogDetailModal({ log, onClose }) {
           </div>
           <hr className="border-gray-100" />
           {[
-            ["Event", log.event_code],
-            ["Recipient", log.recipient_email],
-            ["Subject", log.subject],
-            ["Channel", log.channel],
-            ["Sent At", formatDate(log.sent_at)],
-            ["Queued At", formatDate(log.created_at)],
+            [t("superadmin.billing.detail_event"), log.event_code],
+            [t("superadmin.billing.detail_recipient"), log.recipient_email],
+            [t("superadmin.billing.detail_subject"), log.subject],
+            [t("superadmin.billing.detail_channel"), log.channel],
+            [t("superadmin.billing.detail_sent_at"), formatDate(log.sent_at)],
+            [t("superadmin.billing.detail_queued_at"), formatDate(log.created_at)],
           ].map(([label, value]) => (
             <div key={label} className="flex justify-between text-sm">
               <span className="text-gray-500">{label}</span>
@@ -733,7 +719,7 @@ function LogDetailModal({ log, onClose }) {
           ))}
           {log.error_message && (
             <div className="mt-2 p-3 bg-red-50 rounded-lg">
-              <p className="text-xs font-medium text-red-700 mb-1">Error</p>
+              <p className="text-xs font-medium text-red-700 mb-1">{t("superadmin.billing.detail_error")}</p>
               <p className="text-xs text-red-600 break-words">{log.error_message}</p>
             </div>
           )}
@@ -749,6 +735,8 @@ function LogDetailModal({ log, onClose }) {
 
 export default function NotificationsPage() {
   const router = useRouter();
+  const { t } = useTranslation();
+
   const [tab, setTab] = useState("templates");
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -783,11 +771,11 @@ export default function NotificationsPage() {
       const data = await fetchEmailTemplates();
       setTemplates(Array.isArray(data) ? data : data?.results || []);
     } catch (err) {
-      setError(err.message || "Failed to load templates");
+      setError(err.message || t("superadmin.billing.toast_load_error"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   const loadLogs = useCallback(async () => {
     try {
@@ -811,14 +799,13 @@ export default function NotificationsPage() {
   /* ── When clicking Edit, fetch full template detail with variables ── */
   async function openEditor(tpl) {
     try {
-     const res = await fetch(
+      const res = await fetch(
         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/notifications/templates/${tpl.event_code}/`
       );
       if (!res.ok) throw new Error();
       const full = await res.json();
       setEditingTemplate(full);
     } catch {
-      // Fallback: open without variables
       setEditingTemplate(tpl);
     }
   }
@@ -829,11 +816,11 @@ export default function NotificationsPage() {
     try {
       setSaving(true);
       await updateEmailTemplate(editingTemplate.event_code, data);
-      showToast("Template updated");
+      showToast(t("superadmin.billing.toast_template_updated"));
       setEditingTemplate(null);
       loadTemplates();
     } catch (err) {
-      showToast(err.message || "Failed to save", "error");
+      showToast(err.message || t("superadmin.billing.toast_save_error"), "error");
     } finally {
       setSaving(false);
     }
@@ -842,24 +829,27 @@ export default function NotificationsPage() {
   async function handleToggleActive(tpl) {
     try {
       await updateEmailTemplate(tpl.event_code, { is_active: !tpl.is_active });
-      showToast(`"${humanizeEventCode(tpl.event_code)}" ${!tpl.is_active ? "enabled" : "disabled"}`);
+      showToast(t("superadmin.billing.toast_template_toggled", {
+        name: humanizeEventCode(tpl.event_code),
+        status: !tpl.is_active ? t("superadmin.billing.enabled") : t("superadmin.billing.disabled"),
+      }));
       loadTemplates();
     } catch (err) {
-      showToast(err.message || "Failed to toggle", "error");
+      showToast(err.message || t("superadmin.billing.toast_toggle_error"), "error");
     }
   }
 
   /* ── Filter ────────────────────────────── */
-  const filteredTemplates = templates.filter((t) => {
+  const filteredTemplates = templates.filter((tpl) => {
     if (templateCategory !== "all") {
-      const cat = (t.event_code || "").split("_")[0];
+      const cat = (tpl.event_code || "").split("_")[0];
       if (cat !== templateCategory) return false;
     }
     if (templateSearch) {
       const q = templateSearch.toLowerCase();
       if (
-        !(t.event_code || "").toLowerCase().includes(q) &&
-        !(t.subject || "").toLowerCase().includes(q)
+        !(tpl.event_code || "").toLowerCase().includes(q) &&
+        !(tpl.subject || "").toLowerCase().includes(q)
       ) return false;
     }
     return true;
@@ -874,7 +864,7 @@ export default function NotificationsPage() {
       <SuperAdminLayout>
         <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
           <Loader2 className="w-8 h-8 animate-spin" style={{ color: MAROON }} />
-          <p className="text-gray-500 text-sm">Loading notification settings...</p>
+          <p className="text-gray-500 text-sm">{t("superadmin.billing.loading_notifications")}</p>
         </div>
       </SuperAdminLayout>
     );
@@ -889,7 +879,7 @@ export default function NotificationsPage() {
           </div>
           <p className="text-gray-700 font-medium">{error}</p>
           <button onClick={loadTemplates} className="px-4 py-2 text-sm font-medium text-white rounded-lg" style={{ backgroundColor: MAROON }}>
-            Retry
+            {t("superadmin.billing.retry")}
           </button>
         </div>
       </SuperAdminLayout>
@@ -898,9 +888,9 @@ export default function NotificationsPage() {
 
   return (
     <SuperAdminLayout
-      title="Notifications"
-      description="Manage email templates and delivery logs"
-      breadcrumbs={[{ label: "Notifications" }]}
+      title={t("superadmin.billing.notifications_title")}
+      description={t("superadmin.billing.notifications_desc")}
+      breadcrumbs={[{ label: t("superadmin.billing.notifications_title") }]}
     >
       <div className="space-y-6">
         {toast && (
@@ -912,19 +902,19 @@ export default function NotificationsPage() {
 
         {/* Header */}
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Email Notifications</h1>
+          <h1 className="text-2xl font-bold text-gray-900">{t("superadmin.billing.email_notifications_title")}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {templates.length} templates · {activeCount} active
+            {t("superadmin.billing.templates_summary", { total: templates.length, active: activeCount })}
           </p>
         </div>
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
           {[
-            { icon: FileText, label: "Templates", value: templates.length, color: "from-blue-500 to-blue-600" },
-            { icon: CheckCircle, label: "Active", value: activeCount, color: "from-emerald-500 to-emerald-600" },
-            { icon: Send, label: "Sent", value: logs.filter((l) => l.status === "sent" || l.status === "delivered").length, color: "from-purple-500 to-purple-600" },
-            { icon: XCircle, label: "Failed", value: logs.filter((l) => l.status === "failed").length, color: "from-red-500 to-red-600" },
+            { icon: FileText, label: t("superadmin.billing.stat_templates"), value: templates.length, color: "from-blue-500 to-blue-600" },
+            { icon: CheckCircle, label: t("superadmin.billing.stat_active_templates"), value: activeCount, color: "from-emerald-500 to-emerald-600" },
+            { icon: Send, label: t("superadmin.billing.stat_sent"), value: logs.filter((l) => l.status === "sent" || l.status === "delivered").length, color: "from-purple-500 to-purple-600" },
+            { icon: XCircle, label: t("superadmin.billing.stat_failed"), value: logs.filter((l) => l.status === "failed").length, color: "from-red-500 to-red-600" },
           ].map((s) => (
             <div key={s.label} className="bg-white rounded-xl border border-gray-200 p-5 hover:shadow-md transition-shadow">
               <div className={`w-10 h-10 rounded-lg bg-gradient-to-br ${s.color} flex items-center justify-center mb-3`}>
@@ -939,8 +929,8 @@ export default function NotificationsPage() {
         {/* Tabs */}
         <div className="border-b border-gray-200">
           <div className="flex gap-0">
-            <TabButton active={tab === "templates"} onClick={() => setTab("templates")} icon={FileText} label="Templates" count={templates.length} />
-            <TabButton active={tab === "logs"} onClick={() => setTab("logs")} icon={Activity} label="Delivery Logs" />
+            <TabButton active={tab === "templates"} onClick={() => setTab("templates")} icon={FileText} label={t("superadmin.billing.tab_templates")} count={templates.length} />
+            <TabButton active={tab === "logs"} onClick={() => setTab("logs")} icon={Activity} label={t("superadmin.billing.tab_logs")} />
           </div>
         </div>
 
@@ -955,7 +945,7 @@ export default function NotificationsPage() {
                     type="text"
                     value={templateSearch}
                     onChange={(e) => setTemplateSearch(e.target.value)}
-                    placeholder="Search templates..."
+                    placeholder={t("superadmin.billing.search_templates_placeholder")}
                     className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800020]/30 focus:border-[#800020]"
                   />
                 </div>
@@ -964,9 +954,11 @@ export default function NotificationsPage() {
                   onChange={(e) => setTemplateCategory(e.target.value)}
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#800020]/30"
                 >
-                  <option value="all">All Categories</option>
+                  <option value="all">{t("superadmin.billing.filter_all_categories")}</option>
                   {uniqueCategories.map((cat) => (
-                    <option key={cat} value={cat}>{CATEGORY_MAP[cat]?.label || cat}</option>
+                    <option key={cat} value={cat}>
+                      <CategoryBadge eventCode={cat + "_"} t={t} />
+                    </option>
                   ))}
                 </select>
               </div>
@@ -978,8 +970,8 @@ export default function NotificationsPage() {
                   <Inbox className="w-10 h-10 text-gray-300 mx-auto mb-3" />
                   <p className="text-gray-500 text-sm">
                     {templates.length === 0
-                      ? "No templates found. Run: python manage.py seed_email_templates"
-                      : "No templates match your filters"
+                      ? t("superadmin.billing.no_templates_seed")
+                      : t("superadmin.billing.no_templates_filter")
                     }
                   </p>
                 </div>
@@ -988,13 +980,13 @@ export default function NotificationsPage() {
                   <table className="w-full">
                     <thead>
                       <tr className="bg-gray-50 text-left">
-                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
-                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
-                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Category</th>
-                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Vars</th>
-                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Updated</th>
-                        <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_event")}</th>
+                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_subject")}</th>
+                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_category")}</th>
+                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_vars")}</th>
+                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_status")}</th>
+                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_updated")}</th>
+                        <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_actions")}</th>
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-gray-100">
@@ -1009,7 +1001,7 @@ export default function NotificationsPage() {
                             <div className="text-sm text-gray-900 max-w-xs truncate">{tpl.subject}</div>
                           </td>
                           <td className="px-5 py-3.5">
-                            <CategoryBadge eventCode={tpl.event_code} />
+                            <CategoryBadge eventCode={tpl.event_code} t={t} />
                           </td>
                           <td className="px-5 py-3.5">
                             <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-medium bg-gray-50 text-gray-600">
@@ -1027,8 +1019,8 @@ export default function NotificationsPage() {
                               }`}
                             >
                               {tpl.is_active
-                                ? <><ToggleRight className="w-3.5 h-3.5" /> Active</>
-                                : <><ToggleLeft className="w-3.5 h-3.5" /> Disabled</>
+                                ? <><ToggleRight className="w-3.5 h-3.5" /> {t("superadmin.billing.status_active")}</>
+                                : <><ToggleLeft className="w-3.5 h-3.5" /> {t("superadmin.billing.status_disabled")}</>
                               }
                             </button>
                           </td>
@@ -1038,7 +1030,7 @@ export default function NotificationsPage() {
                               onClick={() => openEditor(tpl)}
                               className="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 transition-colors"
                             >
-                              <Edit className="w-3.5 h-3.5" /> Edit
+                              <Edit className="w-3.5 h-3.5" /> {t("superadmin.billing.edit")}
                             </button>
                           </td>
                         </tr>
@@ -1049,7 +1041,7 @@ export default function NotificationsPage() {
               )}
               {filteredTemplates.length > 0 && (
                 <div className="px-5 py-3 border-t border-gray-100 text-xs text-gray-500">
-                  Showing {filteredTemplates.length} of {templates.length} template{templates.length !== 1 ? "s" : ""}
+                  {t("superadmin.billing.showing_templates", { filtered: filteredTemplates.length, total: templates.length, plural: templates.length !== 1 ? "s" : "" })}
                 </div>
               )}
             </div>
@@ -1067,21 +1059,21 @@ export default function NotificationsPage() {
                     type="text"
                     value={logSearch}
                     onChange={(e) => setLogSearch(e.target.value)}
-                    placeholder="Search by email..."
+                    placeholder={t("superadmin.billing.search_logs_placeholder")}
                     className="w-full rounded-lg border border-gray-300 pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800020]/30 focus:border-[#800020]"
                   />
                 </div>
                 <select value={logStatus} onChange={(e) => setLogStatus(e.target.value)}
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#800020]/30">
-                  <option value="all">All Statuses</option>
-                  <option value="sent">Sent</option>
-                  <option value="delivered">Delivered</option>
-                  <option value="failed">Failed</option>
-                  <option value="queued">Queued</option>
+                  <option value="all">{t("superadmin.billing.filter_all_statuses")}</option>
+                  <option value="sent">{t("superadmin.billing.log_status_sent")}</option>
+                  <option value="delivered">{t("superadmin.billing.log_status_delivered")}</option>
+                  <option value="failed">{t("superadmin.billing.log_status_failed")}</option>
+                  <option value="queued">{t("superadmin.billing.log_status_queued")}</option>
                 </select>
                 <button onClick={loadLogs}
                   className="inline-flex items-center gap-2 px-3 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-                  <RefreshCw className={`w-4 h-4 ${logsLoading ? "animate-spin" : ""}`} /> Refresh
+                  <RefreshCw className={`w-4 h-4 ${logsLoading ? "animate-spin" : ""}`} /> {t("superadmin.billing.refresh")}
                 </button>
               </div>
             </div>
@@ -1094,18 +1086,18 @@ export default function NotificationsPage() {
               ) : logs.length === 0 ? (
                 <div className="text-center py-16">
                   <Activity className="w-10 h-10 text-gray-300 mx-auto mb-3" />
-                  <p className="text-gray-500 text-sm">No delivery logs yet</p>
+                  <p className="text-gray-500 text-sm">{t("superadmin.billing.no_logs_yet")}</p>
                 </div>
               ) : (
                 <div className="overflow-x-auto">
                   <table className="w-full">
                     <thead>
                       <tr className="bg-gray-50 text-left">
-                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Event</th>
-                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Recipient</th>
-                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Subject</th>
-                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Time</th>
+                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_event")}</th>
+                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_recipient")}</th>
+                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_subject")}</th>
+                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_status")}</th>
+                        <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_time")}</th>
                         <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider" />
                       </tr>
                     </thead>
@@ -1113,15 +1105,15 @@ export default function NotificationsPage() {
                       {logs.map((log) => (
                         <tr key={log.id} className="hover:bg-gray-50/60 transition-colors">
                           <td className="px-5 py-3.5">
-                            <CategoryBadge eventCode={log.event_code} />
+                            <CategoryBadge eventCode={log.event_code} t={t} />
                           </td>
                           <td className="px-5 py-3.5 text-sm text-gray-900">{log.recipient_email}</td>
                           <td className="px-5 py-3.5 text-sm text-gray-700 max-w-xs truncate">{log.subject}</td>
-                          <td className="px-5 py-3.5"><StatusBadge status={log.status} /></td>
+                          <td className="px-5 py-3.5"><StatusBadge status={log.status} t={t} /></td>
                           <td className="px-5 py-3.5 text-xs text-gray-500">{formatDateShort(log.sent_at || log.created_at)}</td>
                           <td className="px-5 py-3.5 text-right">
                             <button onClick={() => setViewingLog(log)} className="text-xs font-medium hover:underline" style={{ color: MAROON }}>
-                              Details
+                              {t("superadmin.billing.details")}
                             </button>
                           </td>
                         </tr>
@@ -1140,10 +1132,11 @@ export default function NotificationsPage() {
             saving={saving}
             onClose={() => setEditingTemplate(null)}
             onSave={handleSaveTemplate}
+            t={t}
           />
         )}
         {viewingLog && (
-          <LogDetailModal log={viewingLog} onClose={() => setViewingLog(null)} />
+          <LogDetailModal log={viewingLog} onClose={() => setViewingLog(null)} t={t} />
         )}
       </div>
     </SuperAdminLayout>

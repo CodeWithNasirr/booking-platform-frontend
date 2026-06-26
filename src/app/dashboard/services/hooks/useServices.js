@@ -129,6 +129,7 @@ export function useServices() {
           category: s.category_name?.en || s.category?.name?.en || "Uncategorized",
           category_id: s.category?.id || s.category || "",
           price: s.base_price,
+          currency : s.currency,
           duration: s.duration_minutes || 0,
           description: s.description?.en || s.short_description?.en || "",
           isActive: s.is_active,

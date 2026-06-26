@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
+import { useTranslation } from "@/lib/t";
 import {
   Plus,
   Edit,
@@ -178,27 +179,23 @@ function DropdownMenu({ items, trigger }) {
    ──────────────────────────────────────────── */
 
 function SubscribersModal({ plan, onClose }) {
+  const { t } = useTranslation();
   const [data, setData] = useState(null);
-  console.log(data,"SubscribersModal")
   const [loading, setLoading] = useState(true);
   const router = useRouter();
 
   useEffect(() => {
-  if (!plan) return;
+    if (!plan) return;
 
-  setLoading(true);
-  setData(null);
+    setLoading(true);
+    setData(null);
 
-  fetchPlanSubscribers(plan.id)
+    fetchPlanSubscribers(plan.id)
       .then((res) => {
         const subscribers = (Array.isArray(res) ? res : []).map((s) => ({
           ...s,
-
-          // normalize backend fields → UI fields
           tenant_status: s.status,
           subscription_status: s.status,
-
-          // optional fallback
           currency: s.currency || "SAR",
         }));
 
@@ -218,6 +215,13 @@ function SubscribersModal({ plan, onClose }) {
 
   if (!plan) return null;
 
+  const subscriberStatusMap = {
+    active: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
+    trialing: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
+    past_due: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
+    cancelled: { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400" },
+  };
+
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[80vh] flex flex-col">
@@ -225,10 +229,10 @@ function SubscribersModal({ plan, onClose }) {
         <div className="flex items-center justify-between p-5 border-b border-gray-200 shrink-0">
           <div>
             <h3 className="text-lg font-semibold text-gray-900">
-              {plan.name} — Subscribers
+              {t("superadmin.billing.subscribers_modal_title", { name: plan.name })}
             </h3>
             <p className="text-sm text-gray-500 mt-0.5">
-              {data?.count ?? "..."} active subscriptions
+              {t("superadmin.billing.subscribers_modal_desc", { count: data?.count ?? "..." })}
             </p>
           </div>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100">
@@ -244,16 +248,16 @@ function SubscribersModal({ plan, onClose }) {
             </div>
           ) : !data?.subscribers?.length ? (
             <div className="text-center py-16 text-gray-400 text-sm">
-              No subscribers on this plan.
+              {t("superadmin.billing.no_subscribers")}
             </div>
           ) : (
             <table className="w-full">
               <thead className="sticky top-0 bg-gray-50">
                 <tr>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Tenant</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Price</th>
-                  <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">Start</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t("superadmin.billing.subscriber_column_tenant")}</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t("superadmin.billing.subscriber_column_status")}</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t("superadmin.billing.subscriber_column_price")}</th>
+                  <th className="px-5 py-3 text-left text-xs font-medium text-gray-500 uppercase">{t("superadmin.billing.subscriber_column_start")}</th>
                   <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase"></th>
                 </tr>
               </thead>
@@ -265,15 +269,7 @@ function SubscribersModal({ plan, onClose }) {
                       <div className="text-xs text-gray-400 capitalize">{s.tenant_status}</div>
                     </td>
                     <td className="px-5 py-3.5">
-                      <StatusBadge
-                        status={s.subscription_status}
-                        map={{
-                          active: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500" },
-                          trialing: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500" },
-                          past_due: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500" },
-                          cancelled: { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400" },
-                        }}
-                      />
+                      <StatusBadge status={s.subscription_status} map={subscriberStatusMap} />
                     </td>
                     <td className="px-5 py-3.5 text-sm text-gray-700">
                       {formatCurrency(s.price, s.currency)}
@@ -290,7 +286,7 @@ function SubscribersModal({ plan, onClose }) {
                         className="text-xs font-medium hover:underline"
                         style={{ color: MAROON }}
                       >
-                        View
+                        {t("superadmin.billing.subscriber_view")}
                       </button>
                     </td>
                   </tr>
@@ -309,33 +305,40 @@ function SubscribersModal({ plan, onClose }) {
    ──────────────────────────────────────────── */
 
 function DeleteModal({ plan, onClose, onConfirm, loading }) {
+  const { t } = useTranslation();
   if (!plan) return null;
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between p-5 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Archive Plan</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{t("superadmin.billing.delete_modal_title")}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
         <div className="p-5">
-          <p className="text-sm text-gray-600">
-            Are you sure you want to archive <strong>{plan.name}</strong>?
-            This will hide the plan from new subscriptions. Existing subscribers will not be affected.
-          </p>
+          <p className="text-sm text-gray-600"
+            dangerouslySetInnerHTML={{
+              __html: t("superadmin.billing.delete_modal_desc", { name: plan.name }),
+            }}
+          />
           {(plan.subscriber_count > 0) && (
             <div className="mt-3 flex items-start gap-2 p-3 bg-amber-50 rounded-lg">
               <AlertCircle className="w-4 h-4 text-amber-600 mt-0.5 shrink-0" />
-              <p className="text-xs text-amber-700">
-                This plan has <strong>{plan.subscriber_count}</strong> active subscriber{plan.subscriber_count !== 1 ? "s" : ""}. They will remain on this plan until they change.
-              </p>
+              <p className="text-xs text-amber-700"
+                dangerouslySetInnerHTML={{
+                  __html: t("superadmin.billing.delete_modal_warning", {
+                    count: plan.subscriber_count,
+                    plural: plan.subscriber_count !== 1 ? "s" : "",
+                  }),
+                }}
+              />
             </div>
           )}
         </div>
         <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-200">
           <button onClick={onClose} disabled={loading} className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-            Cancel
+            {t("common.cancel")}
           </button>
           <button
             onClick={onConfirm}
@@ -343,7 +346,7 @@ function DeleteModal({ plan, onClose, onConfirm, loading }) {
             className="px-4 py-2 text-sm font-medium text-white bg-red-600 rounded-lg hover:bg-red-700 disabled:opacity-50 flex items-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            Archive Plan
+            {t("superadmin.billing.delete_modal_archive")}
           </button>
         </div>
       </div>
@@ -356,6 +359,7 @@ function DeleteModal({ plan, onClose, onConfirm, loading }) {
    ──────────────────────────────────────────── */
 
 function ReviewModal({ change, onClose, onReview, loading }) {
+  const { t } = useTranslation();
   const [notes, setNotes] = useState("");
   if (!change) return null;
 
@@ -363,24 +367,24 @@ function ReviewModal({ change, onClose, onReview, loading }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
       <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
         <div className="flex items-center justify-between p-5 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Review Plan Change</h3>
+          <h3 className="text-lg font-semibold text-gray-900">{t("superadmin.billing.review_modal_title")}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100">
             <X className="w-5 h-5 text-gray-500" />
           </button>
         </div>
         <div className="p-5 space-y-3">
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Tenant</span>
+            <span className="text-gray-500">{t("superadmin.billing.review_modal_tenant")}</span>
             <span className="text-gray-900 font-medium">{change.tenant_name}</span>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Change</span>
+            <span className="text-gray-500">{t("superadmin.billing.review_modal_change")}</span>
             <span className="text-gray-900">
               {change.from_plan_name || "—"} → {change.to_plan_name || "—"}
             </span>
           </div>
           <div className="flex items-center justify-between text-sm">
-            <span className="text-gray-500">Type</span>
+            <span className="text-gray-500">{t("superadmin.billing.review_modal_type")}</span>
             <span className={`inline-flex items-center gap-1 text-xs font-medium capitalize ${
               change.change_type === "upgrade" ? "text-emerald-600" : "text-amber-600"
             }`}>
@@ -392,17 +396,17 @@ function ReviewModal({ change, onClose, onReview, loading }) {
           </div>
           {change.reason && (
             <div className="text-sm">
-              <span className="text-gray-500 block mb-1">Reason</span>
+              <span className="text-gray-500 block mb-1">{t("superadmin.billing.review_modal_reason")}</span>
               <p className="text-gray-700 bg-gray-50 rounded-lg p-2.5 text-xs">{change.reason}</p>
             </div>
           )}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">Review Notes</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1">{t("superadmin.billing.review_modal_notes_label")}</label>
             <textarea
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={2}
-              placeholder="Optional notes..."
+              placeholder={t("superadmin.billing.review_modal_notes_placeholder")}
               className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#800020]/30 focus:border-[#800020]"
             />
           </div>
@@ -414,7 +418,7 @@ function ReviewModal({ change, onClose, onReview, loading }) {
             className="px-4 py-2 text-sm font-medium text-red-600 bg-white border border-red-200 rounded-lg hover:bg-red-50 disabled:opacity-50 flex items-center gap-2"
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            Reject
+            {t("superadmin.billing.review_modal_reject")}
           </button>
           <button
             onClick={() => onReview("approve", notes)}
@@ -423,7 +427,7 @@ function ReviewModal({ change, onClose, onReview, loading }) {
             style={{ backgroundColor: MAROON }}
           >
             {loading && <Loader2 className="w-4 h-4 animate-spin" />}
-            Approve
+            {t("superadmin.billing.review_modal_approve")}
           </button>
         </div>
       </div>
@@ -437,6 +441,7 @@ function ReviewModal({ change, onClose, onReview, loading }) {
 
 export default function BillingPlansPage() {
   const router = useRouter();
+  const { t, isRTL } = useTranslation();
 
   /* ── State ─────────────────────────────── */
   const [stats, setStats] = useState(null);
@@ -479,11 +484,11 @@ export default function BillingPlansPage() {
       setPlans(Array.isArray(plansData) ? plansData : plansData?.results || []);
       setChanges(Array.isArray(changesData) ? changesData : changesData?.results || []);
     } catch (err) {
-      setError(err.message || "Failed to load billing data");
+      setError(err.message || t("superadmin.billing.toast_load_error"));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   useEffect(() => { loadData(); }, [loadData]);
 
@@ -512,10 +517,10 @@ export default function BillingPlansPage() {
     try {
       setActionLoading(true);
       const res = await togglePlanStatus(plan.id);
-      showToast(`"${plan.name}" is now ${res.status}.`);
+      showToast(t("superadmin.billing.toast_status_toggled", { name: plan.name, status: res.status }));
       loadData();
     } catch (err) {
-      showToast(err.message || "Failed to toggle status", "error");
+      showToast(err.message || t("superadmin.billing.toast_toggle_error"), "error");
     } finally {
       setActionLoading(false);
     }
@@ -526,11 +531,11 @@ export default function BillingPlansPage() {
     try {
       setActionLoading(true);
       await deletePlan(deletingPlan.id);
-      showToast(`"${deletingPlan.name}" has been archived.`);
+      showToast(t("superadmin.billing.toast_archived", { name: deletingPlan.name }));
       setDeletingPlan(null);
       loadData();
     } catch (err) {
-      showToast(err.message || "Failed to archive plan", "error");
+      showToast(err.message || t("superadmin.billing.toast_archive_error"), "error");
     } finally {
       setActionLoading(false);
     }
@@ -541,11 +546,11 @@ export default function BillingPlansPage() {
     try {
       setActionLoading(true);
       await reviewPlanChange(reviewingChange.id, action, notes);
-      showToast(`Plan change ${action}d.`);
+      showToast(t("superadmin.billing.toast_reviewed", { action }));
       setReviewingChange(null);
       loadData();
     } catch (err) {
-      showToast(err.message || "Failed to review", "error");
+      showToast(err.message || t("superadmin.billing.toast_review_error"), "error");
     } finally {
       setActionLoading(false);
     }
@@ -556,7 +561,7 @@ export default function BillingPlansPage() {
     return (
       <div className="min-h-[60vh] flex flex-col items-center justify-center gap-3">
         <Loader2 className="w-8 h-8 animate-spin" style={{ color: MAROON }} />
-        <p className="text-gray-500 text-sm">Loading billing data...</p>
+        <p className="text-gray-500 text-sm">{t("superadmin.billing.loading")}</p>
       </div>
     );
   }
@@ -569,7 +574,7 @@ export default function BillingPlansPage() {
         </div>
         <p className="text-gray-700 font-medium">{error}</p>
         <button onClick={loadData} className="px-4 py-2 text-sm font-medium text-white rounded-lg" style={{ backgroundColor: MAROON }}>
-          Retry
+          {t("superadmin.billing.retry")}
         </button>
       </div>
     );
@@ -584,9 +589,9 @@ export default function BillingPlansPage() {
   return (
     <div className="space-y-6">
     <SuperAdminLayout
-        title="Tenants"
-        description="Manage all tenant businesses on the platform"
-        breadcrumbs={[{ label: "Tenants" }]}
+        title={t("superadmin.billing.title")}
+        description={t("superadmin.billing.description")}
+        breadcrumbs={[{ label: t("superadmin.billing.title") }]}
       >
       {/* Toast */}
       {toast && (
@@ -599,8 +604,8 @@ export default function BillingPlansPage() {
       {/* ── Page Header ─────────────────────── */}
       <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">Billing & Plans</h1>
-          <p className="text-sm text-gray-500 mt-1">Manage subscription plans, pricing, and plan change requests</p>
+          <h1 className="text-2xl font-bold text-gray-900">{t("superadmin.billing.title")}</h1>
+          <p className="text-sm text-gray-500 mt-1">{t("superadmin.billing.description")}</p>
         </div>
         <button
           onClick={() => router.push("/superadmin/billing/plans/new")}
@@ -608,7 +613,7 @@ export default function BillingPlansPage() {
           style={{ backgroundColor: MAROON }}
         >
           <Plus className="w-4 h-4" />
-          Create Plan
+          {t("superadmin.billing.create_plan")}
         </button>
       </div>
 
@@ -616,32 +621,32 @@ export default function BillingPlansPage() {
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           icon={Package}
-          label="Active Plans"
+          label={t("superadmin.billing.stat_active_plans")}
           value={stats?.active_plans ?? activePlans.filter((p) => p.status === "active").length}
           color="from-blue-500 to-blue-600"
         />
         <StatCard
           icon={Users}
-          label="Active Subscriptions"
+          label={t("superadmin.billing.stat_active_subscriptions")}
           value={stats?.active_subscriptions != null ? stats.active_subscriptions.toLocaleString() : "—"}
           color="from-emerald-500 to-emerald-600"
         />
         <StatCard
           icon={DollarSign}
-          label="Monthly Revenue (MRR)"
+          label={t("superadmin.billing.stat_mrr")}
           value={stats?.monthly_revenue != null ? formatCurrency(stats.monthly_revenue) : "—"}
           color="from-purple-500 to-purple-600"
         />
         <StatCard
           icon={TrendingUp}
-          label="Growth Rate"
+          label={t("superadmin.billing.stat_growth_rate")}
           value={stats?.growth_rate ?? "—"}
           color="from-pink-500 to-pink-600"
         />
 
         <StatCard
           icon={Clock}
-          label="Pending Changes"
+          label={t("superadmin.billing.stat_pending_changes")}
           value={stats?.pending_changes ?? changes.length}
           color="from-amber-500 to-amber-600"
         />
@@ -650,7 +655,7 @@ export default function BillingPlansPage() {
       {/* ── Revenue by Plan ──────────────────── */}
       {stats?.revenue_by_plan?.length > 0 && (
         <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <h2 className="text-base font-semibold text-gray-900 mb-4">Revenue by Plan</h2>
+          <h2 className="text-base font-semibold text-gray-900 mb-4">{t("superadmin.billing.revenue_by_plan")}</h2>
           <div className="space-y-3">
             {stats.revenue_by_plan.map((rp) => {
               const maxRevenue = Math.max(...stats.revenue_by_plan.map((r) => Number(r.revenue) || 0), 1);
@@ -660,7 +665,11 @@ export default function BillingPlansPage() {
                   <div className="flex items-center justify-between text-sm">
                     <span className="text-gray-700 capitalize font-medium">{rp.plan_name || "Unknown"}</span>
                     <span className="text-gray-500">
-                      {rp.count} subscriber{rp.count !== 1 ? "s" : ""} · {formatCurrency(rp.revenue)}
+                      {t("superadmin.billing.revenue_subscribers", {
+                        count: rp.count,
+                        plural: rp.count !== 1 ? "s" : "",
+                        revenue: formatCurrency(rp.revenue),
+                      })}
                     </span>
                   </div>
                   <div className="h-2 bg-gray-100 rounded-full overflow-hidden">
@@ -679,8 +688,8 @@ export default function BillingPlansPage() {
       {/* ── Plans Header ─────────────────────── */}
       <div className="flex items-center justify-between">
         <h2 className="text-lg font-semibold text-gray-900">
-          Pricing Plans
-          <span className="ml-2 text-sm font-normal text-gray-500">({activePlans.length})</span>
+          {t("superadmin.billing.plans_header")}
+          <span className="ml-2 text-sm font-normal text-gray-500">{t("superadmin.billing.plans_count", { count: activePlans.length })}</span>
         </h2>
       </div>
 
@@ -688,13 +697,13 @@ export default function BillingPlansPage() {
       {activePlans.length === 0 ? (
         <div className="bg-white rounded-xl border border-gray-200 p-12 text-center">
           <Package className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-gray-500 mb-4">No plans created yet</p>
+          <p className="text-gray-500 mb-4">{t("superadmin.billing.no_plans")}</p>
           <button
             onClick={() => router.push("/superadmin/billing/plans/new")}
             className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg"
             style={{ backgroundColor: MAROON }}
           >
-            <Plus className="w-4 h-4" /> Create Your First Plan
+            <Plus className="w-4 h-4" /> {t("superadmin.billing.create_first_plan")}
           </button>
         </div>
       ) : (
@@ -715,7 +724,7 @@ export default function BillingPlansPage() {
                 {/* Popular badge */}
                 {plan.is_popular && (
                   <div className="absolute -top-3 left-1/2 -translate-x-1/2 px-3 py-1 rounded-full text-xs font-semibold text-white" style={{ backgroundColor: MAROON }}>
-                    Most Popular
+                    {t("superadmin.billing.most_popular")}
                   </div>
                 )}
 
@@ -741,23 +750,23 @@ export default function BillingPlansPage() {
                       items={[
                         {
                           icon: Edit,
-                          label: "Edit Plan",
+                          label: t("superadmin.billing.edit_plan"),
                           onClick: () => router.push(`/superadmin/billing/plans/${plan.id}/edit`),
                         },
                         {
                           icon: Users,
-                          label: "View Subscribers",
+                          label: t("superadmin.billing.view_subscribers"),
                           onClick: () => setSubscribersPlan(plan),
                         },
                         {
                           icon: plan.status === "active" ? ToggleLeft : ToggleRight,
-                          label: plan.status === "active" ? "Deactivate" : "Activate",
+                          label: plan.status === "active" ? t("superadmin.billing.deactivate") : t("superadmin.billing.activate"),
                           onClick: () => handleToggleStatus(plan),
                         },
                         { divider: true },
                         {
                           icon: Trash2,
-                          label: "Archive Plan",
+                          label: t("superadmin.billing.archive_plan"),
                           danger: true,
                           onClick: () => setDeletingPlan(plan),
                         },
@@ -771,23 +780,23 @@ export default function BillingPlansPage() {
                       <span className="text-3xl font-bold text-gray-900">
                         {formatCurrency(plan.price_monthly, plan.currency)}
                       </span>
-                      <span className="text-gray-500 text-sm">/month</span>
+                      <span className="text-gray-500 text-sm">{t("superadmin.billing.per_month")}</span>
                     </div>
                     {plan.price_yearly > 0 && (
                       <div className="flex items-center gap-2 mt-1">
                         <span className="text-sm text-gray-500">
-                          {formatCurrency(plan.price_yearly, plan.currency)}/year
+                          {formatCurrency(plan.price_yearly, plan.currency)}{t("superadmin.billing.per_year")}
                         </span>
                         {plan.yearly_discount_pct > 0 && (
                           <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-600">
-                            Save {plan.yearly_discount_pct}%
+                            {t("superadmin.billing.save_pct", { pct: plan.yearly_discount_pct })}
                           </span>
                         )}
                       </div>
                     )}
                     {plan.trial_days > 0 && (
                       <p className="text-xs text-amber-600 mt-1.5">
-                        {plan.trial_days}-day free trial
+                        {t("superadmin.billing.trial_days", { days: plan.trial_days })}
                       </p>
                     )}
                   </div>
@@ -796,11 +805,17 @@ export default function BillingPlansPage() {
                   <div className="flex items-center gap-4 text-sm text-gray-500 mb-4">
                     <span className="inline-flex items-center gap-1">
                       <Users className="w-3.5 h-3.5" />
-                      {plan.active_subscribers ?? 0} subscriber{(plan.active_subscribers ?? 0) !== 1 ? "s" : ""}
+                      {t("superadmin.billing.subscribers_count", {
+                        count: plan.active_subscribers ?? 0,
+                        plural: (plan.active_subscribers ?? 0) !== 1 ? "s" : "",
+                      })}
                     </span>
                     <span className="inline-flex items-center gap-1">
                       <Package className="w-3.5 h-3.5" />
-                      {plan.features_count ?? 0} feature{(plan.features_count ?? 0) !== 1 ? "s" : ""}
+                      {t("superadmin.billing.features_count", {
+                        count: plan.features_count ?? 0,
+                        plural: (plan.features_count ?? 0) !== 1 ? "s" : "",
+                      })}
                     </span>
                     <span className="capitalize text-xs px-2 py-0.5 rounded bg-gray-50 text-gray-600">
                       {plan.tier}
@@ -813,7 +828,7 @@ export default function BillingPlansPage() {
                     className="w-full flex items-center justify-between py-2 text-sm font-medium transition-colors hover:text-[#800020]"
                     style={{ color: isExpanded ? MAROON : "#6b7280" }}
                   >
-                    <span>{isExpanded ? "Hide Features" : "Show Features"}</span>
+                    <span>{isExpanded ? t("superadmin.billing.hide_features") : t("superadmin.billing.show_features")}</span>
                     <ChevronRight className={`w-4 h-4 transition-transform ${isExpanded ? "rotate-90" : ""}`} />
                   </button>
 
@@ -824,7 +839,7 @@ export default function BillingPlansPage() {
                           <Loader2 className="w-5 h-5 animate-spin text-gray-300" />
                         </div>
                       ) : features.length === 0 ? (
-                        <p className="text-xs text-gray-400 py-3">No features defined</p>
+                        <p className="text-xs text-gray-400 py-3">{t("superadmin.billing.no_features")}</p>
                       ) : (
                         features.map((f) => (
                           <div key={f.id} className="flex items-center gap-2.5">
@@ -856,14 +871,14 @@ export default function BillingPlansPage() {
                     onClick={() => router.push(`/superadmin/billing/plans/${plan.id}/edit`)}
                     className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
                   >
-                    <Edit className="w-3.5 h-3.5" /> Edit
+                    <Edit className="w-3.5 h-3.5" /> {t("superadmin.billing.edit")}
                   </button>
                   <button
                     onClick={() => setSubscribersPlan(plan)}
                     className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-white rounded-lg transition-colors"
                     style={{ backgroundColor: MAROON }}
                   >
-                    <Users className="w-3.5 h-3.5" /> Subscribers
+                    <Users className="w-3.5 h-3.5" /> {t("superadmin.billing.subscribers")}
                   </button>
                 </div>
               </div>
@@ -877,19 +892,19 @@ export default function BillingPlansPage() {
         <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
           <div className="flex items-center justify-between p-5 border-b border-gray-200">
             <div>
-              <h2 className="text-base font-semibold text-gray-900">Pending Plan Changes</h2>
-              <p className="text-sm text-gray-500 mt-0.5">{changes.length} request{changes.length !== 1 ? "s" : ""} awaiting review</p>
+              <h2 className="text-base font-semibold text-gray-900">{t("superadmin.billing.pending_changes")}</h2>
+              <p className="text-sm text-gray-500 mt-0.5">{t("superadmin.billing.pending_changes_desc", { count: changes.length, plural: changes.length !== 1 ? "s" : "" })}</p>
             </div>
           </div>
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
                 <tr className="bg-gray-50 text-left">
-                  <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Tenant</th>
-                  <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Change</th>
-                  <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Type</th>
-                  <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">Requested</th>
-                  <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">Action</th>
+                  <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_tenant")}</th>
+                  <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_change")}</th>
+                  <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_type")}</th>
+                  <th className="px-5 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_requested")}</th>
+                  <th className="px-5 py-3 text-right text-xs font-medium text-gray-500 uppercase tracking-wider">{t("superadmin.billing.column_action")}</th>
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-100">
@@ -918,7 +933,7 @@ export default function BillingPlansPage() {
                         onClick={() => setReviewingChange(c)}
                         className="text-xs font-medium px-3 py-1.5 rounded-lg border border-gray-300 hover:bg-gray-50 transition-colors"
                       >
-                        Review
+                        {t("superadmin.billing.review")}
                       </button>
                     </td>
                   </tr>
@@ -935,22 +950,22 @@ export default function BillingPlansPage() {
           {
             icon: Users,
             color: "text-blue-500",
-            label: "Subscriptions",
-            desc: "View all active subscriptions",
+            label: t("superadmin.billing.quick_link_subscriptions"),
+            desc: t("superadmin.billing.quick_link_subscriptions_desc"),
             href: "/superadmin/billing/subscriptions",
           },
           {
             icon: DollarSign,
             color: "text-emerald-500",
-            label: "Invoices",
-            desc: "Manage billing and invoices",
+            label: t("superadmin.billing.quick_link_invoices"),
+            desc: t("superadmin.billing.quick_link_invoices_desc"),
             href: "/superadmin/billing/invoices",
           },
           {
             icon: TrendingUp,
             color: "text-purple-500",
-            label: "Revenue Analytics",
-            desc: "View revenue trends & cohorts",
+            label: t("superadmin.billing.quick_link_analytics"),
+            desc: t("superadmin.billing.quick_link_analytics_desc"),
             href: "/superadmin/billing/analytics",
           },
         ].map((link) => (

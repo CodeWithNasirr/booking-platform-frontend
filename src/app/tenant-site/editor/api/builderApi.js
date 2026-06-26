@@ -872,7 +872,7 @@ export function getSectionCategories() {
     { id: "hero", name: { en: "Hero", ar: "البطل", ur: "ہیرو" }, icon: "🎯" },
     { id: "content", name: { en: "Content", ar: "المحتوى", ur: "مواد" }, icon: "📝" },
     { id: "cta", name: { en: "Call to Action", ar: "دعوة للعمل", ur: "کال ٹو ایکشن" }, icon: "📢" },
-    { id: "modules", name: { en: "Modules", ar: "الوحدات", ur: "ماڈیولز" }, icon: "🧩", badge: "Required" },
+    // { id: "modules", name: { en: "Modules", ar: "الوحدات", ur: "ماڈیولز" }, icon: "🧩", badge: "Required" },
   ];
 }
 

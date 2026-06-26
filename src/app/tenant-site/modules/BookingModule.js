@@ -22,7 +22,7 @@ import useApiError, {
 import { useTenantSite } from "../[domain]/TenantClientWrapper";
 import { apiFetch } from "@/lib/apiClient";
 import DateTimePicker from "./booking/steps/DateTimePicker";
-
+import { formatCurrency } from "@/lib/currency";
 import IntegrationRequiredModal from "@/components/shared/IntegrationRequiredModal";
 
 // ─── NEW IMPORTS ────────────────────────────────────────────────────────────
@@ -51,7 +51,7 @@ const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 // =============================================================================
 export default function BookingModule({ data, settings: propSettings, tenantId, domain, lang: propLang }) {
   const router = useRouter();
-  const {timezone} = useTenantSite();
+  const {timezone,currency} = useTenantSite();
 
   async function fetchServiceBySlug(slug) {
       if (!slug) throw new Error("Missing service slug");
@@ -715,9 +715,13 @@ function ServiceSelector({
           <p className="font-semibold text-gray-900">
             {resolveTranslated(selectedService.title || selectedService.name, lang)}
           </p>
-          <p className="text-sm text-gray-600">
-            {selectedService.duration_minutes} min • {resolveTranslated(selectedService.price, lang)}
-          </p>
+         <p className="text-sm text-gray-600">
+          {selectedService.duration_minutes} min •
+          {formatCurrency(
+            selectedService.base_price || selectedService.price,
+            selectedService.currency || currency
+          )}
+        </p>
         </div>
 
         {/* Staff Title */}
@@ -885,7 +889,11 @@ function ServiceSelector({
 function ServiceCard({ service, isSelected, onSelect, showPrice, showDuration, showImage, theme, lang, isRTL }) {
   const title = resolveTranslated(service.title || service.name, lang);
   const description = resolveTranslated(service.short_description, lang);
-  const price = resolveTranslated(service.base_price || service.price_label, lang);
+  // const price = resolveTranslated(service.base_price || service.price_label, lang);
+  const price = formatCurrency(
+      service.base_price || service.price,
+      service.currency || currency
+    );
 
   return (
     <button
@@ -1320,12 +1328,15 @@ function ConfirmAndPay({
             <span className="text-lg font-semibold text-gray-900">
               {resolveTranslated({ en: "Total", ar: "المجموع", ur: "کل" }, lang)}
             </span>
-            <span 
-              className="text-2xl font-bold"
-              style={{ color: theme.primary_color || "#3B82F6" }}
-            >
-              {resolveTranslated(service?.base_price || service?.price_label, lang)}
-            </span>
+            <span
+            className="text-2xl font-bold"
+            style={{ color: theme.primary_color || "#3B82F6" }}
+          >
+            {formatCurrency(
+              service?.base_price || service?.price,
+              service?.currency || currency
+            )}
+          </span>
           </div>
         </div>
       </div>
@@ -1478,7 +1489,10 @@ function ConfirmAndPayHyperPay({
               className="text-2xl font-bold"
               style={{ color: theme.primary_color || "#3B82F6" }}
             >
-              {resolveTranslated(service?.base_price || service?.price_label, lang)}
+              {formatCurrency(
+                service?.base_price || service?.price,
+                service?.currency || currency
+              )}
             </span>
           </div>
         </div>

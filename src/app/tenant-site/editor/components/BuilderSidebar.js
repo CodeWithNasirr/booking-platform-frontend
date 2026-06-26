@@ -16,7 +16,7 @@ import { useState } from "react";
 import { useBuilder } from "../context/BuilderContext";
 import { useTenantLang } from "../../contexts/TenantLangContext";
 import { resolveTranslated } from "../../[domain]/utils/resolveTranslated";
-import { getSectionPresets, getSectionCategories, getModulePresets } from "../api/builderApi";
+import { getSectionPresets, getSectionCategories } from "../api/builderApi";
 import {
   Layers,
   Palette,
@@ -68,13 +68,15 @@ export default function BuilderSidebar() {
 
   const T = (v) => resolveTranslated(v, language);
 
-  const [expandedCategories, setExpandedCategories] = useState(["hero", "content", "modules"]);
+  const [expandedCategories, setExpandedCategories] = useState(["hero", "content"]);
+  // const [expandedCategories, setExpandedCategories] = useState(["hero", "content", "modules"]);
+
   const [dragOverIndex, setDragOverIndex] = useState(null);
   const [searchQuery, setSearchQuery] = useState("");
 
   const categories = getSectionCategories();
   const sectionPresets = getSectionPresets();
-  const modulePresets = getModulePresets();
+  // const modulePresets = getModulePresets();
 
   const labels = {
     sections: { en: "Sections", ar: "الأقسام", ur: "سیکشنز" },
@@ -94,7 +96,7 @@ export default function BuilderSidebar() {
     createPage: { en: "Create Page", ar: "إنشاء صفحة", ur: "صفحہ بنائیں" },
     noPages: { en: "No pages yet", ar: "لا توجد صفحات بعد", ur: "ابھی تک کوئی صفحہ نہیں" },
     homePage: { en: "Home Page", ar: "الصفحة الرئيسية", ur: "ہوم پیج" },
-    modules: { en: "Modules", ar: "الوحدات", ur: "ماڈیولز" },
+    // modules: { en: "Modules", ar: "الوحدات", ur: "ماڈیولز" },
     editingHome: { en: "Editing Home", ar: "تحرير الرئيسية", ur: "ہوم میں ترمیم" },
     editingPage: { en: "Editing Page", ar: "تحرير الصفحة", ur: "صفحہ میں ترمیم" },
     backToHome: { en: "Back to Home", ar: "العودة للرئيسية", ur: "ہوم پر واپس" },
@@ -212,7 +214,7 @@ export default function BuilderSidebar() {
             labels={labels}
             categories={categories}
             sectionPresets={sectionPresets}
-            modulePresets={modulePresets}
+            // modulePresets={modulePresets}
             expandedCategories={expandedCategories}
             dragOverIndex={dragOverIndex}
             searchQuery={searchQuery}
@@ -335,7 +337,7 @@ function SectionsTab({
   labels,
   categories,
   sectionPresets,
-  modulePresets,
+  // modulePresets,
   expandedCategories,
   dragOverIndex,
   searchQuery,
@@ -436,7 +438,7 @@ function SectionsTab({
           })}
 
           {/* Modules Category */}
-          <ModulesCategory
+          {/* <ModulesCategory
             isExpanded={expandedCategories.includes("modules")}
             modules={filterBlocks(modulePresets)}
             onToggle={() => toggleCategory("modules")}
@@ -444,7 +446,7 @@ function SectionsTab({
             isRTL={isRTL}
             T={T}
             labels={labels}
-          />
+          /> */}
         </div>
       </div>
     </div>
@@ -467,14 +469,14 @@ function SectionListItem({
   T,
 }) {
   const getSectionIcon = () => {
-    if (section.section_type === "module") {
-      switch (section.module_key) {
-        case "chat": return "💬";
-        case "file_upload": return "📁";
-        case "payment": return "💳";
-        default: return "📦";
-      }
-    }
+    // if (section.section_type === "module") {
+    //   switch (section.module_key) {
+    //     case "chat": return "💬";
+    //     case "file_upload": return "📁";
+    //     case "payment": return "💳";
+    //     default: return "📦";
+    //   }
+    // }
     const icons = {
       header: "📌",
       hero: "🎯",
@@ -493,9 +495,9 @@ function SectionListItem({
   };
 
   const getDisplayName = () => {
-    if (section.section_type === "module" && section.module_key) {
-      return section.module_key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
-    }
+    // if (section.section_type === "module" && section.module_key) {
+    //   return section.module_key.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
+    // }
     return section.section_type.replace(/_/g, " ").replace(/\b\w/g, (l) => l.toUpperCase());
   };
 
@@ -573,33 +575,33 @@ function CategoryAccordion({ category, isExpanded, blocks, onToggle, onAddBlock,
   );
 }
 
-function ModulesCategory({ isExpanded, modules, onToggle, onAddModule, isRTL, T, labels }) {
-  return (
-    <div className="border border-purple-200 rounded-xl overflow-hidden bg-purple-50/30">
-      <button
-        onClick={onToggle}
-        className={`w-full flex items-center gap-2 p-3 text-left hover:bg-purple-50 transition-colors ${isRTL ? "flex-row-reverse text-right" : ""}`}
-      >
-        <span className="text-lg">🔌</span>
-        <span className="flex-1 text-sm font-medium text-purple-900">{T(labels.modules)}</span>
-        <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Core</span>
-        {isExpanded ? (
-          <ChevronDown className="w-4 h-4 text-purple-400" />
-        ) : (
-          <ChevronRight className={`w-4 h-4 text-purple-400 ${isRTL ? "rotate-180" : ""}`} />
-        )}
-      </button>
+// function ModulesCategory({ isExpanded, modules, onToggle, onAddModule, isRTL, T, labels }) {
+//   return (
+//     <div className="border border-purple-200 rounded-xl overflow-hidden bg-purple-50/30">
+//       <button
+//         onClick={onToggle}
+//         className={`w-full flex items-center gap-2 p-3 text-left hover:bg-purple-50 transition-colors ${isRTL ? "flex-row-reverse text-right" : ""}`}
+//       >
+//         <span className="text-lg">🔌</span>
+//         <span className="flex-1 text-sm font-medium text-purple-900">{T(labels.modules)}</span>
+//         <span className="text-xs bg-purple-100 text-purple-700 px-2 py-0.5 rounded-full">Core</span>
+//         {isExpanded ? (
+//           <ChevronDown className="w-4 h-4 text-purple-400" />
+//         ) : (
+//           <ChevronRight className={`w-4 h-4 text-purple-400 ${isRTL ? "rotate-180" : ""}`} />
+//         )}
+//       </button>
 
-      {isExpanded && (
-        <div className="border-t border-purple-200 p-2 space-y-1 bg-white">
-          {modules.map((module, idx) => (
-            <ModuleItem key={idx} module={module} onAdd={() => onAddModule(module)} isRTL={isRTL} T={T} />
-          ))}
-        </div>
-      )}
-    </div>
-  );
-}
+//       {isExpanded && (
+//         <div className="border-t border-purple-200 p-2 space-y-1 bg-white">
+//           {modules.map((module, idx) => (
+//             <ModuleItem key={idx} module={module} onAdd={() => onAddModule(module)} isRTL={isRTL} T={T} />
+//           ))}
+//         </div>
+//       )}
+//     </div>
+//   );
+// }
 
 function BlockItem({ preset, onAdd, isRTL, T }) {
   return (
@@ -617,25 +619,25 @@ function BlockItem({ preset, onAdd, isRTL, T }) {
   );
 }
 
-function ModuleItem({ module, onAdd, isRTL, T }) {
-  const ModuleIcon = module.reactIcon;
+// function ModuleItem({ module, onAdd, isRTL, T }) {
+//   const ModuleIcon = module.reactIcon;
 
-  return (
-    <button
-      onClick={onAdd}
-      className={`w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-purple-50 hover:shadow-sm transition-all group border border-transparent hover:border-purple-200 ${isRTL ? "flex-row-reverse text-right" : ""}`}
-    >
-      <div className="p-2 bg-purple-100 rounded-lg">
-        {ModuleIcon ? <ModuleIcon className="w-5 h-5 text-purple-600" /> : <span className="text-xl">{module.icon}</span>}
-      </div>
-      <div className="flex-1 min-w-0">
-        <p className="text-sm font-medium text-slate-900 truncate">{T(module.name)}</p>
-        <p className="text-xs text-slate-500 truncate">{T(module.description)}</p>
-      </div>
-      <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Required</span>
-    </button>
-  );
-}
+//   return (
+//     <button
+//       onClick={onAdd}
+//       className={`w-full flex items-center gap-3 p-3 rounded-lg text-left hover:bg-purple-50 hover:shadow-sm transition-all group border border-transparent hover:border-purple-200 ${isRTL ? "flex-row-reverse text-right" : ""}`}
+//     >
+//       <div className="p-2 bg-purple-100 rounded-lg">
+//         {ModuleIcon ? <ModuleIcon className="w-5 h-5 text-purple-600" /> : <span className="text-xl">{module.icon}</span>}
+//       </div>
+//       <div className="flex-1 min-w-0">
+//         <p className="text-sm font-medium text-slate-900 truncate">{T(module.name)}</p>
+//         <p className="text-xs text-slate-500 truncate">{T(module.description)}</p>
+//       </div>
+//       <span className="text-xs bg-green-100 text-green-700 px-2 py-0.5 rounded-full">Required</span>
+//     </button>
+//   );
+// }
 
 // ============================================================
 // PAGES TAB - UPDATED

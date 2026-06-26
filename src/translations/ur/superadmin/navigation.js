@@ -1,0 +1,18 @@
+export default {
+  'superadmin.nav.dashboard': 'ڈیش بورڈ',
+  'superadmin.nav.tenants': 'ٹیننٹس',
+  'superadmin.nav.documents': 'دستاویزات',
+  'superadmin.nav.billing': 'بلنگ اور پلانس',
+  'superadmin.nav.notifications': 'اطلاعات',
+  'superadmin.nav.announcements': 'اعلانات',
+  'superadmin.nav.templates': 'ٹیمپلیٹس',
+  'superadmin.nav.integrations': 'انٹیگریشنز',
+  'superadmin.nav.support': 'سپورٹ',
+  'superadmin.nav.subadmins': 'سب ایڈمنز',
+  'superadmin.nav.logs': 'لاگز اور آڈٹ',
+  'superadmin.nav.refunds': 'رقم کی واپسی',
+  'superadmin.nav.health': 'سسٹم ہیلتھ',
+  'superadmin.nav.dunning': 'ناکام ادائیگیاں',
+  'superadmin.nav.settings': 'ترتیبات',
+  'superadmin.topbar.search_placeholder': 'ٹیننٹس، صارفین، یا ٹکٹس تلاش کریں…',
+};

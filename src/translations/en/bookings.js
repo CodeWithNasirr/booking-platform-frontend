@@ -113,6 +113,7 @@ export default {
   'bookings.modal.create.cancel': 'Cancel',
   'bookings.modal.create.success': 'Booking created successfully',
   'bookings.modal.create.error': 'Failed to create booking',
+  'bookings.modal.create.selectDateFirst': 'Select Date',
 
   // =====================
   // VIEW BOOKING MODAL

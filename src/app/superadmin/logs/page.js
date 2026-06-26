@@ -1,11 +1,9 @@
-// // app/superadmin/logs/page.jsx
-
-
 // src/app/superadmin/logs/page.js
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
 import SuperAdminLayout from "@/components/superadmin/SuperAdminLayout";
+import { useTranslation } from "@/lib/t";
 import {
   Search, Filter, Download, RefreshCcw, ChevronLeft, ChevronRight,
   Activity, Shield, AlertTriangle, CheckCircle, XCircle, Info,
@@ -15,171 +13,9 @@ import { fetchAuditLogs } from "@/lib/platformApi";
 
 const MAROON = "#800020";
 
-const ACTION_STYLES = {
-  login:             { bg: "bg-blue-50",    text: "text-blue-700",    icon: CheckCircle },
-  logout:            { bg: "bg-gray-100",   text: "text-gray-600",    icon: Info },
-  create:            { bg: "bg-emerald-50", text: "text-emerald-700", icon: CheckCircle },
-  update:            { bg: "bg-amber-50",   text: "text-amber-700",   icon: Info },
-  delete:            { bg: "bg-red-50",     text: "text-red-700",     icon: XCircle },
-  suspend:           { bg: "bg-red-50",     text: "text-red-700",     icon: AlertTriangle },
-  activate:          { bg: "bg-emerald-50", text: "text-emerald-700", icon: CheckCircle },
-  permission_grant:  { bg: "bg-purple-50",  text: "text-purple-700",  icon: Shield },
-  permission_revoke: { bg: "bg-orange-50",  text: "text-orange-700",  icon: Shield },
-  role_change:       { bg: "bg-indigo-50",  text: "text-indigo-700",  icon: User },
-  access_attempt:    { bg: "bg-red-50",     text: "text-red-700",     icon: AlertTriangle },
-};
-
-const RESOURCE_STYLES = {
-  platform_auth:     { bg: "bg-blue-50",   text: "text-blue-700" },
-  platform_employee: { bg: "bg-purple-50", text: "text-purple-700" },
-  tenant:            { bg: "bg-emerald-50", text: "text-emerald-700" },
-  tenant_document:   { bg: "bg-amber-50",  text: "text-amber-700" },
-};
-
-const ACTION_OPTIONS = [
-  { value: "", label: "All Actions" },
-  { value: "login", label: "Login" },
-  { value: "logout", label: "Logout" },
-  { value: "create", label: "Create" },
-  { value: "update", label: "Update" },
-  { value: "delete", label: "Delete" },
-  { value: "suspend", label: "Suspend" },
-  { value: "activate", label: "Activate" },
-  { value: "permission_grant", label: "Permission Grant" },
-  { value: "permission_revoke", label: "Permission Revoke" },
-  { value: "role_change", label: "Role Change" },
-  { value: "access_attempt", label: "Access Attempt" },
-];
-
-const RESOURCE_OPTIONS = [
-  { value: "", label: "All Resources" },
-  { value: "platform_auth", label: "Authentication" },
-  { value: "platform_employee", label: "Employees" },
-  { value: "tenant", label: "Tenants" },
-  { value: "tenant_document", label: "Documents" },
-];
-
-function formatDate(d) {
-  if (!d) return "—";
-  return new Date(d).toLocaleString("en-US", {
-    month: "short", day: "numeric", year: "numeric",
-    hour: "2-digit", minute: "2-digit",
-  });
-}
-
-function ActionBadge({ action }) {
-  const s = ACTION_STYLES[action] || { bg: "bg-gray-100", text: "text-gray-600", icon: Info };
-  const Icon = s.icon;
-  return (
-    <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>
-      <Icon className="w-3 h-3" />
-      {action?.replace(/_/g, " ")}
-    </span>
-  );
-}
-
-function ResourceBadge({ type }) {
-  const s = RESOURCE_STYLES[type] || { bg: "bg-gray-100", text: "text-gray-600" };
-  return (
-    <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>
-      {type?.replace(/_/g, " ")}
-    </span>
-  );
-}
-
-function StatusDot({ success }) {
-  return (
-    <span className={`w-2 h-2 rounded-full inline-block ${success ? "bg-emerald-500" : "bg-red-500"}`} />
-  );
-}
-
-// ─── Detail Modal ──────────────────────────────────────────
-
-function LogDetailModal({ log, onClose }) {
-  if (!log) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
-        <div className="flex items-center justify-between p-5 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">Log Details</h3>
-          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100">
-            <X className="w-5 h-5 text-gray-500" />
-          </button>
-        </div>
-        <div className="flex-1 overflow-y-auto p-5 space-y-4">
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <span className="text-xs text-gray-500 block mb-1">Action</span>
-              <ActionBadge action={log.action} />
-            </div>
-            <div>
-              <span className="text-xs text-gray-500 block mb-1">Status</span>
-              <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${log.is_success ? "text-emerald-700" : "text-red-700"}`}>
-                <StatusDot success={log.is_success} />
-                {log.is_success ? "Success" : "Failed"}
-              </span>
-            </div>
-            <div>
-              <span className="text-xs text-gray-500 block mb-1">Resource</span>
-              <ResourceBadge type={log.resource_type} />
-            </div>
-            <div>
-              <span className="text-xs text-gray-500 block mb-1">Timestamp</span>
-              <span className="text-sm text-gray-900">{formatDate(log.created_at)}</span>
-            </div>
-          </div>
-
-          <div>
-            <span className="text-xs text-gray-500 block mb-1">User</span>
-            <span className="text-sm text-gray-900">{log.user_email || "System"}</span>
-          </div>
-
-          <div>
-            <span className="text-xs text-gray-500 block mb-1">Description</span>
-            <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{log.description}</p>
-          </div>
-
-          {log.resource_id && (
-            <div>
-              <span className="text-xs text-gray-500 block mb-1">Resource ID</span>
-              <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">{log.resource_id}</code>
-            </div>
-          )}
-
-          {log.ip_address && (
-            <div>
-              <span className="text-xs text-gray-500 block mb-1">IP Address</span>
-              <span className="text-sm text-gray-700 font-mono">{log.ip_address}</span>
-            </div>
-          )}
-
-          {log.user_agent && (
-            <div>
-              <span className="text-xs text-gray-500 block mb-1">User Agent</span>
-              <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-2 break-all">{log.user_agent}</p>
-            </div>
-          )}
-
-          {log.metadata && Object.keys(log.metadata).length > 0 && (
-            <div>
-              <span className="text-xs text-gray-500 block mb-1">Metadata</span>
-              <pre className="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-x-auto">
-                {JSON.stringify(log.metadata, null, 2)}
-              </pre>
-            </div>
-          )}
-        </div>
-      </div>
-    </div>
-  );
-}
-
-// ═══════════════════════════════════════════════════════════════
-// MAIN PAGE
-// ═══════════════════════════════════════════════════════════════
-
 export default function LogsPage() {
+  const { t } = useTranslation();
+
   const [logs, setLogs] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
@@ -195,6 +31,173 @@ export default function LogsPage() {
 
   // Stats
   const [stats, setStats] = useState({ total: 0, success: 0, failed: 0, security: 0 });
+
+  // ── Style maps with translated labels ──
+  const ACTION_STYLES = useCallback(() => ({
+    login:             { bg: "bg-blue-50",    text: "text-blue-700",    icon: CheckCircle, label: t("logs_action_login") },
+    logout:            { bg: "bg-gray-100",   text: "text-gray-600",    icon: Info,        label: t("logs_action_logout") },
+    create:            { bg: "bg-emerald-50", text: "text-emerald-700", icon: CheckCircle, label: t("logs_action_create") },
+    update:            { bg: "bg-amber-50",   text: "text-amber-700",   icon: Info,        label: t("logs_action_update") },
+    delete:            { bg: "bg-red-50",     text: "text-red-700",     icon: XCircle,     label: t("logs_action_delete") },
+    suspend:           { bg: "bg-red-50",     text: "text-red-700",     icon: AlertTriangle, label: t("logs_action_suspend") },
+    activate:          { bg: "bg-emerald-50", text: "text-emerald-700", icon: CheckCircle, label: t("logs_action_activate") },
+    permission_grant:  { bg: "bg-purple-50",  text: "text-purple-700",  icon: Shield,      label: t("logs_action_permission_grant") },
+    permission_revoke: { bg: "bg-orange-50",  text: "text-orange-700",  icon: Shield,      label: t("logs_action_permission_revoke") },
+    role_change:       { bg: "bg-indigo-50",  text: "text-indigo-700",  icon: User,        label: t("logs_action_role_change") },
+    access_attempt:    { bg: "bg-red-50",     text: "text-red-700",     icon: AlertTriangle, label: t("logs_action_access_attempt") },
+  }), [t]);
+
+  const RESOURCE_STYLES = useCallback(() => ({
+    platform_auth:     { bg: "bg-blue-50",   text: "text-blue-700",   label: t("logs_resource_platform_auth") },
+    platform_employee: { bg: "bg-purple-50", text: "text-purple-700", label: t("logs_resource_platform_employee") },
+    tenant:            { bg: "bg-emerald-50", text: "text-emerald-700", label: t("logs_resource_tenant") },
+    tenant_document:   { bg: "bg-amber-50",  text: "text-amber-700",  label: t("logs_resource_tenant_document") },
+  }), [t]);
+
+  const ACTION_OPTIONS = useCallback(() => [
+    { value: "", label: t("logs_filter_all_actions") },
+    { value: "login", label: t("logs_action_login") },
+    { value: "logout", label: t("logs_action_logout") },
+    { value: "create", label: t("logs_action_create") },
+    { value: "update", label: t("logs_action_update") },
+    { value: "delete", label: t("logs_action_delete") },
+    { value: "suspend", label: t("logs_action_suspend") },
+    { value: "activate", label: t("logs_action_activate") },
+    { value: "permission_grant", label: t("logs_action_permission_grant") },
+    { value: "permission_revoke", label: t("logs_action_permission_revoke") },
+    { value: "role_change", label: t("logs_action_role_change") },
+    { value: "access_attempt", label: t("logs_action_access_attempt") },
+  ], [t]);
+
+  const RESOURCE_OPTIONS = useCallback(() => [
+    { value: "", label: t("logs_filter_all_resources") },
+    { value: "platform_auth", label: t("logs_resource_platform_auth") },
+    { value: "platform_employee", label: t("logs_resource_platform_employee") },
+    { value: "tenant", label: t("logs_resource_tenant") },
+    { value: "tenant_document", label: t("logs_resource_tenant_document") },
+  ], [t]);
+
+  function formatDate(d) {
+    if (!d) return "—";
+    return new Date(d).toLocaleString("en-US", {
+      month: "short", day: "numeric", year: "numeric",
+      hour: "2-digit", minute: "2-digit",
+    });
+  }
+
+  function ActionBadge({ action }) {
+    const map = ACTION_STYLES();
+    const s = map[action] || { bg: "bg-gray-100", text: "text-gray-600", icon: Info, label: action?.replace(/_/g, " ") };
+    const Icon = s.icon;
+    return (
+      <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>
+        <Icon className="w-3 h-3" />
+        {s.label}
+      </span>
+    );
+  }
+
+  function ResourceBadge({ type }) {
+    const map = RESOURCE_STYLES();
+    const s = map[type] || { bg: "bg-gray-100", text: "text-gray-600", label: type?.replace(/_/g, " ") };
+    return (
+      <span className={`px-2.5 py-1 rounded-full text-xs font-medium ${s.bg} ${s.text}`}>
+        {s.label}
+      </span>
+    );
+  }
+
+  function StatusDot({ success }) {
+    return (
+      <span className={`w-2 h-2 rounded-full inline-block ${success ? "bg-emerald-500" : "bg-red-500"}`} />
+    );
+  }
+
+  // ─── Detail Modal ──────────────────────────────────────────
+
+  function LogDetailModal({ log, onClose }) {
+    if (!log) return null;
+
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-lg max-h-[80vh] flex flex-col">
+          <div className="flex items-center justify-between p-5 border-b border-gray-200">
+            <h3 className="text-lg font-semibold text-gray-900">{t("logs_detail_title")}</h3>
+            <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100">
+              <X className="w-5 h-5 text-gray-500" />
+            </button>
+          </div>
+          <div className="flex-1 overflow-y-auto p-5 space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">{t("logs_detail_action")}</span>
+                <ActionBadge action={log.action} />
+              </div>
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">{t("logs_detail_status")}</span>
+                <span className={`inline-flex items-center gap-1.5 text-sm font-medium ${log.is_success ? "text-emerald-700" : "text-red-700"}`}>
+                  <StatusDot success={log.is_success} />
+                  {log.is_success ? t("logs_status_success") : t("logs_status_failed")}
+                </span>
+              </div>
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">{t("logs_detail_resource")}</span>
+                <ResourceBadge type={log.resource_type} />
+              </div>
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">{t("logs_detail_timestamp")}</span>
+                <span className="text-sm text-gray-900">{formatDate(log.created_at)}</span>
+              </div>
+            </div>
+
+            <div>
+              <span className="text-xs text-gray-500 block mb-1">{t("logs_detail_user")}</span>
+              <span className="text-sm text-gray-900">{log.user_email || t("logs_system")}</span>
+            </div>
+
+            <div>
+              <span className="text-xs text-gray-500 block mb-1">{t("logs_detail_description")}</span>
+              <p className="text-sm text-gray-700 bg-gray-50 rounded-lg p-3">{log.description}</p>
+            </div>
+
+            {log.resource_id && (
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">{t("logs_detail_resource_id")}</span>
+                <code className="text-xs bg-gray-100 px-2 py-1 rounded font-mono">{log.resource_id}</code>
+              </div>
+            )}
+
+            {log.ip_address && (
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">{t("logs_detail_ip")}</span>
+                <span className="text-sm text-gray-700 font-mono">{log.ip_address}</span>
+              </div>
+            )}
+
+            {log.user_agent && (
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">{t("logs_detail_user_agent")}</span>
+                <p className="text-xs text-gray-500 bg-gray-50 rounded-lg p-2 break-all">{log.user_agent}</p>
+              </div>
+            )}
+
+            {log.metadata && Object.keys(log.metadata).length > 0 && (
+              <div>
+                <span className="text-xs text-gray-500 block mb-1">{t("logs_detail_metadata")}</span>
+                <pre className="text-xs text-gray-700 bg-gray-50 rounded-lg p-3 overflow-x-auto">
+                  {JSON.stringify(log.metadata, null, 2)}
+                </pre>
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ═══════════════════════════════════════════════════════════════
+  // MAIN PAGE
+  // ═══════════════════════════════════════════════════════════════
 
   const loadLogs = useCallback(async () => {
     setLoading(true);
@@ -216,12 +219,12 @@ export default function LogsPage() {
         security: logsArray.filter(l => ["access_attempt", "login", "logout"].includes(l.action)).length,
       });
     } catch (err) {
-      setError(err.message || "Failed to load logs");
+      setError(err.message || t("logs_load_error"));
       console.error("Failed to load audit logs:", err);
     } finally {
       setLoading(false);
     }
-  }, [actionFilter, resourceFilter, limit]);
+  }, [actionFilter, resourceFilter, limit, t]);
 
   useEffect(() => {
     loadLogs();
@@ -240,17 +243,20 @@ export default function LogsPage() {
   });
 
   const statCards = [
-    { label: "Total Events", value: stats.total, icon: Activity, color: "from-blue-500 to-blue-600" },
-    { label: "Successful", value: stats.success, icon: CheckCircle, color: "from-emerald-500 to-emerald-600" },
-    { label: "Failed", value: stats.failed, icon: XCircle, color: "from-red-500 to-red-600" },
-    { label: "Security Events", value: stats.security, icon: Shield, color: "from-purple-500 to-purple-600" },
+    { label: t("logs_stat_total"), value: stats.total, icon: Activity, color: "from-blue-500 to-blue-600" },
+    { label: t("logs_stat_successful"), value: stats.success, icon: CheckCircle, color: "from-emerald-500 to-emerald-600" },
+    { label: t("logs_stat_failed"), value: stats.failed, icon: XCircle, color: "from-red-500 to-red-600" },
+    { label: t("logs_stat_security"), value: stats.security, icon: Shield, color: "from-purple-500 to-purple-600" },
   ];
+
+  const actionOpts = ACTION_OPTIONS();
+  const resourceOpts = RESOURCE_OPTIONS();
 
   return (
     <SuperAdminLayout
-      title="Logs & Audit Trail"
-      description="Monitor system activity and security events"
-      breadcrumbs={[{ label: "Logs" }]}
+      title={t("logs_title")}
+      description={t("logs_description")}
+      breadcrumbs={[{ label: t("logs_breadcrumb") }]}
     >
       <div className="space-y-6">
         {/* Stats */}
@@ -276,7 +282,7 @@ export default function LogsPage() {
               <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" />
               <input
                 type="text"
-                placeholder="Search by description, user, or action..."
+                placeholder={t("logs_search_placeholder")}
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="w-full pl-10 pr-4 h-11 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:border-transparent"
@@ -289,7 +295,7 @@ export default function LogsPage() {
               onChange={(e) => setActionFilter(e.target.value)}
               className="h-11 rounded-xl border border-gray-200 px-3 text-sm bg-white focus:outline-none focus:ring-2 min-w-[160px]"
             >
-              {ACTION_OPTIONS.map(o => (
+              {actionOpts.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
@@ -299,7 +305,7 @@ export default function LogsPage() {
               onChange={(e) => setResourceFilter(e.target.value)}
               className="h-11 rounded-xl border border-gray-200 px-3 text-sm bg-white focus:outline-none focus:ring-2 min-w-[160px]"
             >
-              {RESOURCE_OPTIONS.map(o => (
+              {resourceOpts.map(o => (
                 <option key={o.value} value={o.value}>{o.label}</option>
               ))}
             </select>
@@ -309,10 +315,10 @@ export default function LogsPage() {
               onChange={(e) => setLimit(Number(e.target.value))}
               className="h-11 rounded-xl border border-gray-200 px-3 text-sm bg-white focus:outline-none focus:ring-2 min-w-[120px]"
             >
-              <option value={25}>Last 25</option>
-              <option value={50}>Last 50</option>
-              <option value={100}>Last 100</option>
-              <option value={250}>Last 250</option>
+              <option value={25}>{t("logs_limit_25")}</option>
+              <option value={50}>{t("logs_limit_50")}</option>
+              <option value={100}>{t("logs_limit_100")}</option>
+              <option value={250}>{t("logs_limit_250")}</option>
             </select>
 
             <button
@@ -321,7 +327,7 @@ export default function LogsPage() {
               className="h-11 px-4 rounded-xl border border-gray-200 hover:bg-gray-50 flex items-center gap-2 text-sm transition-colors disabled:opacity-50"
             >
               <RefreshCcw className={`w-4 h-4 ${loading ? "animate-spin" : ""}`} />
-              Refresh
+              {t("logs_refresh")}
             </button>
           </div>
         </div>
@@ -332,7 +338,7 @@ export default function LogsPage() {
             <AlertTriangle className="w-5 h-5 text-red-600 flex-shrink-0" />
             <p className="text-sm text-red-700">{error}</p>
             <button onClick={loadLogs} className="ml-auto text-sm font-medium text-red-700 hover:text-red-900">
-              Retry
+              {t("logs_retry")}
             </button>
           </div>
         )}
@@ -342,26 +348,26 @@ export default function LogsPage() {
           {loading ? (
             <div className="flex items-center justify-center py-20">
               <Loader2 className="w-6 h-6 animate-spin text-gray-400" />
-              <span className="ml-2 text-sm text-gray-500">Loading logs...</span>
+              <span className="ml-2 text-sm text-gray-500">{t("logs_loading")}</span>
             </div>
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-gray-400">
               <Activity className="w-12 h-12 mb-3" />
-              <p className="text-sm font-medium">No audit logs found</p>
-              <p className="text-xs mt-1">Try adjusting your filters</p>
+              <p className="text-sm font-medium">{t("logs_no_results")}</p>
+              <p className="text-xs mt-1">{t("logs_adjust_filters")}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
               <table className="w-full">
                 <thead>
                   <tr className="bg-gray-50/80 border-b border-gray-200">
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Status</th>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Timestamp</th>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">User</th>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Action</th>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Resource</th>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">Description</th>
-                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">IP</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("logs_col_status")}</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("logs_col_timestamp")}</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("logs_col_user")}</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("logs_col_action")}</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("logs_col_resource")}</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("logs_col_description")}</th>
+                    <th className="px-5 py-3.5 text-left text-xs font-semibold text-gray-500 uppercase tracking-wider">{t("logs_col_ip")}</th>
                     <th className="px-5 py-3.5 text-right text-xs font-semibold text-gray-500 uppercase tracking-wider w-16"></th>
                   </tr>
                 </thead>
@@ -375,7 +381,7 @@ export default function LogsPage() {
                         {formatDate(log.created_at)}
                       </td>
                       <td className="px-5 py-3.5">
-                        <span className="text-sm text-gray-900">{log.user_email || "System"}</span>
+                        <span className="text-sm text-gray-900">{log.user_email || t("logs_system")}</span>
                       </td>
                       <td className="px-5 py-3.5">
                         <ActionBadge action={log.action} />
@@ -395,7 +401,7 @@ export default function LogsPage() {
                         <button
                           onClick={() => setSelectedLog(log)}
                           className="p-1.5 rounded-lg hover:bg-gray-100 text-gray-500 hover:text-gray-700 transition-colors"
-                          title="View details"
+                          title={t("logs_view_details")}
                         >
                           <Eye className="w-4 h-4" />
                         </button>
@@ -411,7 +417,7 @@ export default function LogsPage() {
           {!loading && filtered.length > 0 && (
             <div className="px-5 py-3 border-t border-gray-200 bg-gray-50/50">
               <p className="text-sm text-gray-600">
-                Showing {filtered.length} of {logs.length} log entries
+                {t("logs_pagination", { filtered: filtered.length, total: logs.length })}
               </p>
             </div>
           )}
@@ -425,23 +431,3 @@ export default function LogsPage() {
     </SuperAdminLayout>
   );
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-// import ComingSoon from "@/components/ui/ComingSoon";
-
-// export default function LogsPage() {
-//   return <ComingSoon title="Logs Page" />;
-// }

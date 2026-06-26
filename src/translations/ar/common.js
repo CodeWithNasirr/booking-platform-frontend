@@ -35,6 +35,8 @@ export default {
   'common.import': 'استيراد',
   'common.view': 'عرض',
   'common.actions': 'إجراءات',
+  'common.active': 'نشط',
+  "common.inactive": "غير نشط",
   'common.status': 'الحالة',
   'common.date': 'التاريخ',
   'common.time': 'الوقت',

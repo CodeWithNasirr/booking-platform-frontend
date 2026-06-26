@@ -2,6 +2,10 @@ export default {
   // =====================
   // DASHBOARD
   // =====================
+  "dashboard.title": "لوحة التحكم",
+  "dashboard.overview": "نظرة عامة",
+  "dashboard.analytics": "التحليلات",
+
   "dashboard.welcome": "مرحبًا بعودتك",
   "dashboard.lastUpdated": "آخر تحديث",
   "dashboard.todaySummary": "إليك ما يحدث في عملك اليوم",
@@ -21,17 +25,27 @@ export default {
   "dashboard.recentBookings": "الحجوزات الأخيرة",
   "dashboard.viewAll": "عرض الكل",
   "dashboard.noBookings": "لا توجد حجوزات حديثة",
-  "dashboard.viewCalendar": "عرض التقويم",
-  "dashboard.viewCalendarDesc": "تحقق من الجدول",
 
   // Booking Status
   "dashboard.booking.scheduled": "مجدول",
   "dashboard.booking.confirmed": "مؤكد",
-   "dashboard.booking.refunded": "تم الاسترداد",
+  "dashboard.booking.refunded": "تم الاسترداد",
   "dashboard.booking.pending": "قيد الانتظار",
   "dashboard.booking.completed": "مكتمل",
   "dashboard.booking.cancelled": "ملغى",
   "dashboard.booking.pending_payment": "في انتظار الدفع",
+
+  // Quick Actions
+  "dashboard.manageServices": "إدارة الخدمات",
+  "dashboard.manageServicesDesc": "إضافة أو تعديل الخدمات",
+
+  "dashboard.manageStaff": "إدارة الموظفين",
+  "dashboard.manageStaffDesc": "تحديث مقدمي الخدمة",
+
+  "dashboard.viewCalendar": "عرض التقويم",
+  "dashboard.viewCalendarDesc": "تحقق من الجدول",
+  "dashboard.mySchedule": "جدولي",
+  "dashboard.myScheduleDesc": "إدارة أوقات التوفر الخاصة بك",
 
   // =====================
   // TENANT SIDEBAR
@@ -58,4 +72,4 @@ export default {
   "tenant.support": "الدعم",
   "tenant.whatsapp": "إدارة واتساب",
   "tenant.campaigns": "الحملات",
-}
+};

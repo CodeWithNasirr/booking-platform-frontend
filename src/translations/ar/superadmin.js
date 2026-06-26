@@ -1,43 +1,40 @@
+import common from "./superadmin/common";
+import layout from "./superadmin/layout";
+import navigation from "./superadmin/navigation";
+import dashboard from "./superadmin/dashboard";
+import tenantsList from "./superadmin/tenants_list";
+import tenantDetail from "./superadmin/tenant_detail";
+import editTenant from "./superadmin/editTenant";
+import documents from "./superadmin/documents";
+import billing from "./superadmin/billing";
+import notifications from "./superadmin/notifications";
+import announcements from "./superadmin/announcements";
+import templates from "./superadmin/templates";
+import support from "./superadmin/support";
+import subadmin from "./superadmin/subadmin";
+import logs from "./superadmin/logs";
+import settings from "./superadmin/settings";
+import refunds from "./superadmin/refunds";
+import health from "./superadmin/health";
+import dunning from "./superadmin/dunning";
 export default {
-  'superadmin.layout.platform_control': 'إدارة المنصة',
-  'superadmin.layout.loading_platform': 'جارٍ تحميل المنصة…',
-  'superadmin.layout.logout': 'تسجيل الخروج',
-  'superadmin.layout.profile': 'الملف الشخصي',
-  'superadmin.layout.settings': 'الإعدادات',
-  'superadmin.layout.my_account': 'حسابي',
-
-  'superadmin.nav.dashboard': 'لوحة التحكم',
-  'superadmin.nav.tenants': 'المستأجرون',
-  'superadmin.nav.billing': 'الفوترة والخطط',
-  'superadmin.nav.templates': 'القوالب',
-  'superadmin.nav.integrations': 'التكاملات',
-  'superadmin.nav.support': 'الدعم',
-  'superadmin.nav.subadmins': 'المشرفون الفرعيون',
-  'superadmin.nav.logs': 'السجلات والتدقيق',
-  'superadmin.nav.settings': 'الإعدادات',
-
-  'superadmin.topbar.search_placeholder': 'ابحث عن المستأجرين أو المستخدمين أو التذاكر…',
-
-  'superadmin.dashboard.welcome_back': 'مرحبًا بعودتك',
-  'superadmin.dashboard.subtitle': 'إليك ما يحدث على منصتك اليوم.',
-
-  'superadmin.stats.total_tenants': 'إجمالي المستأجرين',
-  'superadmin.stats.active_tenants': 'المستأجرون النشطون',
-  'superadmin.stats.platform_employees': 'موظفو المنصة',
-  'superadmin.stats.system_health': 'حالة النظام',
-  'superadmin.stats.monthly_revenue': 'إيرادات شهرية',
-
-  'superadmin.charts.revenue_growth': 'نمو الإيرادات',
-  'superadmin.charts.last_6_months': 'آخر 6 أشهر',
-  'superadmin.charts.plan_distribution': 'توزيع الخطط',
-  'superadmin.charts.active_subscriptions': 'الاشتراكات النشطة',
-
-  'superadmin.quick.manage_tenants': 'إدارة المستأجرين',
-  'superadmin.quick.manage_tenants_desc': 'عرض وتعديل وتعليق حسابات المستأجرين',
-
-  'superadmin.quick.subadmin_management': 'إدارة المشرفين الفرعيين',
-  'superadmin.quick.subadmin_management_desc': 'إدارة موظفي المنصة والصلاحيات',
-
-  'superadmin.quick.audit_logs': 'سجلات التدقيق',
-  'superadmin.quick.audit_logs_desc': 'عرض نشاط المنصة وأحداث الأمان',
-}
+  ...common,
+  ...layout,
+  ...navigation,
+  ...dashboard,
+  ...tenantsList,
+  ...tenantDetail,
+  ...editTenant,
+  ...documents,
+  ...billing,
+  ...notifications,
+  ...announcements,
+  ...templates,
+  ...support,
+  ...subadmin,
+  ...logs,
+  ...settings,
+  ...refunds,
+  ...health,
+  ...dunning,
+};

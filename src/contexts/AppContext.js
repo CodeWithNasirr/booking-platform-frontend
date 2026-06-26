@@ -65,26 +65,56 @@ export function AppProvider({ children }) {
   const isRTL = language === "ar" || language === "ur";
   // const t = (key) => translations[language]?.[key] ?? key;
   
-  const t = (value) => {
-    if (!value) return "";
+  // const t = (value) => {
+  //   if (!value) return "";
 
-    // 1️⃣ If already a normal string
-    if (typeof value === "string") {
-      // Try key-based translation first
-      return translations?.[language]?.[value] ?? value;
+  //   // 1️⃣ If already a normal string
+  //   if (typeof value === "string") {
+  //     // Try key-based translation first
+  //     return translations?.[language]?.[value] ?? value;
+  //   }
+
+  //   // 2️⃣ If multilingual object
+  //   if (typeof value === "object") {
+  //     return (
+  //       value[language] ||   // current language
+  //       value.en ||          // fallback to English
+  //       Object.values(value)[0] || // last fallback
+  //       ""
+  //     );
+  //   }
+
+  //   return "";
+  // };
+
+  const t = (key, params = {}) => {
+    if (!key) return "";
+
+    let text = "";
+
+    // multilingual object support
+    if (typeof key === "object") {
+      text =
+        key[language] ||
+        key.en ||
+        Object.values(key)[0] ||
+        "";
+    } else {
+      text =
+        translations?.[language]?.[key] ??
+        translations?.en?.[key] ??
+        key;
     }
 
-    // 2️⃣ If multilingual object
-    if (typeof value === "object") {
-      return (
-        value[language] ||   // current language
-        value.en ||          // fallback to English
-        Object.values(value)[0] || // last fallback
-        ""
+    // Replace placeholders
+    Object.entries(params).forEach(([param, value]) => {
+      text = text.replace(
+        new RegExp(`{{\\s*${param}\\s*}}`, "g"),
+        String(value)
       );
-    }
+    });
 
-    return "";
+    return text;
   };
 
 

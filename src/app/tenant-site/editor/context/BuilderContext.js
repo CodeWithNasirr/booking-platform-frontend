@@ -8,9 +8,9 @@
  * 
  * UPDATED: Added editing mode to switch between layout (home) and page editing
  */
-
+import { v4 as uuidv4 } from "uuid";
 import { createContext, useContext, useReducer, useCallback, useMemo } from "react";
-const uuidv4 = () => crypto.randomUUID();
+// const uuidv4 = () => crypto.randomUUID();
 
 // ============================================================
 // INITIAL STATE

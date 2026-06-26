@@ -12,31 +12,31 @@ import {
 import { apiFetch as authFetch } from '@/lib/apiClient'
 import { useApp } from '@/contexts/AppContext'
 
-const ROLE_OPTIONS = [
+
+const ROLE_OPTIONS = (t) => [
   {
     value: 'admin',
-    label: 'Admin',
-    description: 'Full access to manage the business (except billing)',
+    label: t('users.roles.admin'),
+    description: t('users.roles.adminDescription'),
   },
   {
     value: 'sub_admin',
-    label: 'Sub Admin',
-    description: 'Custom permissions — choose what they can access',
+    label: t('users.roles.sub_admin'),
+    description: t('users.roles.subAdminDescription'),
   },
   {
     value: 'provider',
-    label: 'Provider',
-    description: 'Service provider — can view assigned bookings & orders',
+    label: t('users.roles.provider'),
+    description: t('users.roles.providerDescription'),
   },
   {
     value: 'staff',
-    label: 'Staff',
-    description: 'View-only access to relevant sections',
+    label: t('users.roles.staff'),
+    description: t('users.roles.staffDescription'),
   },
 ]
-
 export default function InviteMemberModal({ onClose, onSuccess }) {
-  const { activeTenant } = useApp()
+  const { activeTenant,t } = useApp()
   const [form, setForm] = useState({
     email: '',
     first_name: '',
@@ -77,7 +77,7 @@ export default function InviteMemberModal({ onClose, onSuccess }) {
 
 const handleSubmit = async () => {
     if (!form.email.trim()) {
-      setError('Email is required')
+      setError(t('users.invite.emailRequired'))
       return
     }
 
@@ -99,7 +99,7 @@ const handleSubmit = async () => {
     } catch (err) {
       setError(
         err?.message ||
-        'Something went wrong. Please try again.'
+        t('users.invite.genericError')
       )
     } finally {
       setSaving(false)
@@ -121,8 +121,13 @@ const handleSubmit = async () => {
               <UserPlus className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900">Invite Team Member</h2>
-              <p className="text-sm text-gray-500">They'll receive an email to set up their account</p>
+            <h2 className="text-lg font-bold text-gray-900">
+              {t('users.invite.title')}
+            </h2>
+
+            <p className="text-sm text-gray-500">
+              {t('users.invite.subtitle')}
+            </p>
             </div>
           </div>
           <button
@@ -145,13 +150,13 @@ const handleSubmit = async () => {
           {/* Email */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1.5">
-              Email Address *
+             {t('users.invite.email')} *
             </label>
             <input
               type="email"
               value={form.email}
               onChange={(e) => handleChange('email', e.target.value)}
-              placeholder="colleague@company.com"
+              placeholder={t('users.invite.emailPlaceholder')}
               className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none transition-all"
             />
           </div>
@@ -160,25 +165,25 @@ const handleSubmit = async () => {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1.5">
-                First Name
+                {t('users.invite.firstName')}
               </label>
               <input
                 type="text"
                 value={form.first_name}
                 onChange={(e) => handleChange('first_name', e.target.value)}
-                placeholder="John"
+                placeholder={t('users.invite.firstNamePlaceholder')}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none transition-all"
               />
             </div>
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-1.5">
-                Last Name
+                {t('users.invite.lastName')}
               </label>
               <input
                 type="text"
                 value={form.last_name}
                 onChange={(e) => handleChange('last_name', e.target.value)}
-                placeholder="Smith"
+                placeholder={t('users.invite.lastNamePlaceholder')}
                 className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none transition-all"
               />
             </div>
@@ -187,13 +192,13 @@ const handleSubmit = async () => {
           {/* Phone */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-1.5">
-              Phone
+              {t('users.invite.phone')}
             </label>
             <input
               type="tel"
               value={form.phone}
               onChange={(e) => handleChange('phone', e.target.value)}
-              placeholder="+1 (555) 000-0000"
+              placeholder={t('users.invite.phonePlaceholder')}
               className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none transition-all"
             />
           </div>
@@ -201,10 +206,10 @@ const handleSubmit = async () => {
           {/* Role selection */}
           <div>
             <label className="block text-sm font-bold text-gray-700 mb-2">
-              Role *
+              {t('users.invite.role')}
             </label>
             <div className="space-y-2">
-              {ROLE_OPTIONS.map((opt) => (
+              {ROLE_OPTIONS(t).map((opt) => (
                 <label
                   key={opt.value}
                   className={`flex items-start gap-3 p-3 rounded-xl border-2 cursor-pointer transition-all ${
@@ -234,7 +239,7 @@ const handleSubmit = async () => {
           {form.role === 'sub_admin' && Object.keys(availablePermissions).length > 0 && (
             <div>
               <label className="block text-sm font-bold text-gray-700 mb-2">
-                Permissions
+                {t('users.invite.permissions')}
               </label>
               <div className="space-y-3 max-h-60 overflow-y-auto border border-gray-200 rounded-xl p-3">
                 {Object.entries(availablePermissions).map(([category, group]) => (
@@ -271,7 +276,7 @@ const handleSubmit = async () => {
             onClick={onClose}
             className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-100 transition-all"
           >
-            Cancel
+            {t('common.cancel')}
           </button>
           <button
             onClick={handleSubmit}
@@ -283,7 +288,7 @@ const handleSubmit = async () => {
             ) : (
               <UserPlus className="w-4 h-4" />
             )}
-            Send Invitation
+            {t('users.invite.send')}
           </button>
         </div>
       </div>

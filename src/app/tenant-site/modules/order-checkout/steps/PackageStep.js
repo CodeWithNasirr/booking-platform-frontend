@@ -4,7 +4,7 @@
 import { resolveTranslated } from "../../../[domain]/utils/resolveTranslated";
 import PackageCard from "../components/PackageCard";
 import RequirementsForm from "../components/RequirementsForm";
-
+import { formatCurrency } from "@/lib/currency";
 export default function PackageStep({
   service,
   selectedPackage,
@@ -13,10 +13,12 @@ export default function PackageStep({
   onChangeRequirements,
   onContinue,
   currentPrice,
+  currency,
   deliveryDays,
   theme,
   lang,
   isRTL,
+  
 }) {
   const title = resolveTranslated(service.name, lang);
   const desc = resolveTranslated(service.description || service.short_description, lang);
@@ -55,6 +57,8 @@ export default function PackageStep({
                 pkg={pkg}
                 selected={selectedPackage?.id === pkg.id}
                 onSelect={() => onSelectPackage(pkg)}
+                currency={currency}
+
                 theme={theme}
                 lang={lang}
               />
@@ -91,8 +95,7 @@ export default function PackageStep({
         className="w-full py-4 text-white rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity"
         style={{ backgroundColor: color }}
       >
-        {resolveTranslated({ en: "Continue", ar: "متابعة", ur: "جاری رکھیں" }, lang)} — $
-        {Number(currentPrice).toFixed(2)}
+        {resolveTranslated({ en: "Continue", ar: "متابعة", ur: "جاری رکھیں" }, lang)} — {formatCurrency(currentPrice, currency)}
       </button>
     </div>
   );

@@ -16,6 +16,7 @@ export default function CustomerStep({
   customerData,
   onChange,
   currentPrice,
+  currency,
   deliveryDays,
   revisionsAllowed,
   onProceed,
@@ -35,6 +36,8 @@ export default function CustomerStep({
         price={currentPrice}
         deliveryDays={deliveryDays}
         revisionsAllowed={revisionsAllowed}
+        currency={currency}
+
         theme={theme}
         lang={lang}
         isRTL={isRTL}

@@ -3,6 +3,7 @@
 import React, { useState, useEffect, useCallback } from "react";
 import SuperAdminLayout from "@/components/superadmin/SuperAdminLayout";
 import { useSuperAdmin } from "@/contexts/Superadmincontext";
+import { useTranslation } from "@/lib/t";
 import {
   fetchEmployees,
   fetchEmployee,
@@ -71,6 +72,7 @@ const ROLE_ICONS = {
 
 export default function SubAdminsPage() {
   const { hasPermission, platform } = useSuperAdmin();
+  const { t } = useTranslation();
 
   const [employees, setEmployees] = useState([]);
   const [roles, setRoles] = useState([]);
@@ -100,14 +102,14 @@ export default function SubAdminsPage() {
       setPermissionGroups(permData);
     } catch (err) {
       alert(
-      err?.data?.detail ||   // DRF response
-      err?.message ||        // JS Error message
-      "Something went wrong"
-    );
+        err?.data?.detail ||
+        err?.message ||
+        t("something_went_wrong")
+      );
       console.error("Failed to load sub-admin data:", err);
     }
     setLoading(false);
-  }, []);
+  }, [t]);
 
   useEffect(() => {
     loadData();
@@ -141,10 +143,10 @@ export default function SubAdminsPage() {
     } catch (err) {
       console.error("Toggle status failed:", err);
       alert(
-      err?.data?.detail ||   // DRF response
-      err?.message ||        // JS Error message
-      "Something went wrong"
-    );
+        err?.data?.detail ||
+        err?.message ||
+        t("something_went_wrong")
+      );
     }
     setActionLoading(null);
   };
@@ -156,9 +158,9 @@ export default function SubAdminsPage() {
       setShowDetailModal(true);
     } catch (err) {
       alert(
-      err?.data?.detail ||   // DRF response
-      err?.message ||        // JS Error message
-        "Something went wrong"
+        err?.data?.detail ||
+        err?.message ||
+        t("something_went_wrong")
       );
       console.error("Failed to load employee:", err);
     }
@@ -166,11 +168,11 @@ export default function SubAdminsPage() {
 
   // ── Stats ────────────────────────────────────────────────────
   const stats = [
-    { label: "Total", value: employees.length },
-    { label: "Active", value: employees.filter((e) => e.is_active).length },
-    { label: "Inactive", value: employees.filter((e) => !e.is_active).length },
+    { label: t("subadmin_stat_total"), value: employees.length },
+    { label: t("subadmin_stat_active"), value: employees.filter((e) => e.is_active).length },
+    { label: t("subadmin_stat_inactive"), value: employees.filter((e) => !e.is_active).length },
     {
-      label: "Admins",
+      label: t("subadmin_stat_admins"),
       value: employees.filter(
         (e) => e.role_name?.toLowerCase().includes("admin") || e.role_name?.toLowerCase().includes("owner")
       ).length,
@@ -181,9 +183,9 @@ export default function SubAdminsPage() {
 
   return (
     <SuperAdminLayout
-      title="Sub-admin Management"
-      description="Manage platform employees, roles and permissions"
-      breadcrumbs={[{ label: "Sub-admins" }]}
+      title={t("subadmin_title")}
+      description={t("subadmin_description")}
+      breadcrumbs={[{ label: t("subadmin_breadcrumb") }]}
     >
       <div className="space-y-6">
         {/* ── Stats ──────────────────────────────────────────── */}
@@ -205,7 +207,7 @@ export default function SubAdminsPage() {
             <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />
             <input
               type="text"
-              placeholder="Search by name or email…"
+              placeholder={t("subadmin_search_placeholder")}
               className="w-full pl-10 h-11 rounded-xl border border-gray-200 focus:outline-none focus:ring-2 px-4 text-sm"
               style={{ "--tw-ring-color": C.primaryLight }}
               value={searchQuery}
@@ -218,7 +220,7 @@ export default function SubAdminsPage() {
             onChange={(e) => setRoleFilter(e.target.value)}
             className="w-full lg:w-44 h-11 rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 bg-white"
           >
-            <option value="all">All Roles</option>
+            <option value="all">{t("subadmin_filter_all_roles")}</option>
             {roles.map((r) => (
               <option key={r.id} value={r.name}>
                 {r.display_name}
@@ -231,9 +233,9 @@ export default function SubAdminsPage() {
             onChange={(e) => setStatusFilter(e.target.value)}
             className="w-full lg:w-36 h-11 rounded-xl border border-gray-200 px-3 text-sm focus:outline-none focus:ring-2 bg-white"
           >
-            <option value="all">All Status</option>
-            <option value="active">Active</option>
-            <option value="inactive">Inactive</option>
+            <option value="all">{t("subadmin_filter_all_status")}</option>
+            <option value="active">{t("subadmin_status_active")}</option>
+            <option value="inactive">{t("subadmin_status_inactive")}</option>
           </select>
 
           <div className="flex gap-2">
@@ -242,7 +244,7 @@ export default function SubAdminsPage() {
               className="h-11 px-4 rounded-xl border border-gray-200 hover:bg-gray-50 flex items-center gap-2 text-sm transition-colors"
             >
               <RefreshCcw className="w-4 h-4" />
-              Refresh
+              {t("subadmin_refresh")}
             </button>
 
             {canManage && (
@@ -252,7 +254,7 @@ export default function SubAdminsPage() {
                 style={{ backgroundColor: C.primary }}
               >
                 <UserPlus className="w-4 h-4" />
-                Add Employee
+                {t("subadmin_add_employee")}
               </button>
             )}
           </div>
@@ -267,7 +269,7 @@ export default function SubAdminsPage() {
           ) : filtered.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-20 text-gray-500">
               <Shield className="w-10 h-10 mb-3 text-gray-300" />
-              <p className="text-sm">No employees found</p>
+              <p className="text-sm">{t("subadmin_no_employees")}</p>
             </div>
           ) : (
             <div className="overflow-x-auto">
@@ -275,25 +277,25 @@ export default function SubAdminsPage() {
                 <thead className="bg-gray-50 border-b border-gray-200">
                   <tr>
                     <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                      Employee
+                      {t("subadmin_col_employee")}
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                      Role
+                      {t("subadmin_col_role")}
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                      Level
+                      {t("subadmin_col_level")}
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                      Status
+                      {t("subadmin_col_status")}
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                      Last Login
+                      {t("subadmin_col_last_login")}
                     </th>
                     <th className="px-6 py-4 text-left text-sm font-medium text-gray-600">
-                      Joined
+                      {t("subadmin_col_joined")}
                     </th>
                     <th className="px-6 py-4 text-right text-sm font-medium text-gray-600">
-                      Actions
+                      {t("subadmin_col_actions")}
                     </th>
                   </tr>
                 </thead>
@@ -360,7 +362,7 @@ export default function SubAdminsPage() {
                                 : "bg-red-100 text-red-700"
                             }`}
                           >
-                            {emp.is_active ? "Active" : "Inactive"}
+                            {emp.is_active ? t("subadmin_status_active") : t("subadmin_status_inactive")}
                           </span>
                         </td>
 
@@ -368,7 +370,7 @@ export default function SubAdminsPage() {
                         <td className="px-6 py-4 text-sm text-gray-500">
                           {emp.last_login_at
                             ? new Date(emp.last_login_at).toLocaleDateString()
-                            : "Never"}
+                            : t("subadmin_never")}
                         </td>
 
                         {/* Joined */}
@@ -382,7 +384,7 @@ export default function SubAdminsPage() {
                             <button
                               onClick={() => handleViewDetail(emp)}
                               className="p-2 rounded-lg hover:bg-gray-100 transition-colors"
-                              title="View details"
+                              title={t("subadmin_view_details")}
                             >
                               <Eye className="w-4 h-4 text-gray-600" />
                             </button>
@@ -391,7 +393,7 @@ export default function SubAdminsPage() {
                                 onClick={() => handleToggleStatus(emp)}
                                 disabled={actionLoading === emp.id}
                                 className="p-2 rounded-lg hover:bg-gray-100 transition-colors disabled:opacity-50"
-                                title={emp.is_active ? "Deactivate" : "Activate"}
+                                title={emp.is_active ? t("subadmin_deactivate") : t("subadmin_activate")}
                               >
                                 {actionLoading === emp.id ? (
                                   <Loader2 className="w-4 h-4 animate-spin text-gray-400" />
@@ -416,7 +418,7 @@ export default function SubAdminsPage() {
         {/* Pagination info */}
         {!loading && filtered.length > 0 && (
           <p className="text-sm text-gray-600">
-            Showing {filtered.length} of {employees.length} employees
+            {t("subadmin_pagination", { filtered: filtered.length, total: employees.length })}
           </p>
         )}
       </div>
@@ -462,6 +464,7 @@ export default function SubAdminsPage() {
 // =================================================================
 
 function CreateEmployeeModal({ roles, permissionGroups, onClose, onCreated, currentPlatform }) {
+  const { t } = useTranslation();
   const [form, setForm] = useState({
     email: "",
     full_name: "",
@@ -485,9 +488,9 @@ function CreateEmployeeModal({ roles, permissionGroups, onClose, onCreated, curr
   const handleSubmit = async (e) => {
     e.preventDefault();
     const newErrors = {};
-    if (!form.email.trim()) newErrors.email = "Required";
-    if (!form.full_name.trim()) newErrors.full_name = "Required";
-    if (!form.role_id) newErrors.role_id = "Select a role";
+    if (!form.email.trim()) newErrors.email = t("validation_required");
+    if (!form.full_name.trim()) newErrors.full_name = t("validation_required");
+    if (!form.role_id) newErrors.role_id = t("validation_select_role");
     if (Object.keys(newErrors).length) {
       setErrors(newErrors);
       return;
@@ -534,8 +537,8 @@ function CreateEmployeeModal({ roles, permissionGroups, onClose, onCreated, curr
               <UserPlus className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-semibold text-gray-900">Add Platform Employee</h2>
-              <p className="text-xs text-gray-500">Assign a role and optional extra permissions</p>
+              <h2 className="text-lg font-semibold text-gray-900">{t("subadmin_add_platform_employee")}</h2>
+              <p className="text-xs text-gray-500">{t("subadmin_assign_role_permissions")}</p>
             </div>
           </div>
           <button onClick={onClose} className="p-2 rounded-lg hover:bg-gray-100">
@@ -548,7 +551,7 @@ function CreateEmployeeModal({ roles, permissionGroups, onClose, onCreated, curr
           {/* Basic info */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <Field
-              label="Email *"
+              label={t("subadmin_email") + " *"}
               name="email"
               type="email"
               value={form.email}
@@ -556,7 +559,7 @@ function CreateEmployeeModal({ roles, permissionGroups, onClose, onCreated, curr
               onChange={(v) => setForm((p) => ({ ...p, email: v }))}
             />
             <Field
-              label="Full Name *"
+              label={t("subadmin_full_name") + " *"}
               name="full_name"
               value={form.full_name}
               error={errors.full_name}
@@ -565,7 +568,7 @@ function CreateEmployeeModal({ roles, permissionGroups, onClose, onCreated, curr
           </div>
 
           <Field
-            label="Phone"
+            label={t("subadmin_phone")}
             name="phone"
             value={form.phone}
             onChange={(v) => setForm((p) => ({ ...p, phone: v }))}
@@ -573,7 +576,7 @@ function CreateEmployeeModal({ roles, permissionGroups, onClose, onCreated, curr
 
           {/* Role select */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Role *</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("subadmin_role")} *</label>
             <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
               {assignableRoles.map((role) => {
                 const RIcon = ROLE_ICONS[role.name] || Shield;
@@ -604,7 +607,7 @@ function CreateEmployeeModal({ roles, permissionGroups, onClose, onCreated, curr
           {selectedRole && selectedRole.name === "sub_admin" && (
             <div>
               <label className="block text-sm font-medium text-gray-700 mb-2">
-                Permissions <span className="text-gray-400 font-normal">(sub-admin has none by default)</span>
+                {t("subadmin_permissions")} <span className="text-gray-400 font-normal">({t("subadmin_subadmin_default_none")})</span>
               </label>
               <PermissionPicker
                 groups={permissionGroups}
@@ -618,13 +621,13 @@ function CreateEmployeeModal({ roles, permissionGroups, onClose, onCreated, curr
 
           {/* Notes */}
           <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes</label>
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("subadmin_notes")}</label>
             <textarea
               rows={2}
               value={form.notes}
               onChange={(e) => setForm((p) => ({ ...p, notes: e.target.value }))}
               className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#A63A5C] resize-none"
-              placeholder="Internal notes about this employee…"
+              placeholder={t("subadmin_notes_placeholder")}
             />
           </div>
         </form>
@@ -636,7 +639,7 @@ function CreateEmployeeModal({ roles, permissionGroups, onClose, onCreated, curr
             onClick={onClose}
             className="px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
           >
-            Cancel
+            {t("cancel")}
           </button>
           <button
             onClick={handleSubmit}
@@ -645,7 +648,7 @@ function CreateEmployeeModal({ roles, permissionGroups, onClose, onCreated, curr
             style={{ backgroundColor: C.primary }}
           >
             {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            Create Employee
+            {t("subadmin_create_employee")}
           </button>
         </div>
       </div>
@@ -665,11 +668,12 @@ function EmployeeDetailModal({
   onUpdated,
   currentPlatform,
 }) {
+  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState("overview");
   const [isEditing, setIsEditing] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
   const [expandedGroups, setExpandedGroups] = useState({});
-  // const canManage = hasPermission("employees.manage_roles");
+
   // Edit form state
   const [editForm, setEditForm] = useState({
     full_name: "",
@@ -691,17 +695,16 @@ function EmployeeDetailModal({
 
   const emp = employee;
   const membership = emp;
-  console.log(membership,"membershipmembership")
   const effectivePerms = membership.effective_permissions || [];
   const userPerms = membership.permissions || [];
   const deniedPerms = membership.denied_permissions || [];
   const roleName = membership.role?.name;
   const canManage = membership.can_be_managed;
+
   // ── Edit Handlers ─────────────────────────────────────────────
-  
+
   const handleEditToggle = () => {
     if (isEditing) {
-      // Cancel edit - reset form
       setEditForm({
         full_name: employee.user?.full_name || "",
         phone: employee.user?.phone || "",
@@ -714,19 +717,17 @@ function EmployeeDetailModal({
 
   const handleInputChange = (field, value) => {
     setEditForm(prev => ({ ...prev, [field]: value }));
-    // Clear error when user types
     if (errors[field]) {
       setErrors(prev => ({ ...prev, [field]: null }));
     }
   };
 
   const handleSaveDetails = async () => {
-    // Validation
     const newErrors = {};
     if (!editForm.full_name.trim()) {
-      newErrors.full_name = "Full name is required";
+      newErrors.full_name = t("validation_full_name_required");
     }
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -734,23 +735,20 @@ function EmployeeDetailModal({
 
     setActionLoading(true);
     setErrors({});
-    
+
     try {
-      // Update employee details via API
       await updateEmployee(emp.id, {
-        // full_name: editForm.full_name.trim(),
-        // phone: editForm.phone.trim(),
         notes: editForm.notes.trim(),
       });
-      
+
       setIsEditing(false);
-      onUpdated(); // Refresh parent data
+      onUpdated();
     } catch (err) {
       console.error("Update failed:", err);
       if (err.data) {
         setErrors(err.data);
       } else {
-        setErrors({ general: err.message || "Failed to update employee" });
+        setErrors({ general: err.message || t("subadmin_update_failed") });
       }
     } finally {
       setActionLoading(false);
@@ -758,24 +756,24 @@ function EmployeeDetailModal({
   };
 
   // ── Role Management ───────────────────────────────────────────
-  
+
   const handleRoleChange = async (roleId) => {
     if (roleId === emp.role?.id) return;
-    
+
     setActionLoading(true);
     try {
       await changeEmployeeRole(emp.id, roleId);
       onUpdated();
     } catch (err) {
       console.error("Role change failed:", err);
-      alert(err?.data?.detail || err?.message || "Failed to change role");
+      alert(err?.data?.detail || err?.message || t("subadmin_role_change_failed"));
     } finally {
       setActionLoading(false);
     }
   };
 
   // ── Permission Management ─────────────────────────────────────
-  
+
   const handleTogglePerm = async (code) => {
     setActionLoading(true);
     try {
@@ -784,40 +782,39 @@ function EmployeeDetailModal({
       } else {
         await addEmployeePermission(emp.id, code);
       }
-      
-      // Reload employee data to get updated permissions
+
       const updated = await fetchEmployee(emp.id);
       Object.assign(emp, updated);
-      setExpandedGroups(g => ({ ...g })); // Force re-render
+      setExpandedGroups(g => ({ ...g }));
     } catch (err) {
       console.error("Toggle perm failed:", err);
-      alert(err?.data?.detail || err?.message || "Failed to update permission");
+      alert(err?.data?.detail || err?.message || t("subadmin_perm_update_failed"));
     } finally {
       setActionLoading(false);
     }
   };
 
   const handleResetPerms = async () => {
-    if (!window.confirm("Reset all extra permissions to role defaults?")) return;
-    
+    if (!window.confirm(t("subadmin_reset_perms_confirm"))) return;
+
     setActionLoading(true);
     try {
       await resetEmployeePermissions(emp.id);
       onUpdated();
     } catch (err) {
       console.error("Reset failed:", err);
-      alert(err?.data?.detail || err?.message || "Failed to reset permissions");
+      alert(err?.data?.detail || err?.message || t("subadmin_reset_failed"));
     } finally {
       setActionLoading(false);
     }
   };
 
   // ── Status Management ─────────────────────────────────────────
-  
+
   const handleStatusToggle = async () => {
     const action = emp.is_active ? "deactivate" : "activate";
-    if (!window.confirm(`Are you sure you want to ${action} this employee?`)) return;
-    
+    if (!window.confirm(t("subadmin_status_toggle_confirm", { action }))) return;
+
     setActionLoading(true);
     try {
       if (emp.is_active) {
@@ -828,15 +825,15 @@ function EmployeeDetailModal({
       onUpdated();
     } catch (err) {
       console.error("Status toggle failed:", err);
-      alert(err?.data?.detail || err?.message || "Failed to update status");
+      alert(err?.data?.detail || err?.message || t("subadmin_status_update_failed"));
     } finally {
       setActionLoading(false);
     }
   };
 
   const tabs = [
-    { key: "overview", label: "Overview" },
-    { key: "permissions", label: "Permissions" },
+    { key: "overview", label: t("subadmin_tab_overview") },
+    { key: "permissions", label: t("subadmin_tab_permissions") },
   ];
 
   // Filter assignable roles based on hierarchy
@@ -863,7 +860,7 @@ function EmployeeDetailModal({
             </div>
             <div>
               <h2 className="text-lg font-semibold text-gray-900">
-                {isEditing ? "Edit Employee" : (emp.user?.full_name || emp.user?.email)}
+                {isEditing ? t("subadmin_edit_employee") : (emp.user?.full_name || emp.user?.email)}
               </h2>
               <div className="flex items-center gap-2 mt-0.5">
                 <span className="text-xs text-gray-500">{emp.user?.email}</span>
@@ -872,7 +869,7 @@ function EmployeeDetailModal({
                     emp.is_active ? "bg-green-100 text-green-700" : "bg-red-100 text-red-700"
                   }`}
                 >
-                  {emp.is_active ? "Active" : "Inactive"}
+                  {emp.is_active ? t("subadmin_status_active") : t("subadmin_status_inactive")}
                 </span>
               </div>
             </div>
@@ -882,7 +879,7 @@ function EmployeeDetailModal({
               <button
                 onClick={handleEditToggle}
                 className="p-2 rounded-lg hover:bg-gray-100 text-gray-600"
-                title="Edit employee"
+                title={t("subadmin_edit_employee")}
               >
                 <Edit className="w-5 h-5" />
               </button>
@@ -900,7 +897,7 @@ function EmployeeDetailModal({
               key={tab.key}
               onClick={() => {
                 setActiveTab(tab.key);
-                if (isEditing) setIsEditing(false); // Exit edit mode when switching tabs
+                if (isEditing) setIsEditing(false);
               }}
               className={`px-4 py-3 text-sm font-medium border-b-2 transition-colors ${
                 activeTab === tab.key
@@ -922,29 +919,29 @@ function EmployeeDetailModal({
                 <div className="space-y-4">
                   <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                     <Field
-                      label="Full Name *"
+                      label={t("subadmin_full_name") + " *"}
                       name="full_name"
                       value={editForm.full_name}
                       error={errors.full_name}
                       onChange={(v) => handleInputChange("full_name", v)}
                     />
                     <Field
-                      label="Phone"
+                      label={t("subadmin_phone")}
                       name="phone"
                       value={editForm.phone}
                       error={errors.phone}
                       onChange={(v) => handleInputChange("phone", v)}
                     />
                   </div>
-                  
+
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">Notes</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">{t("subadmin_notes")}</label>
                     <textarea
                       rows={3}
                       value={editForm.notes}
                       onChange={(e) => handleInputChange("notes", e.target.value)}
                       className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-[#A63A5C] resize-none"
-                      placeholder="Internal notes about this employee..."
+                      placeholder={t("subadmin_notes_placeholder")}
                     />
                   </div>
 
@@ -961,7 +958,7 @@ function EmployeeDetailModal({
                       disabled={actionLoading}
                       className="px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors disabled:opacity-50"
                     >
-                      Cancel
+                      {t("cancel")}
                     </button>
                     <button
                       onClick={handleSaveDetails}
@@ -970,18 +967,18 @@ function EmployeeDetailModal({
                       style={{ backgroundColor: C.primary }}
                     >
                       {actionLoading && <Loader2 className="w-4 h-4 animate-spin" />}
-                      Save Changes
+                      {t("save_changes")}
                     </button>
                   </div>
                 </div>
               ) : (
                 <>
                   {/* View Mode: Read-only Display */}
-                  
+
                   {/* Role Section */}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-2">
-                      Current Role
+                      {t("subadmin_current_role")}
                     </label>
                     <div className="flex items-center gap-3">
                       <span
@@ -992,7 +989,7 @@ function EmployeeDetailModal({
                         <ShieldCheck className="w-4 h-4" />
                         {emp.role?.display_name || roleName}
                       </span>
-                      <span className="text-xs text-gray-400">Level {emp.role?.level}</span>
+                      <span className="text-xs text-gray-400">{t("subadmin_level")} {emp.role?.level}</span>
                     </div>
                   </div>
 
@@ -1000,7 +997,7 @@ function EmployeeDetailModal({
                   {canManage && !emp.role?.is_owner_role && (
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">
-                        Change Role
+                        {t("subadmin_change_role")}
                       </label>
                       <div className="flex flex-wrap gap-2">
                         {assignableRoles.map((r) => (
@@ -1026,11 +1023,11 @@ function EmployeeDetailModal({
                     <div className="p-4 bg-gray-50 rounded-xl">
                       <div className="flex items-center justify-between">
                         <div>
-                          <span className="text-sm font-medium text-gray-700">Account Status</span>
+                          <span className="text-sm font-medium text-gray-700">{t("subadmin_account_status")}</span>
                           <p className="text-xs text-gray-500 mt-0.5">
-                            {emp.is_active 
-                              ? "Employee can access the platform" 
-                              : "Employee access is disabled"}
+                            {emp.is_active
+                              ? t("subadmin_status_active_desc")
+                              : t("subadmin_status_inactive_desc")}
                           </p>
                         </div>
                         <button
@@ -1047,12 +1044,12 @@ function EmployeeDetailModal({
                           ) : emp.is_active ? (
                             <>
                               <Ban className="w-4 h-4" />
-                              Deactivate
+                              {t("subadmin_deactivate")}
                             </>
                           ) : (
                             <>
                               <CheckCircle className="w-4 h-4" />
-                              Activate
+                              {t("subadmin_activate")}
                             </>
                           )}
                         </button>
@@ -1062,37 +1059,37 @@ function EmployeeDetailModal({
 
                   {/* Info Grid */}
                   <div className="grid grid-cols-2 gap-4">
-                    <InfoCard label="Joined" value={new Date(emp.created_at).toLocaleDateString()} />
+                    <InfoCard label={t("subadmin_joined")} value={new Date(emp.created_at).toLocaleDateString()} />
                     <InfoCard
-                      label="Last Login"
-                      value={emp.last_login_at ? new Date(emp.last_login_at).toLocaleString() : "Never"}
+                      label={t("subadmin_last_login")}
+                      value={emp.last_login_at ? new Date(emp.last_login_at).toLocaleString() : t("subadmin_never")}
                     />
                     <InfoCard
-                      label="Total Permissions"
+                      label={t("subadmin_total_permissions")}
                       value={effectivePerms.length}
                     />
                     <InfoCard
-                      label="Extra Permissions"
+                      label={t("subadmin_extra_permissions")}
                       value={userPerms.length}
                     />
                   </div>
 
                   {/* Contact Info */}
                   <div className="grid grid-cols-2 gap-4">
-                    <InfoCard 
-                      label="Phone" 
-                      value={emp.user?.phone || "Not provided"} 
+                    <InfoCard
+                      label={t("subadmin_phone")}
+                      value={emp.user?.phone || t("subadmin_not_provided")}
                     />
-                    <InfoCard 
-                      label="Email Verified" 
-                      value={emp.user?.is_email_verified ? "Yes" : "No"} 
+                    <InfoCard
+                      label={t("subadmin_email_verified")}
+                      value={emp.user?.is_email_verified ? t("yes") : t("no")}
                     />
                   </div>
 
                   {/* Notes */}
                   {emp.notes && (
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1">Notes</label>
+                      <label className="block text-sm font-medium text-gray-700 mb-1">{t("subadmin_notes")}</label>
                       <p className="text-sm text-gray-600 bg-gray-50 rounded-xl p-4">{emp.notes}</p>
                     </div>
                   )}
@@ -1107,8 +1104,8 @@ function EmployeeDetailModal({
                 <div>
                   <p className="text-sm text-gray-600">
                     {emp.role?.is_super_role
-                      ? "This role has ALL permissions (super role)."
-                      : `${effectivePerms.length} effective permissions (role defaults + extras)`}
+                      ? t("subadmin_super_role_desc")
+                      : t("subadmin_effective_permissions_desc", { count: effectivePerms.length })}
                   </p>
                 </div>
                 {canManage && !emp.role?.is_super_role && (
@@ -1118,7 +1115,7 @@ function EmployeeDetailModal({
                     className="text-xs text-gray-500 hover:text-red-600 flex items-center gap-1 transition-colors disabled:opacity-50"
                   >
                     <RefreshCcw className="w-3.5 h-3.5" />
-                    Reset to defaults
+                    {t("subadmin_reset_defaults")}
                   </button>
                 )}
               </div>
@@ -1127,8 +1124,7 @@ function EmployeeDetailModal({
                 <div className="flex items-center gap-3 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                   <AlertTriangle className="w-5 h-5 text-amber-600 flex-shrink-0" />
                   <p className="text-sm text-amber-800">
-                    Super-role users automatically receive every permission. Individual permission
-                    management is not applicable.
+                    {t("subadmin_super_role_warning")}
                   </p>
                 </div>
               ) : (
@@ -1156,7 +1152,7 @@ function EmployeeDetailModal({
               onClick={onClose}
               className="px-5 py-2.5 rounded-xl border border-gray-200 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors"
             >
-              Close
+              {t("close")}
             </button>
           </div>
         )}
@@ -1168,20 +1164,16 @@ function EmployeeDetailModal({
 function ModalOverlay({ children, onClose }) {
   return (
     <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
-      {/* Background */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
         onClick={onClose}
       />
-
-      {/* Modal container */}
       <div className="relative z-10 w-full max-w-3xl">
         {children}
       </div>
     </div>
   );
 }
-
 
 function Field({ label, name, type = "text", value, error, onChange }) {
   return (
@@ -1228,6 +1220,8 @@ function PermissionPicker({
   onToggleGroup,
   readOnly = false,
 }) {
+  const { t } = useTranslation();
+
   return (
     <div className="space-y-2">
       {groups.map((group) => {
@@ -1285,16 +1279,16 @@ function PermissionPicker({
                         <div className="flex items-center gap-2">
                           <span className="text-sm text-gray-800">{perm.name}</span>
                           {isExtra && (
-                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" title="Extra permission" />
+                            <span className="w-1.5 h-1.5 rounded-full bg-blue-500 flex-shrink-0" title={t("subadmin_extra_permission")} />
                           )}
                           {perm.is_dangerous && (
                             <span className="px-1.5 py-0.5 text-[10px] bg-red-100 text-red-600 rounded font-medium">
-                              dangerous
+                              {t("subadmin_dangerous")}
                             </span>
                           )}
                           {perm.is_restricted && (
                             <span className="px-1.5 py-0.5 text-[10px] bg-amber-100 text-amber-600 rounded font-medium">
-                              restricted
+                              {t("subadmin_restricted")}
                             </span>
                           )}
                         </div>

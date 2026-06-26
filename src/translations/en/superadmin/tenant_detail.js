@@ -1,0 +1,160 @@
+export default {
+  // ── Tabs ──
+  'superadmin.tenant_detail.tabs.overview': 'Overview',
+  'superadmin.tenant_detail.tabs.billing': 'Billing',
+  'superadmin.tenant_detail.tabs.members': 'Members',
+  'superadmin.tenant_detail.tabs.activity': 'Activity',
+
+  // ── Actions ──
+  'superadmin.tenant_detail.actions.edit': 'Edit',
+  'superadmin.tenant_detail.actions.suspend': 'Suspend',
+  'superadmin.tenant_detail.actions.activate': 'Activate',
+  'superadmin.tenant_detail.actions.change_plan': 'Change Plan',
+  'superadmin.tenant_detail.actions.cancel_subscription': 'Cancel Subscription',
+
+  // ── Stats ──
+  'superadmin.tenant_detail.stats.members': 'Members',
+  'superadmin.tenant_detail.stats.providers': 'Providers',
+  'superadmin.tenant_detail.stats.customers': 'Customers',
+  'superadmin.tenant_detail.stats.created': 'Created',
+
+  // ── Navigation ──
+  'superadmin.tenant_detail.back_to_tenants': 'Back to Tenants',
+
+  // ── Loading / Error ──
+  'superadmin.tenant_detail.loading': 'Loading tenant details…',
+  'superadmin.tenant_detail.error_load': 'Failed to load tenant details.',
+
+  // ── Toast Messages ──
+  'superadmin.tenant_detail.toast.suspend_success': '"{{name}}" has been suspended.',
+  'superadmin.tenant_detail.toast.activate_success': '"{{name}}" has been activated.',
+  'superadmin.tenant_detail.toast.update_success': '"{{name}}" has been updated.',
+  'superadmin.tenant_detail.toast.plan_changed': 'Plan changed successfully.',
+  'superadmin.tenant_detail.toast.cancelled': 'Subscription cancelled.',
+  'superadmin.tenant_detail.toast.resumed': 'Subscription resumed.',
+
+  // ── Confirmations ──
+  'superadmin.tenant_detail.confirm_cancel_subscription': "Cancel this tenant's subscription? They'll retain access until period end.",
+
+  // ── Modals ──
+  'superadmin.tenant_detail.modals.suspend_title': 'Suspend Tenant',
+  'superadmin.tenant_detail.modals.suspend_desc': 'Suspend {{name}}? This restricts their platform access.',
+  'superadmin.tenant_detail.modals.suspend_reason_placeholder': 'Reason (optional)…',
+  'superadmin.tenant_detail.modals.activate_title': 'Activate Tenant',
+  'superadmin.tenant_detail.modals.activate_desc': 'Reactivate {{name}}? This restores full access.',
+  'superadmin.tenant_detail.modals.change_plan_title': 'Change Plan',
+  'superadmin.tenant_detail.modals.change_plan_desc': 'Change plan for {{name}}.',
+  'superadmin.tenant_detail.modals.change_plan_current': 'Current: {{tier}}',
+  'superadmin.tenant_detail.modals.target_plan': 'Target Plan',
+  'superadmin.tenant_detail.modals.billing_interval': 'Billing Interval',
+  'superadmin.tenant_detail.modals.change_plan_warning': "This will modify the tenant's Stripe subscription immediately. If they have an active subscription, it will be updated via Stripe. The webhook will sync the change.",
+
+  // ── Overview Tab ──
+  'superadmin.tenant_detail.overview.business_info': 'Business Information',
+  'superadmin.tenant_detail.overview.business_name': 'Business Name',
+  'superadmin.tenant_detail.overview.slug': 'Slug',
+  'superadmin.tenant_detail.overview.email': 'Email',
+  'superadmin.tenant_detail.overview.phone': 'Phone',
+  'superadmin.tenant_detail.overview.address': 'Address',
+  'superadmin.tenant_detail.overview.service_type': 'Service Type',
+  'superadmin.tenant_detail.overview.has_providers': 'Has Providers',
+  'superadmin.tenant_detail.overview.description': 'Description',
+  'superadmin.tenant_detail.overview.domains': 'Domains',
+  'superadmin.tenant_detail.overview.primary': 'Primary',
+  'superadmin.tenant_detail.overview.custom': 'Custom',
+  'superadmin.tenant_detail.overview.no_domains': 'No domains configured',
+  'superadmin.tenant_detail.overview.owner_info': 'Owner Information',
+  'superadmin.tenant_detail.overview.owner_name': 'Name',
+  'superadmin.tenant_detail.overview.owner_email': 'Email',
+  'superadmin.tenant_detail.overview.owner_phone': 'Phone',
+  'superadmin.tenant_detail.overview.last_login': 'Last Login',
+  'superadmin.tenant_detail.overview.account_details': 'Account Details',
+  'superadmin.tenant_detail.overview.tenant_id': 'Tenant ID',
+  'superadmin.tenant_detail.overview.created': 'Created',
+  'superadmin.tenant_detail.overview.last_updated': 'Last Updated',
+  'superadmin.tenant_detail.overview.timezone': 'Timezone',
+  'superadmin.tenant_detail.overview.currency': 'Currency',
+  'superadmin.tenant_detail.overview.language': 'Language',
+  'superadmin.tenant_detail.overview.onboarding': 'Onboarding',
+  'superadmin.tenant_detail.overview.onboarding_step': 'Step {{step}}',
+  'superadmin.tenant_detail.overview.business_document': 'Business Document',
+
+  // ── Billing Tab ──
+  'superadmin.tenant_detail.billing.subscription': 'Subscription',
+  'superadmin.tenant_detail.billing.no_subscription': 'No subscription record',
+  'superadmin.tenant_detail.billing.tier_label': 'Tier',
+  'superadmin.tenant_detail.billing.plan': 'Plan',
+  'superadmin.tenant_detail.billing.billing': 'Billing',
+  'superadmin.tenant_detail.billing.current_price': 'Current Price',
+  'superadmin.tenant_detail.billing.mrr': 'MRR',
+  'superadmin.tenant_detail.billing.start_date': 'Start Date',
+  'superadmin.tenant_detail.billing.current_period': 'Current Period',
+  'superadmin.tenant_detail.billing.trial_period': 'Trial Period',
+  'superadmin.tenant_detail.billing.trial_remaining': 'Trial Remaining',
+  'superadmin.tenant_detail.billing.days': '{{count}} day',
+  'superadmin.tenant_detail.billing.days_plural': '{{count}} days',
+  'superadmin.tenant_detail.billing.trial_ended': 'Trial Ended',
+  'superadmin.tenant_detail.billing.trial_used': 'Trial Used',
+  'superadmin.tenant_detail.billing.eligible': 'Eligible',
+  'superadmin.tenant_detail.billing.cancelled_at': 'Cancelled At',
+  'superadmin.tenant_detail.billing.stripe_integration': 'Stripe Integration',
+  'superadmin.tenant_detail.billing.platform_billing': 'Platform Billing',
+  'superadmin.tenant_detail.billing.tenant_pays_you': '(tenant pays you)',
+  'superadmin.tenant_detail.billing.subscription_id': 'Subscription ID',
+  'superadmin.tenant_detail.billing.customer_id': 'Customer ID',
+  'superadmin.tenant_detail.billing.stripe_connect': 'Stripe Connect',
+  'superadmin.tenant_detail.billing.customers_pay_tenant': '(customers pay tenant)',
+  'superadmin.tenant_detail.billing.account_id': 'Account ID',
+  'superadmin.tenant_detail.billing.account_status': 'Account Status',
+  'superadmin.tenant_detail.billing.not_connected': 'Not connected',
+  'superadmin.tenant_detail.billing.platform_fee': 'Platform Fee',
+  'superadmin.tenant_detail.billing.plan_pricing': 'Plan Pricing',
+  'superadmin.tenant_detail.billing.yearly_savings': 'Yearly Savings',
+  'superadmin.tenant_detail.billing.plan_features': 'Plan Features',
+  'superadmin.tenant_detail.billing.feature_flags': 'Tenant Feature Flags',
+  'superadmin.tenant_detail.billing.no_feature_flags': 'No feature flags configured.',
+  'superadmin.tenant_detail.billing.provider_config': 'Provider Configuration',
+  'superadmin.tenant_detail.billing.self_registration': 'Self Registration',
+  'superadmin.tenant_detail.billing.require_approval': 'Require Approval',
+  'superadmin.tenant_detail.billing.default_commission': 'Default Commission',
+  'superadmin.tenant_detail.billing.auto_assign': 'Auto-assign',
+  'superadmin.tenant_detail.billing.cancelling_title': 'Subscription cancelling',
+  'superadmin.tenant_detail.billing.access_ends': 'Access ends',
+  'superadmin.tenant_detail.billing.resume': 'Resume',
+
+  // ── Feature Categories ──
+  'superadmin.tenant_detail.feature_category.core': 'Core Features',
+  'superadmin.tenant_detail.feature_category.providers': 'Provider Management',
+  'superadmin.tenant_detail.feature_category.bookings': 'Booking System',
+  'superadmin.tenant_detail.feature_category.communication': 'Communication',
+  'superadmin.tenant_detail.feature_category.analytics': 'Analytics & Reports',
+  'superadmin.tenant_detail.feature_category.support': 'Support',
+  'superadmin.tenant_detail.feature_category.integrations': 'Integrations',
+  'superadmin.tenant_detail.feature_category.branding': 'Branding & Customization',
+
+  // ── Document Status ──
+  'superadmin.tenant_detail.doc_status_not_uploaded': 'Not Uploaded',
+  'superadmin.tenant_detail.doc_status_pending': 'Pending Review',
+  'superadmin.tenant_detail.doc_status_approved': 'Approved',
+  'superadmin.tenant_detail.doc_status_rejected': 'Rejected',
+
+  // ── Subscription Status ──
+  'superadmin.tenant_detail.sub_status_active': 'Active',
+  'superadmin.tenant_detail.sub_status_trialing': 'Trialing',
+  'superadmin.tenant_detail.sub_status_past_due': 'Past Due',
+  'superadmin.tenant_detail.sub_status_cancelled': 'Cancelled',
+  'superadmin.tenant_detail.sub_status_expired': 'Expired',
+  'superadmin.tenant_detail.sub_status_incomplete': 'Incomplete',
+
+  // ── Members Tab ──
+  'superadmin.tenant_detail.members.title': 'Team Members',
+  'superadmin.tenant_detail.members.no_members': 'No members found',
+  'superadmin.tenant_detail.members.column_user': 'User',
+  'superadmin.tenant_detail.members.column_role': 'Role',
+  'superadmin.tenant_detail.members.column_status': 'Status',
+  'superadmin.tenant_detail.members.column_joined': 'Joined',
+
+  // ── Activity Tab ──
+  'superadmin.tenant_detail.activity.title': 'Recent Activity',
+  'superadmin.tenant_detail.activity.empty': 'Activity log will be connected from PlatformAuditLog.',
+};

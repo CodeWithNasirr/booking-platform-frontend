@@ -93,7 +93,7 @@ return (
 
     {/* Hero Section */}
     <section className="relative overflow-hidden bg-gradient-to-br from-accent via-background to-secondary">
-      <div className="container mx-auto max-w-7xl px-6 py-20 lg:py-32">
+      <div className="container mx-auto max-w-7xl px-4 sm:px-6 py-12 lg:py-32">
         <div className="grid lg:grid-cols-2 gap-12 items-center">
 
           {/* LEFT */}
@@ -106,7 +106,7 @@ return (
               <span className="text-sm font-medium">{t("landing.badge")}</span>
             </div>
 
-            <h1 className="text-4xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
+           <h1 className="text-3xl sm:text-4xl lg:text-6xl font-bold text-gray-900 mb-6 leading-tight">
               {t("landing.title")}
             </h1>
 

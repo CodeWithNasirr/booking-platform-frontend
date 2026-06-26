@@ -35,15 +35,42 @@ export function setLanguage(lang) {
   );
 }
 
-export function t(key, lang) {
+// export function t(key, lang) {
+//   if (!key) return "";
+//   const l = lang || getLanguage();
+
+//   if (typeof key === "object") {
+//     return key[l] || key.en || Object.values(key)[0] || "";
+//   }
+
+//   return translations?.[l]?.[key] ?? translations?.en?.[key] ?? key;
+// }
+
+export function t(key, lang, params = {}) {
   if (!key) return "";
+
   const l = lang || getLanguage();
 
+  let text = "";
+
   if (typeof key === "object") {
-    return key[l] || key.en || Object.values(key)[0] || "";
+    text = key[l] || key.en || Object.values(key)[0] || "";
+  } else {
+    text =
+      translations?.[l]?.[key] ??
+      translations?.en?.[key] ??
+      key;
   }
 
-  return translations?.[l]?.[key] ?? translations?.en?.[key] ?? key;
+  // Replace placeholders
+  Object.entries(params).forEach(([param, value]) => {
+    text = text.replace(
+      new RegExp(`{{\\s*${param}\\s*}}`, "g"),
+      String(value)
+    );
+  });
+
+  return text;
 }
 
 /**
@@ -84,7 +111,11 @@ export function useTranslation() {
     return () => window.removeEventListener(LANG_CHANGE_EVENT, onLangChange);
   }, []);
 
-  const tFn = useCallback((key) => t(key, lang), [lang]);
+  // const tFn = useCallback((key) => t(key, lang), [lang]);
+  const tFn = useCallback(
+      (key, params = {}) => t(key, lang, params),
+      [lang]
+    );
 
   const rtl = RTL_LANGUAGES.includes(lang);
 

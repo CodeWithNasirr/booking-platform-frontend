@@ -88,7 +88,7 @@ const ACTION_STYLES = {
 
 export default function AdminOrderDetailClient({ orderId }) {
   const router = useRouter();
-  const { activeTenant, user } = useApp();
+  const { activeTenant, user,t } = useApp();
 
   const { allowed: canView } = useTenantPermission("orders.view");
   const { allowed: canManage } = useTenantPermission("orders.manage");
@@ -315,8 +315,8 @@ export default function AdminOrderDetailClient({ orderId }) {
       <div className="max-w-4xl mx-auto p-6 text-center py-20">
         <p className="text-red-600 text-lg mb-4">{error || "Order not found."}</p>
         <div className="flex gap-3 justify-center">
-          <button onClick={fetchOrder} className="text-blue-600 hover:underline text-sm">Try again</button>
-          <button onClick={() => router.push("/dashboard/orders")} className="text-gray-500 hover:underline text-sm">Back to orders</button>
+          <button onClick={fetchOrder} className="text-blue-600 hover:underline text-sm">{t("orderDetail.tryAgain")}</button>
+          <button onClick={() => router.push("/dashboard/orders")} className="text-gray-500 hover:underline text-sm">{t("orderDetail.backToOrders")}</button>
         </div>
       </div>
     );
@@ -348,7 +348,7 @@ export default function AdminOrderDetailClient({ orderId }) {
         >
           <path d="M19 12H5M12 19l-7-7 7-7" />
         </svg>
-        Back to orders
+        {t("orderDetail.backToOrders")}
       </button>
 
       {/* ═══ 2-Column Grid ═══ */}

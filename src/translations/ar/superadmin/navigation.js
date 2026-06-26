@@ -1,0 +1,18 @@
+export default {
+  'superadmin.nav.dashboard': 'لوحة التحكم',
+  'superadmin.nav.tenants': 'المستأجرون',
+  'superadmin.nav.documents': 'المستندات',
+  'superadmin.nav.billing': 'الفوترة والخطط',
+  'superadmin.nav.notifications': 'الإشعارات',
+  'superadmin.nav.announcements': 'الإعلانات',
+  'superadmin.nav.templates': 'القوالب',
+  'superadmin.nav.integrations': 'التكاملات',
+  'superadmin.nav.support': 'الدعم',
+  'superadmin.nav.subadmins': 'المشرفون الفرعيون',
+  'superadmin.nav.logs': 'السجلات والتدقيق',
+  'superadmin.nav.refunds': 'المبالغ المستردة',
+  'superadmin.nav.health': 'صحة النظام',
+  'superadmin.nav.dunning': 'المدفوعات الفاشلة',
+  'superadmin.nav.settings': 'الإعدادات',
+  'superadmin.topbar.search_placeholder': 'ابحث عن المستأجرين أو المستخدمين أو التذاكر…',
+};

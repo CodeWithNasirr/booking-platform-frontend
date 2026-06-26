@@ -42,7 +42,7 @@ export default function DashboardHome() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [lastUpdated, setLastUpdated] = useState(null);
-  console.log("DashboardHome mounted");
+
   const token = Cookies.get("access_token");
 
   const { allowed: canViewServices } = useTenantPermission("services.view");
@@ -113,9 +113,9 @@ export default function DashboardHome() {
 
   /* DATA FETCHING */
   useEffect(() => {
-    console.log("Loading dashboard...");
+  
     if (!user || !tenantId) return;
-    console.log("Rendering DashboardHome");
+
     async function loadDashboard() {
       try {
         setLoading(true);
@@ -134,7 +134,11 @@ export default function DashboardHome() {
           },
           {
             title: t("dashboard.stats.totalRevenue"),
-            value: `$${overview.revenue?.toLocaleString() || "0"}`,
+            value: new Intl.NumberFormat("en-SA", {
+              style: "currency",
+              currency: overview.currency || "SAR",
+              maximumFractionDigits: 0,
+            }).format(overview.revenue || 0),
             change: overview.revenue_change || "+0%",
             isPositive: !overview.revenue_change?.includes("-"),
             icon: DollarSign,
@@ -226,7 +230,7 @@ export default function DashboardHome() {
   },
   {
     title: t("dashboard.stats.totalRevenue"),
-    value: "$...",
+    value: "...",
     change: "+0%",
     isPositive: true,
     icon: DollarSign,
@@ -453,7 +457,7 @@ export default function DashboardHome() {
                       {booking.time}
                     </div>
                     <div className="text-sm text-gray-600">
-                      {booking.amount}
+                      {booking.currency} {booking.amount}
                     </div>
                   </div>
 

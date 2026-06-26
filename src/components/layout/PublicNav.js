@@ -30,7 +30,7 @@ export default function PublicNav() {
     setMobileMenuOpen(false);
   };
   return (
-    <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border">
+    <nav className="sticky top-0 z-50 bg-background/95 backdrop-blur-sm border-b border-border relative">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
 
         {/* Top bar */}
@@ -40,13 +40,13 @@ export default function PublicNav() {
 
           {/* Logo */}
           <div
-            onClick={() => navigate("/")}
-            className="flex items-center gap-2 cursor-pointer"
-          >
+  onClick={() => navigate("/")}
+  className="flex items-center gap-2 cursor-pointer min-w-0"
+>
             <div className="w-10 h-10 rounded-xl bg-primary flex items-center justify-center shadow-md shadow-primary/20">
               <Calendar className="w-5 h-5 text-primary-foreground" />
             </div>
-            <span className="hidden sm:block text-xl font-semibold text-foreground">
+            <span className="hidden xs:block text-lg font-semibold truncate">
             Meetly
           </span>
           </div>
@@ -95,9 +95,7 @@ export default function PublicNav() {
           </div>
 
           {/* Mobile Toggle */}
-          <div
-          className="md:hidden flex items-center gap-2"
-          >
+          <div className="md:hidden flex items-center gap-3 shrink-0">
             <LanguageSwitcher />
             <button
               onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
@@ -113,8 +111,23 @@ export default function PublicNav() {
 
         {/* Mobile Menu */}
         {mobileMenuOpen && (
-          <div className="md:hidden py-4 border-t border-border">
-            <div className="flex flex-col gap-2">
+        <div
+          className="
+            md:hidden
+            absolute
+            top-16
+            left-0
+            right-0
+            bg-background
+            border-t
+            border-border
+            shadow-lg
+            z-50
+            max-h-[calc(100vh-4rem)]
+            overflow-y-auto
+          "
+        >
+            <div className="flex flex-col gap-1 p-4">
 
              {navItems.map((item) => {
                 const isActive =

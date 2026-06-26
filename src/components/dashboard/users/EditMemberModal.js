@@ -4,11 +4,28 @@ import { useState, useEffect } from 'react'
 import { X, Save, Loader2, AlertCircle, User } from 'lucide-react'
 import { apiFetch as authFetch } from '@/lib/apiClient'
 import { useApp } from '@/contexts/AppContext'
-const ROLE_OPTIONS = [
-  { value: 'admin', label: 'Admin' },
-  { value: 'sub_admin', label: 'Sub Admin' },
-  { value: 'provider', label: 'Provider' },
-  { value: 'staff', label: 'Staff' },
+
+const ROLE_OPTIONS = (t) => [
+  {
+    value: 'admin',
+    label: t('users.roles.admin'),
+    description: t('users.roles.adminDescription'),
+  },
+  {
+    value: 'sub_admin',
+    label: t('users.roles.sub_admin'),
+    description: t('users.roles.subAdminDescription'),
+  },
+  {
+    value: 'provider',
+    label: t('users.roles.provider'),
+    description: t('users.roles.providerDescription'),
+  },
+  {
+    value: 'staff',
+    label: t('users.roles.staff'),
+    description: t('users.roles.staffDescription'),
+  },
 ]
 
 export default function EditMemberModal({
@@ -30,7 +47,7 @@ export default function EditMemberModal({
     phone: member.user?.phone || '',
   })
 
-  const { activeTenant } = useApp()
+  const { activeTenant, t, isRTL } = useApp()
   const [availablePermissions, setAvailablePermissions] = useState({})
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState(null)
@@ -108,9 +125,9 @@ export default function EditMemberModal({
       onSuccess()
     } catch (err) {
       setError(
-      err?.message ||
-      'Failed to update member'
-    )
+    err?.message ||
+    t('users.edit.updateError')
+  )
     } finally {
       setSaving(false)
     }
@@ -131,9 +148,9 @@ export default function EditMemberModal({
               <User className="w-5 h-5 text-white" />
             </div>
             <div>
-              <h2 className="text-lg font-bold text-gray-900">
-                Edit Member
-              </h2>
+             <h2 className="text-lg font-bold text-gray-900">
+              {t('users.edit.title')}
+            </h2>
               <p className="text-sm text-gray-500">{member.email}</p>
             </div>
           </div>
@@ -158,7 +175,9 @@ export default function EditMemberModal({
                     : 'border-transparent text-gray-500 hover:text-gray-700'
                 }`}
               >
-                {tab === 'role' ? 'Role & Permissions' : 'Profile'}
+                {tab === 'role'
+                ? t('users.edit.rolePermissions')
+                : t('users.edit.profile')}
               </button>
             ))}
           </div>
@@ -178,7 +197,7 @@ export default function EditMemberModal({
               <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1.5">
-                    First Name
+                     {t('users.invite.firstName')}
                   </label>
                   <input
                     type="text"
@@ -191,7 +210,7 @@ export default function EditMemberModal({
                 </div>
                 <div>
                   <label className="block text-sm font-bold text-gray-700 mb-1.5">
-                    Last Name
+                     {t('users.invite.lastName')}
                   </label>
                   <input
                     type="text"
@@ -205,7 +224,7 @@ export default function EditMemberModal({
               </div>
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-1.5">
-                  Phone
+                 {t('users.invite.phone')}
                 </label>
                 <input
                   type="tel"
@@ -224,7 +243,7 @@ export default function EditMemberModal({
               {isOwner ? (
                 <div className="p-4 rounded-xl bg-purple-50 border border-purple-200">
                   <p className="text-sm text-purple-800 font-medium">
-                    The owner role cannot be changed.
+                  {t('users.edit.ownerLocked')}
                   </p>
                 </div>
               ) : (
@@ -232,7 +251,7 @@ export default function EditMemberModal({
                   {/* Role select */}
                   <div>
                     <label className="block text-sm font-bold text-gray-700 mb-1.5">
-                      Role
+                      {t('users.invite.role')}
                     </label>
                     <select
                       value={roleForm.role}
@@ -241,7 +260,7 @@ export default function EditMemberModal({
                       }
                       className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none transition-all bg-white"
                     >
-                      {ROLE_OPTIONS.map((opt) => (
+                      {ROLE_OPTIONS(t).map((opt) => (
                         <option key={opt.value} value={opt.value}>
                           {opt.label}
                         </option>
@@ -254,7 +273,7 @@ export default function EditMemberModal({
                     Object.keys(availablePermissions).length > 0 && (
                       <div>
                         <label className="block text-sm font-bold text-gray-700 mb-2">
-                          Permissions
+                          {t('users.edit.permissions')}
                         </label>
                         <div className="space-y-3 max-h-52 overflow-y-auto border border-gray-200 rounded-xl p-3">
                           {Object.entries(availablePermissions).map(
@@ -296,11 +315,11 @@ export default function EditMemberModal({
                   {roleForm.role === 'provider' && (
                     <div className="space-y-4 p-4 rounded-xl bg-emerald-50 border border-emerald-200">
                       <p className="text-xs font-bold text-emerald-700 uppercase tracking-wider">
-                        Provider Settings
+                        {t('users.edit.providerSettings')}
                       </p>
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1">
-                          Commission %
+                          {t('users.edit.commission')}
                         </label>
                         <input
                           type="number"
@@ -330,7 +349,7 @@ export default function EditMemberModal({
                           className="accent-[#8B1E3F] rounded"
                         />
                         <span className="text-sm text-gray-700">
-                          Can accept bookings
+                          {t('users.edit.canAcceptBookings')}
                         </span>
                       </label>
                     </div>
@@ -339,9 +358,9 @@ export default function EditMemberModal({
                   {/* Active toggle */}
                   <div className="flex items-center justify-between p-4 rounded-xl border border-gray-200">
                     <div>
-                      <p className="text-sm font-medium text-gray-900">Active Status</p>
+                      <p className="text-sm font-medium text-gray-900">{t('users.edit.activeStatus')}</p>
                       <p className="text-xs text-gray-500">
-                        Inactive members cannot access the dashboard
+                        {t('users.edit.inactiveHelp')}
                       </p>
                     </div>
                     <button
@@ -352,11 +371,17 @@ export default function EditMemberModal({
                         roleForm.is_active ? 'bg-[#8B1E3F]' : 'bg-gray-200'
                       }`}
                     >
-                      <span
-                        className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
-                          roleForm.is_active ? 'translate-x-6' : 'translate-x-1'
-                        }`}
-                      />
+                     <span
+                      className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${
+                        isRTL
+                          ? roleForm.is_active
+                            ? '-translate-x-1'
+                            : '-translate-x-6'
+                          : roleForm.is_active
+                            ? 'translate-x-6'
+                            : 'translate-x-1'
+                      }`}
+                    />
                     </button>
                   </div>
                 </>
@@ -383,7 +408,7 @@ export default function EditMemberModal({
             ) : (
               <Save className="w-4 h-4" />
             )}
-            Save Changes
+            {t('users.edit.save')}
           </button>
         </div>
       </div>

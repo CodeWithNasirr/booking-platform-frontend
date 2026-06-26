@@ -1,0 +1,51 @@
+export default {
+  "analytics.title": "التحليلات والرؤى",
+  "analytics.subtitle": "تتبع أداء عملك ومؤشراتك",
+  "analytics.export": "تصدير",
+
+  "analytics.dateRange.7d": "هذا الأسبوع",
+  "analytics.dateRange.30d": "هذا الشهر",
+  "analytics.dateRange.90d": "هذا الربع",
+  "analytics.dateRange.lastMonth": "الشهر الماضي",
+  "analytics.dateRange.thisYear": "هذا العام",
+
+  "analytics.kpi.totalBookings": "إجمالي الحجوزات",
+  "analytics.kpi.revenue": "الإيرادات",
+  "analytics.kpi.conversionRate": "معدل التحويل",
+  "analytics.kpi.avgRating": "متوسط التقييم",
+
+  "analytics.chart.bookingsOverTime": "الحجوزات عبر الوقت",
+  "analytics.chart.revenueByCategory": "الإيرادات حسب الفئة",
+  "analytics.chart.revenueTrends": "اتجاهات الإيرادات",
+  "analytics.chart.peakHours": "ساعات الذروة",
+  "analytics.chart.avgBookingsPerHour": "متوسط الحجوزات في الساعة",
+  "analytics.chart.topServices": "أفضل الخدمات",
+  "analytics.chart.topProviders": "أفضل مقدمي الخدمات",
+  "analytics.chart.bookingStatus": "نظرة عامة على حالة الحجز",
+  "analytics.chart.bookings": "حجوزات",
+
+  "analytics.viewAll": "عرض الكل",
+
+  "analytics.empty.noCategoryData": "لا توجد بيانات فئات بعد",
+  "analytics.empty.noServiceData": "لا توجد بيانات خدمات بعد",
+  "analytics.empty.noProviderData": "لا توجد بيانات مقدمين بعد",
+  "analytics.empty.noStatusData": "لا توجد بيانات حالة الحجز بعد",
+  "analytics.empty.other": "أخرى",
+  "analytics.empty.serviceFallback": "خدمة",
+  "analytics.empty.providerFallback": "مقدم خدمة",
+
+  "analytics.status.completed": "مكتمل",
+  "analytics.status.confirmed": "مؤكد",
+  "analytics.status.upcoming": "قادم",
+  "analytics.status.inProgress": "قيد التنفيذ",
+  "analytics.status.scheduled": "مجدول",
+  "analytics.status.pendingPayment": "في انتظار الدفع",
+  "analytics.status.depositPaid": "تم دفع العربون",
+  "analytics.status.paid": "مدفوع",
+  "analytics.status.cancelled": "ملغي",
+  "analytics.status.refunded": "مسترد",
+  "analytics.status.noShow": "لم يحضر",
+
+  "analytics.time.am": "ص",
+  "analytics.time.pm": "م",
+};

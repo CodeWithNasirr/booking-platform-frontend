@@ -112,6 +112,7 @@ export default function OrderCheckout({ service, domain }) {
           price={currentPrice}
           deliveryDays={deliveryDays}
           revisionsAllowed={revisionsAllowed}
+          currency={service.currency}
           theme={theme}
           lang={lang}
           isRTL={isRTL}
@@ -237,6 +238,7 @@ export default function OrderCheckout({ service, domain }) {
           onChangeRequirements={checkout.setRequirements}
           onContinue={handleContinueToDetails}
           currentPrice={currentPrice}
+          currency={service.currency}
           deliveryDays={deliveryDays}
           theme={theme}
           lang={lang}
@@ -252,6 +254,7 @@ export default function OrderCheckout({ service, domain }) {
           customerData={checkout.customerData}
           onChange={checkout.setCustomerData}
           currentPrice={currentPrice}
+          currency={service.currency}
           deliveryDays={deliveryDays}
           revisionsAllowed={revisionsAllowed}
           onProceed={handleProceedToPayment}

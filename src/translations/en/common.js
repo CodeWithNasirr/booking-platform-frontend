@@ -24,6 +24,8 @@ export default {
   'common.import': 'Import',
   'common.view': 'View',
   'common.actions': 'Actions',
+  'common.active': 'Active',
+  "common.inactive": "Inactive",
   'common.status': 'Status',
   'common.date': 'Date',
   'common.time': 'Time',

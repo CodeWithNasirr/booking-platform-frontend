@@ -1,0 +1,51 @@
+export default {
+  "analytics.title": "تجزیات اور بصیرت",
+  "analytics.subtitle": "اپنے کاروبار کی کارکردگی اور میٹرکس کو ٹریک کریں",
+  "analytics.export": "برآمد کریں",
+
+  "analytics.dateRange.7d": "اس ہفتے",
+  "analytics.dateRange.30d": "اس مہینے",
+  "analytics.dateRange.90d": "اس سہ ماہی",
+  "analytics.dateRange.lastMonth": "پچھلا مہینہ",
+  "analytics.dateRange.thisYear": "اس سال",
+
+  "analytics.kpi.totalBookings": "کل بکنگز",
+  "analytics.kpi.revenue": "آمدنی",
+  "analytics.kpi.conversionRate": "تبادلوں کی شرح",
+  "analytics.kpi.avgRating": "اوسط درجہ بندی",
+
+  "analytics.chart.bookingsOverTime": "وقت کے ساتھ بکنگز",
+  "analytics.chart.revenueByCategory": "زمرہ کے لحاظ سے آمدنی",
+  "analytics.chart.revenueTrends": "آمدنی کے رجحانات",
+  "analytics.chart.peakHours": "مصروف ترین گھنٹے",
+  "analytics.chart.avgBookingsPerHour": "فی گھنٹہ اوسط بکنگز",
+  "analytics.chart.topServices": "بہترین خدمات",
+  "analytics.chart.topProviders": "بہترین فراہم کنندگان",
+  "analytics.chart.bookingStatus": "بکنگ کی حیثیت کا جائزہ",
+  "analytics.chart.bookings": "بکنگز",
+
+  "analytics.viewAll": "سب دیکھیں",
+
+  "analytics.empty.noCategoryData": "ابھی تک کوئی زمرہ ڈیٹا نہیں",
+  "analytics.empty.noServiceData": "ابھی تک کوئی سروس ڈیٹا نہیں",
+  "analytics.empty.noProviderData": "ابھی تک کوئی فراہم کنندہ ڈیٹا نہیں",
+  "analytics.empty.noStatusData": "ابھی تک کوئی بکنگ سٹیٹس ڈیٹا نہیں",
+  "analytics.empty.other": "دیگر",
+  "analytics.empty.serviceFallback": "سروس",
+  "analytics.empty.providerFallback": "فراہم کنندہ",
+
+  "analytics.status.completed": "مکمل",
+  "analytics.status.confirmed": "تصدیق شدہ",
+  "analytics.status.upcoming": "آنے والا",
+  "analytics.status.inProgress": "جاری",
+  "analytics.status.scheduled": "شیڈول شدہ",
+  "analytics.status.pendingPayment": "ادائیگی زیر التوا",
+  "analytics.status.depositPaid": "ڈپازٹ ادا کیا گیا",
+  "analytics.status.paid": "ادا شدہ",
+  "analytics.status.cancelled": "منسوخ",
+  "analytics.status.refunded": "واپس کردہ",
+  "analytics.status.noShow": "عدم حاضری",
+
+  "analytics.time.am": "صبح",
+  "analytics.time.pm": "شام",
+};

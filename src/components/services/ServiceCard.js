@@ -25,7 +25,7 @@ import {
   getServiceBadge,
   isMilestoneService,
 } from "@/lib/serviceTypeHelper";
-
+import { formatCurrency } from "@/lib/currency";
 export default function ServiceCard({
   service,
   mode = "database",
@@ -39,6 +39,8 @@ export default function ServiceCard({
   bookButtonText,
   bookButtonUrl,
 }) {
+
+  const currency =  service.currency ||  theme?.default_currency ||  "SAR";
   const name =
     mode === "database"
       ? resolveTranslated(service.name, lang)
@@ -121,7 +123,7 @@ export default function ServiceCard({
           <div className="flex items-center justify-between mt-3">
             {showPrice && startingPrice > 0 && (
               <span className="font-bold" style={{ color: primaryColor }}>
-                ${startingPrice.toFixed(2)}
+                {formatCurrency(startingPrice, currency)}
               </span>
             )}
             {showRating && rating > 0 && (
@@ -151,7 +153,7 @@ export default function ServiceCard({
           <h3 className="font-semibold text-gray-900 text-sm truncate">{name}</h3>
           {showPrice && startingPrice > 0 && (
             <span className="text-sm font-bold" style={{ color: primaryColor }}>
-              ${startingPrice.toFixed(2)}
+              {formatCurrency(startingPrice, currency)}
             </span>
           )}
         </div>
@@ -248,7 +250,7 @@ export default function ServiceCard({
                 className="text-xl font-bold"
                 style={{ color: primaryColor }}
               >
-                ${startingPrice.toFixed(2)}
+                {formatCurrency(startingPrice, currency)}
               </span>
             </div>
           )}

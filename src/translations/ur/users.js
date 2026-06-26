@@ -1,0 +1,81 @@
+export default {
+  "users.title": "ٹیم ممبرز",
+  "users.subtitle": "اپنی ٹیم کی رسائی اور کرداروں کا انتظام کریں",
+  "users.inviteMember": "رکن کو مدعو کریں",
+  "users.totalMembers": "کل اراکین",
+
+  "users.roles.owner": "مالک",
+  "users.roles.admin": "ایڈمن",
+  "users.roles.provider": "سروس فراہم کنندگان",
+  "users.roles.staff": "عملہ",
+
+   "users.filters.allRoles": "تمام کردار",
+
+  "users.roles.owner": "مالک",
+  "users.roles.admin": "ایڈمن",
+  "users.roles.sub_admin": "سب ایڈمن",
+  "users.roles.provider": "سروس فراہم کنندہ",
+  "users.roles.staff": "عملہ",
+  "users.roles.customer": "کسٹمر",
+
+  "users.searchPlaceholder": "نام، ای میل یا فون نمبر سے تلاش کریں...",
+
+  "users.table.member": "رکن",
+  "users.table.role": "کردار",
+  "users.table.status": "حالت",
+  "users.table.lastLogin": "آخری لاگ اِن",
+  "users.table.joined": "شمولیت کی تاریخ",
+  "users.table.actions": "کارروائیاں",
+
+  "users.actions.edit": "رکن میں ترمیم کریں",
+  "users.actions.resendInvite": "دعوت دوبارہ بھیجیں",
+  "users.actions.reactivate": "دوبارہ فعال کریں",
+  "users.actions.deactivate": "غیر فعال کریں",
+
+  "users.loadingMembers": "اراکین لوڈ ہو رہے ہیں...",
+  "users.noMembersFound": "کوئی رکن نہیں ملا",
+  "users.noMembersDescription": "فلٹرز تبدیل کریں یا نیا رکن مدعو کریں۔",
+  "users.pending": "زیر التواء",
+
+  "users.pagination.showing": "دکھایا جا رہا ہے",
+  "users.pagination.to": "سے",
+  "users.pagination.of": "میں سے",
+  "users.pagination.members": "اراکین",
+  "users.deleteModal.title": "رکن کو غیر فعال کریں",
+  "users.deleteModal.confirm": "کیا آپ واقعی اس رکن کو غیر فعال کرنا چاہتے ہیں",
+  "users.deleteModal.description":
+    "یہ رکن ڈیش بورڈ تک رسائی کھو دے گا۔ بعد میں اسے دوبارہ فعال کیا جا سکتا ہے جبکہ صارف کا اکاؤنٹ محفوظ رہے گا۔",
+    "users.invite.title": "ٹیم ممبر کو مدعو کریں",
+  "users.invite.subtitle": "اکاؤنٹ سیٹ اپ کرنے کے لیے انہیں ای میل موصول ہوگی",
+  "users.invite.email": "ای میل ایڈریس",
+  "users.invite.firstName": "پہلا نام",
+  "users.invite.lastName": "آخری نام",
+  "users.invite.phone": "فون نمبر",
+  "users.invite.role": "کردار",
+  "users.invite.permissions": "اجازتیں",
+  "users.invite.send": "دعوت نامہ بھیجیں",
+    "users.invite.firstNamePlaceholder": "John",
+  "users.invite.lastNamePlaceholder": "Smith",
+  "users.invite.phonePlaceholder": "+1 (555) 000-0000",
+
+  "users.invite.emailRequired": "ای میل ضروری ہے",
+  "users.invite.genericError": "کچھ غلط ہو گیا۔ براہ کرم دوبارہ کوشش کریں۔",
+
+  "users.roles.adminDescription": "کاروبار کے انتظام کے لیے مکمل رسائی (بلنگ کے علاوہ)",
+  "users.roles.subAdminDescription": "حسبِ ضرورت اجازتیں — منتخب کریں کہ انہیں کس چیز تک رسائی حاصل ہو",
+  "users.roles.providerDescription": "سروس فراہم کنندہ — تفویض شدہ بکنگز اور آرڈرز دیکھ سکتا ہے",
+  "users.roles.staffDescription": "متعلقہ حصوں تک صرف دیکھنے کی رسائی",
+
+  "users.edit.title": "رکن میں ترمیم کریں",
+  "users.edit.profile": "پروفائل",
+  "users.edit.rolePermissions": "کردار اور اجازتیں",
+  "users.edit.permissions": "اجازتیں",
+  "users.edit.providerSettings": "سروس فراہم کنندہ کی ترتیبات",
+  "users.edit.commission": "کمیشن %",
+  "users.edit.canAcceptBookings": "بکنگ قبول کر سکتا ہے",
+  "users.edit.activeStatus": "فعال حیثیت",
+  "users.edit.inactiveHelp": "غیر فعال اراکین ڈیش بورڈ تک رسائی حاصل نہیں کر سکتے",
+  "users.edit.ownerLocked": "مالک کا کردار تبدیل نہیں کیا جا سکتا۔",
+  "users.edit.save": "تبدیلیاں محفوظ کریں",
+  "users.edit.updateError": "رکن کو اپ ڈیٹ کرنے میں ناکامی"
+}

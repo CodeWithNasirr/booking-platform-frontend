@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 import { useApp } from "@/contexts/AppContext";
 import { MoreVertical } from "lucide-react";
 import { DropdownMenu } from "./DropdownMenu";
-
+import { formatCurrency } from "@/lib/currency";
 export function ServiceRow({
   service,
   canCreate,
@@ -20,11 +20,11 @@ export function ServiceRow({
   onRestore,
 }) {
   const isDeleted = viewMode === "deleted";
-  const { t, isRTL } = useApp();
+  const { t, isRTL,tenants } = useApp();
   const menuRef = useRef(null);
   const buttonRef = useRef(null);
   const hasAnyAction = canEdit || canDelete || canCreate;
-
+  const tenantCurrency =  tenants[0]?.default_currency || "SAR";
 
   const getOrderTypeColor = (type) => {
     const colors = {
@@ -73,7 +73,10 @@ export function ServiceRow({
       </td>
 
       <td className={`px-6 py-4 whitespace-nowrap font-medium ${isRTL ? "text-right" : "text-left"}`}>
-        ${service.price}
+        {formatCurrency(
+          service.price,
+          tenantCurrency,
+        )}
       </td>
 
       {viewMode !== "deleted" && (
