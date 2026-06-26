@@ -374,16 +374,17 @@ function HeroContentEditor({ content, onUpdate, language, isRTL }) {
     });
   };
 
-  const handleCtaUpdate = (ctaField, field, lang, value) => {
+  const handleCtaTextUpdate = (ctaField, lang, value) => {
     const cta = content[ctaField] || {};
-    if (field === "url") {
-      onUpdate(ctaField, { ...cta, url: value });
-    } else {
-      onUpdate(ctaField, {
-        ...cta,
-        text: { ...cta.text, [lang]: value },
-      });
-    }
+    onUpdate(ctaField, {
+      ...cta,
+      text: { ...cta.text, [lang]: value },
+    });
+  };
+
+  const handleCtaDestinationPatch = (ctaField, patch) => {
+    const cta = content[ctaField] || {};
+    onUpdate(ctaField, { ...cta, ...patch });
   };
 
   const handleFeatureUpdate = (index, lang, value) => {
@@ -460,15 +461,13 @@ function HeroContentEditor({ content, onUpdate, language, isRTL }) {
         <MultilingualTextField
           label={{ en: "Button Text", ar: "نص الزر", ur: "بٹن ٹیکسٹ" }}
           value={content.primary_cta?.text}
-          onChange={(lang, val) => handleCtaUpdate("primary_cta", "text", lang, val)}
+          onChange={(lang, val) => handleCtaTextUpdate("primary_cta", lang, val)}
           language={language}
           isRTL={isRTL}
         />
-        <TextField
-          label={{ en: "Button URL", ar: "رابط الزر", ur: "بٹن URL" }}
-          value={content.primary_cta?.url || ""}
-          onChange={(val) => handleCtaUpdate("primary_cta", "url", null, val)}
-          icon={Link2}
+        <DestinationPicker
+          value={{ destination: content.primary_cta?.destination, url: content.primary_cta?.url }}
+          onChange={(patch) => handleCtaDestinationPatch("primary_cta", patch)}
           language={language}
           isRTL={isRTL}
         />
@@ -479,15 +478,13 @@ function HeroContentEditor({ content, onUpdate, language, isRTL }) {
         <MultilingualTextField
           label={{ en: "Button Text", ar: "نص الزر", ur: "بٹن ٹیکسٹ" }}
           value={content.secondary_cta?.text}
-          onChange={(lang, val) => handleCtaUpdate("secondary_cta", "text", lang, val)}
+          onChange={(lang, val) => handleCtaTextUpdate("secondary_cta", lang, val)}
           language={language}
           isRTL={isRTL}
         />
-        <TextField
-          label={{ en: "Button URL", ar: "رابط الزر", ur: "بٹن URL" }}
-          value={content.secondary_cta?.url || ""}
-          onChange={(val) => handleCtaUpdate("secondary_cta", "url", null, val)}
-          icon={Link2}
+        <DestinationPicker
+          value={{ destination: content.secondary_cta?.destination, url: content.secondary_cta?.url }}
+          onChange={(patch) => handleCtaDestinationPatch("secondary_cta", patch)}
           language={language}
           isRTL={isRTL}
         />
@@ -2668,9 +2665,7 @@ function CtaContentEditor({ content, onUpdate, language, isRTL }) {
         multiline
       />
 
-      {/* ====================================================== */}
-      {/* PRIMARY BUTTON */}
-      {/* ====================================================== */}
+      {/* Primary button */}
       <FieldGroup title={T({ en: "Primary Button", ar: "الزر الأساسي", ur: "بنیادی بٹن" })} isRTL={isRTL}>
         <MultilingualTextField
           label={{ en: "Button Text", ar: "نص الزر", ur: "بٹن ٹیکسٹ" }}
@@ -2679,39 +2674,32 @@ function CtaContentEditor({ content, onUpdate, language, isRTL }) {
           language={language}
           isRTL={isRTL}
         />
-        <TextField
-          label={{ en: "Button URL", ar: "رابط الزر", ur: "بٹن URL" }}
-          value={content.button_url || ""}
-          onChange={(val) => onUpdate("button_url", val)}
-          icon={Link2}
+        <DestinationPicker
+          value={{ destination: content.button_destination, url: content.button_url }}
+          onChange={(patch) => {
+            onUpdate("button_destination", patch.destination);
+            onUpdate("button_url", patch.url);
+          }}
           language={language}
           isRTL={isRTL}
         />
       </FieldGroup>
 
-      {/* ====================================================== */}
-      {/* SECONDARY BUTTON (NEW) */}
-      {/* ====================================================== */}
-      <FieldGroup
-        title={T({ en: "Secondary Button", ar: "الزر الثانوي", ur: "ثانوی بٹن" })}
-        isRTL={isRTL}
-      >
+      {/* Secondary button */}
+      <FieldGroup title={T({ en: "Secondary Button", ar: "الزر الثانوي", ur: "ثانوی بٹن" })} isRTL={isRTL}>
         <MultilingualTextField
           label={{ en: "Button Text", ar: "نص الزر", ur: "بٹن ٹیکسٹ" }}
           value={content.secondary_button}
-          onChange={(lang, val) =>
-            handleMultilingualUpdate("secondary_button", lang, val)
-          }
+          onChange={(lang, val) => handleMultilingualUpdate("secondary_button", lang, val)}
           language={language}
           isRTL={isRTL}
         />
-
-        <TextField
-          label={{ en: "Button URL", ar: "رابط الزر", ur: "بٹن URL" }}
-          value={content.secondary_button_url || ""}
-          onChange={(val) => onUpdate("secondary_button_url", val)}
-          placeholder="tel:+15551234567"
-          icon={Link2}
+        <DestinationPicker
+          value={{ destination: content.secondary_button_destination, url: content.secondary_button_url }}
+          onChange={(patch) => {
+            onUpdate("secondary_button_destination", patch.destination);
+            onUpdate("secondary_button_url", patch.url);
+          }}
           language={language}
           isRTL={isRTL}
         />

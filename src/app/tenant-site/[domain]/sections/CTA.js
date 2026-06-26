@@ -2,6 +2,7 @@
 
 import { useTenantLang } from "../../contexts/TenantLangContext";
 import { resolveTranslated } from "../utils/resolveTranslated";
+import { resolveNavItem } from "@/lib/navigationResolver";
 
 /* ============================================================
    CTA COMPONENT
@@ -17,11 +18,16 @@ export default function CTA({ data, lang: propLang }) {
     subtitle,
     button_label,
     button_url = "#",
+    button_destination = null,
     secondary_button,
     secondary_button_url = "#",
+    secondary_button_destination = null,
     text_color = "white",
     background = { type: "gradient", value: null },
   } = data || {};
+
+  const primaryNav = resolveNavItem({ destination: button_destination, url: button_url });
+  const secondaryNav = resolveNavItem({ destination: secondary_button_destination, url: secondary_button_url });
 
   /* ================= Translations ================= */
   const resolvedTitle = resolveTranslated(title, lang);
@@ -104,7 +110,9 @@ export default function CTA({ data, lang: propLang }) {
           >
             {resolvedButtonLabel && (
               <a
-                href={button_url}
+                href={primaryNav.href}
+                target={primaryNav.target}
+                rel={primaryNav.rel}
                 className="px-8 py-4 rounded-xl font-semibold text-lg shadow-xl hover:opacity-90 transition-all"
                 style={primaryButtonStyle}
               >
@@ -114,7 +122,9 @@ export default function CTA({ data, lang: propLang }) {
 
             {resolvedSecondaryButton && (
               <a
-                href={secondary_button_url}
+                href={secondaryNav.href}
+                target={secondaryNav.target}
+                rel={secondaryNav.rel}
                 className={`px-8 py-4 rounded-xl font-semibold text-lg border transition-all ${
                   text_color === "white"
                     ? "border-white text-white hover:bg-white/10"
@@ -155,7 +165,9 @@ export default function CTA({ data, lang: propLang }) {
 
             {resolvedButtonLabel && (
               <a
-                href={button_url}
+                href={primaryNav.href}
+                target={primaryNav.target}
+                rel={primaryNav.rel}
                 className="inline-block px-6 py-3 rounded-xl font-semibold text-white hover:opacity-90 transition-all"
                 style={{ backgroundColor: "var(--color-primary)" }}
               >
@@ -199,7 +211,9 @@ export default function CTA({ data, lang: propLang }) {
 
           {resolvedButtonLabel && (
             <a
-              href={button_url}
+              href={primaryNav.href}
+              target={primaryNav.target}
+              rel={primaryNav.rel}
               className="px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-all whitespace-nowrap"
               style={{ backgroundColor: "var(--color-primary)" }}
             >

@@ -101,8 +101,10 @@
 //           <CTAButtons 
 //             primary={resolvedPrimaryCtaText}
 //             primaryUrl={resolvedPrimaryCtaUrl}
+            primaryNav={primaryCtaNav}
 //             secondary={resolvedSecondaryCtaText}
 //             secondaryUrl={resolvedSecondaryCtaUrl}
+            secondaryNav={secondaryCtaNav}
 //             alignment="center"
 //             primaryStyle={primaryButtonStyle}
 //             secondaryStyle={secondaryButtonStyle}
@@ -161,8 +163,10 @@
 //           <CTAButtons 
 //             primary={resolvedPrimaryCtaText}
 //             primaryUrl={resolvedPrimaryCtaUrl}
+            primaryNav={primaryCtaNav}
 //             secondary={resolvedSecondaryCtaText}
 //             secondaryUrl={resolvedSecondaryCtaUrl}
+            secondaryNav={secondaryCtaNav}
 //             alignment="left"
 //             primaryStyle={primaryButtonStyle}
 //             secondaryStyle={secondaryButtonStyle}
@@ -212,8 +216,10 @@
 //           <CTAButtons 
 //              primary={resolvedPrimaryCtaText}
 //             primaryUrl={resolvedPrimaryCtaUrl}
+            primaryNav={primaryCtaNav}
 //             secondary={resolvedSecondaryCtaText}
 //             secondaryUrl={resolvedSecondaryCtaUrl}
+            secondaryNav={secondaryCtaNav}
 //             alignment="center"
 //             size="large"
 //             primaryStyle={primaryButtonStyle}
@@ -379,6 +385,7 @@
 import { useTenantLang } from "../../contexts/TenantLangContext";
 import { useTenantTheme } from "../../contexts/TenantThemeContext";
 import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
+import { resolveNavItem } from "@/lib/navigationResolver";
 
 export default function Hero({ data, lang: propLang }) {
   const { language, isRTL } = useTenantLang();
@@ -414,10 +421,20 @@ export default function Hero({ data, lang: propLang }) {
   const resolvedSubtitle = resolveTranslated(subtitle, lang);
   const resolvedDescription = resolveTranslated(description, lang);
   const resolvedPrimaryCtaText = resolveTranslated(primary_cta?.text, lang);
-  const resolvedPrimaryCtaUrl = primary_cta?.url || primary_cta_url;
+  const primaryCtaNav = resolveNavItem(
+    primary_cta
+      ? { destination: primary_cta.destination, url: primary_cta.url || primary_cta_url }
+      : { url: primary_cta_url }
+  );
+  const resolvedPrimaryCtaUrl = primaryCtaNav.href;
 
   const resolvedSecondaryCtaText = resolveTranslated(secondary_cta?.text, lang);
-  const resolvedSecondaryCtaUrl = secondary_cta?.url || secondary_cta_url;
+  const secondaryCtaNav = resolveNavItem(
+    secondary_cta
+      ? { destination: secondary_cta.destination, url: secondary_cta.url || secondary_cta_url }
+      : { url: secondary_cta_url }
+  );
+  const resolvedSecondaryCtaUrl = secondaryCtaNav.href;
 
   const resolvedTrustBadges = resolveTranslatedArray(trust_badges, lang);
   const resolvedFeatures = resolveTranslatedArray(features_list, lang);
@@ -477,8 +494,10 @@ export default function Hero({ data, lang: propLang }) {
           <CTAButtons 
             primary={resolvedPrimaryCtaText}
             primaryUrl={resolvedPrimaryCtaUrl}
+            primaryNav={primaryCtaNav}
             secondary={resolvedSecondaryCtaText}
             secondaryUrl={resolvedSecondaryCtaUrl}
+            secondaryNav={secondaryCtaNav}
             alignment="center"
             primaryStyle={primaryButtonStyle}
             secondaryStyle={secondaryButtonStyle}
@@ -537,8 +556,10 @@ export default function Hero({ data, lang: propLang }) {
           <CTAButtons 
             primary={resolvedPrimaryCtaText}
             primaryUrl={resolvedPrimaryCtaUrl}
+            primaryNav={primaryCtaNav}
             secondary={resolvedSecondaryCtaText}
             secondaryUrl={resolvedSecondaryCtaUrl}
+            secondaryNav={secondaryCtaNav}
             alignment="left"
             primaryStyle={primaryButtonStyle}
             secondaryStyle={secondaryButtonStyle}
@@ -588,8 +609,10 @@ export default function Hero({ data, lang: propLang }) {
           <CTAButtons 
              primary={resolvedPrimaryCtaText}
             primaryUrl={resolvedPrimaryCtaUrl}
+            primaryNav={primaryCtaNav}
             secondary={resolvedSecondaryCtaText}
             secondaryUrl={resolvedSecondaryCtaUrl}
+            secondaryNav={secondaryCtaNav}
             alignment="center"
             size="large"
             primaryStyle={primaryButtonStyle}
@@ -680,7 +703,7 @@ function Overlay({ opacity }) {
   );
 }
 
-function CTAButtons({ primary, primaryUrl, secondary, secondaryUrl, alignment = "left", size = "default", primaryStyle, secondaryStyle, isRTL }) {
+function CTAButtons({ primary, primaryUrl, primaryNav, secondary, secondaryUrl, secondaryNav, alignment = "left", size = "default", primaryStyle, secondaryStyle, isRTL }) {
   const alignClass = {
     left: "justify-start",
     center: "justify-center",
@@ -692,8 +715,10 @@ function CTAButtons({ primary, primaryUrl, secondary, secondaryUrl, alignment = 
   return (
     <div className={`flex flex-wrap gap-3 sm:gap-4 ${alignClass} ${isRTL ? "flex-row-reverse" : ""}`}>
       {primary && (
-        <a 
+        <a
           href={primaryUrl}
+          target={primaryNav?.target}
+          rel={primaryNav?.rel}
           className={`${sizeClass} text-white rounded-lg sm:rounded-xl font-semibold shadow-lg hover:shadow-xl hover:opacity-90 transition-all`}
           style={primaryStyle}
         >
@@ -701,8 +726,10 @@ function CTAButtons({ primary, primaryUrl, secondary, secondaryUrl, alignment = 
         </a>
       )}
       {secondary && (
-        <a 
+        <a
           href={secondaryUrl}
+          target={secondaryNav?.target}
+          rel={secondaryNav?.rel}
           className={`${sizeClass} bg-white/20 backdrop-blur text-white border hover:text-white/50 border-white/30 rounded-lg sm:rounded-xl font-semibold transition-all`}
           style={secondaryStyle}
         >
