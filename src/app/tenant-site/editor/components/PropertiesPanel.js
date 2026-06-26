@@ -14,7 +14,12 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useBuilder } from "../context/BuilderContext";
 import { useTenantLang } from "../../contexts/TenantLangContext";
 import { resolveTranslated } from "../../[domain]/utils/resolveTranslated";
-import { SYSTEM_PAGES, listSystemPages } from "@/lib/systemPages";
+import {
+  DESTINATION_TYPES,
+  listDestinationTypes,
+  getDestinationType,
+  computeLegacyUrl as computeLegacyUrlFromRegistry,
+} from "@/lib/destinationTypes";
 import {
   X,
   Type,
@@ -3787,38 +3792,24 @@ function AddItemButton({ onClick, label, language, isRTL, small = false }) {
 // ============================================================
 // DESTINATION PICKER
 // ============================================================
-// Replaces raw URL inputs in nav/CTA editors. The tenant picks a
-// destination type (System Page / Custom Page / Section / External)
-// and a target; we save BOTH `destination` (new structured shape) and
-// `url` (computed legacy fallback) so older renderers keep rendering.
-
-function computeLegacyUrlFromDestination(d) {
-  if (!d || typeof d !== "object") return "#";
-  switch (d.type) {
-    case "system_page": {
-      const sp = SYSTEM_PAGES[d.page];
-      return sp ? sp.resolve() : "#";
-    }
-    case "custom_page":
-      return d.slug ? `/${d.slug}` : "#";
-    case "section":
-      return d.section_id ? `#${d.section_id}` : "#";
-    case "external":
-      return d.url || "#";
-    default:
-      return "#";
-  }
-}
+// Visual picker for every navigation destination in the Website Builder.
+// All destination types live in /lib/destinationTypes.js — this component
+// is purely a UI driver over that registry.
+//
+// Saves both `destination` (new structured shape) and `url` (legacy
+// fallback) so renderers that haven't been migrated still work.
 
 function inferDestinationFromLegacyUrl(url) {
   if (!url || typeof url !== "string") return null;
-  if (/^https?:\/\//i.test(url) || url.startsWith("mailto:") || url.startsWith("tel:")) {
+  if (/^mailto:/i.test(url))
+    return { type: "email", value: url.replace(/^mailto:/i, "") };
+  if (/^tel:/i.test(url))
+    return { type: "phone", value: url.replace(/^tel:/i, "") };
+  if (/^https?:\/\//i.test(url))
     return { type: "external", url, open_new_tab: true };
-  }
-  if (url.startsWith("#")) {
+  if (url.startsWith("#"))
     return { type: "section", section_id: url.slice(1) };
-  }
-  // Match a known system path → upgrade
+
   const KNOWN = {
     "/": "home",
     "/services": "services",
@@ -3828,11 +3819,8 @@ function inferDestinationFromLegacyUrl(url) {
     "/request-service": "request_service",
   };
   if (KNOWN[url]) return { type: "system_page", page: KNOWN[url] };
-  // Bare /slug → custom page
-  if (url.startsWith("/") && !url.includes("/", 1)) {
+  if (url.startsWith("/") && !url.includes("/", 1))
     return { type: "custom_page", slug: url.slice(1) };
-  }
-  // Unrecognized internal path: present as external so the tenant can see + fix
   return { type: "external", url, open_new_tab: false };
 }
 
@@ -3847,44 +3835,66 @@ function sectionDisplayLabel(s, lang) {
   return moduleLabel ? `Module: ${moduleLabel}` : s.section_type || "Section";
 }
 
-function DestinationPicker({ value, onChange, language, isRTL, label }) {
-  const T = (v) => resolveTranslated(v, language);
+/**
+ * Build the picker context: the data each destination type's listChoices
+ * needs to populate its dropdown. Sourced from the builder state for now;
+ * services/categories will be plugged in by a later phase via a hook.
+ */
+function useDestinationPickerContext() {
   const { state } = useBuilder();
 
-  const sections = (state?.sections || []).filter(
-    (s) => s.id || s.section_type
-  );
-  const pages = state?.pages || [];
+  // Sections eligible as anchor targets: content sections only, not
+  // header/hero/footer (those don't make sense as nav targets).
+  const sections = (state?.sections || [])
+    .filter((s) => {
+      const t = s.section_type;
+      return t && !["header", "footer"].includes(t);
+    })
+    .map((s) => ({
+      id: s.id || s.section_type,
+      section_type: s.section_type,
+      // a stable display label
+      label: sectionDisplayLabel(s, state?.language || "en"),
+    }));
 
-  // Effective destination: explicit or inferred from legacy url
+  return {
+    sections,
+    customPages: state?.pages || [],
+    // Populated by Phase B (services + categories fetch hook)
+    services: state?.navServices || [],
+    categories: state?.navCategories || [],
+    // Populated by Phase C (capability inference)
+    availability: state?.navAvailability || {},
+  };
+}
+
+function DestinationPicker({ value, onChange, language, isRTL, label }) {
+  const T = (v) => resolveTranslated(v, language);
+  const ctx = useDestinationPickerContext();
+
   const effective =
     value?.destination ||
     inferDestinationFromLegacyUrl(value?.url) ||
     { type: "system_page", page: "" };
 
   const type = effective.type || "system_page";
+  const def = getDestinationType(type);
 
   const emit = (next) => {
     onChange({
       destination: next,
-      url: computeLegacyUrlFromDestination(next),
+      url: computeLegacyUrlFromRegistry(next),
     });
   };
 
   const setType = (newType) => {
     if (newType === type) return;
-    // Reset payload when switching types
     const reset = { type: newType };
     if (newType === "external") reset.open_new_tab = true;
     emit(reset);
   };
 
-  const TYPE_TABS = [
-    { code: "system_page", label: { en: "System", ar: "نظام", ur: "سسٹم" } },
-    { code: "custom_page", label: { en: "Page", ar: "صفحة", ur: "صفحہ" } },
-    { code: "section", label: { en: "Section", ar: "قسم", ur: "سیکشن" } },
-    { code: "external", label: { en: "External", ar: "خارجي", ur: "بیرونی" } },
-  ];
+  const types = listDestinationTypes();
 
   return (
     <div className="space-y-2">
@@ -3896,112 +3906,113 @@ function DestinationPicker({ value, onChange, language, isRTL, label }) {
         {T(label || { en: "Destination", ar: "الوجهة", ur: "منزل" })}
       </label>
 
-      {/* Type tabs */}
-      <div className={`flex gap-1 p-1 bg-slate-100 rounded-lg ${isRTL ? "flex-row-reverse" : ""}`}>
-        {TYPE_TABS.map((t) => (
-          <button
-            key={t.code}
-            type="button"
-            onClick={() => setType(t.code)}
-            className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
-              type === t.code
-                ? "bg-white text-blue-700 font-medium shadow-sm"
-                : "text-slate-600 hover:text-slate-800"
-            }`}
-          >
-            {T(t.label)}
-          </button>
+      {/* Type selector — single dropdown to stay legible with many types */}
+      <select
+        value={type}
+        onChange={(e) => setType(e.target.value)}
+        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+        dir="ltr"
+      >
+        {types.map((t) => (
+          <option key={t.key} value={t.key}>
+            {T(t.labels)}
+          </option>
         ))}
-      </div>
+      </select>
 
-      {/* Type-specific control */}
-      {type === "system_page" && (
-        <SelectField
-          label={{ en: "Page", ar: "الصفحة", ur: "صفحہ" }}
-          value={effective.page || ""}
-          onChange={(page) => emit({ type: "system_page", page })}
-          options={[
-            { value: "", label: "— Select —" },
-            ...listSystemPages().map((sp) => ({
-              value: sp.key,
-              label: T(sp.labels) + (sp.auth ? "  (login required)" : ""),
-            })),
-          ]}
+      {/* Type-specific control rendered from the registry */}
+      {def && <DestinationFieldControl def={def} value={effective} emit={emit} ctx={ctx} language={language} isRTL={isRTL} />}
+    </div>
+  );
+}
+
+function DestinationFieldControl({ def, value, emit, ctx, language, isRTL }) {
+  const T = (v) => resolveTranslated(v, language);
+  const picker = def.picker || {};
+
+  if (picker.type === "dropdown") {
+    const choices = picker.listChoices(ctx, language) || [];
+    const valueField = picker.valueField || "value";
+    const current = value?.[valueField] || "";
+    const emptyHint = T(picker.emptyHint || { en: "— Select —" });
+    return (
+      <SelectField
+        label={def.labels}
+        value={current}
+        onChange={(v) =>
+          emit({ type: def.key, [valueField]: v })
+        }
+        options={[
+          { value: "", label: choices.length ? "— Select —" : emptyHint },
+          ...choices.map((c) => ({
+            value: c.value,
+            label: c.label + (c.auth ? "  🔒" : "") + (c.available === false ? "  (unavailable)" : ""),
+          })),
+        ]}
+        language={language}
+        isRTL={isRTL}
+      />
+    );
+  }
+
+  if (picker.type === "url") {
+    return (
+      <div className="space-y-2">
+        <TextField
+          label={{ en: "URL", ar: "الرابط", ur: "URL" }}
+          value={value?.url || ""}
+          onChange={(url) =>
+            emit({
+              type: def.key,
+              url,
+              open_new_tab: value?.open_new_tab !== false,
+            })
+          }
+          icon={ExternalLink}
+          placeholder={picker.placeholder}
           language={language}
           isRTL={isRTL}
         />
-      )}
-
-      {type === "custom_page" && (
-        <SelectField
-          label={{ en: "Custom Page", ar: "صفحة مخصصة", ur: "صفحہ" }}
-          value={effective.slug || ""}
-          onChange={(slug) => emit({ type: "custom_page", slug })}
-          options={[
-            { value: "", label: pages.length ? "— Select —" : "No custom pages yet" },
-            ...pages.map((p) => ({
-              value: p.slug,
-              label:
-                (typeof p.title === "object"
-                  ? p.title[language] || p.title.en
-                  : p.title) || p.slug,
-            })),
-          ]}
-          language={language}
-          isRTL={isRTL}
-        />
-      )}
-
-      {type === "section" && (
-        <SelectField
-          label={{ en: "Section on Home", ar: "قسم", ur: "سیکشن" }}
-          value={effective.section_id || ""}
-          onChange={(section_id) => emit({ type: "section", section_id })}
-          options={[
-            { value: "", label: sections.length ? "— Select —" : "No sections in layout" },
-            ...sections.map((s) => ({
-              value: s.id || s.section_type,
-              label: sectionDisplayLabel(s, language),
-            })),
-          ]}
-          language={language}
-          isRTL={isRTL}
-        />
-      )}
-
-      {type === "external" && (
-        <div className="space-y-2">
-          <TextField
-            label={{ en: "URL", ar: "الرابط", ur: "URL" }}
-            value={effective.url || ""}
-            onChange={(url) =>
-              emit({
-                type: "external",
-                url,
-                open_new_tab: effective.open_new_tab !== false,
-              })
-            }
-            icon={ExternalLink}
-            placeholder="https://..."
-            language={language}
-            isRTL={isRTL}
-          />
+        {picker.extras?.includes("open_new_tab") && (
           <CheckboxField
             label={{ en: "Open in new tab", ar: "افتح في نافذة جديدة", ur: "نئے ٹیب میں کھولیں" }}
-            checked={effective.open_new_tab !== false}
+            checked={value?.open_new_tab !== false}
             onChange={(b) =>
               emit({
-                type: "external",
-                url: effective.url || "",
+                type: def.key,
+                url: value?.url || "",
                 open_new_tab: b,
               })
             }
             language={language}
           />
-        </div>
-      )}
-    </div>
-  );
+        )}
+      </div>
+    );
+  }
+
+  if (picker.type === "text") {
+    const valueField = picker.valueField || "value";
+    return (
+      <div>
+        <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRTL ? "text-right" : ""}`}>
+          {T(def.labels)}
+        </label>
+        <input
+          type={picker.inputType || "text"}
+          value={value?.[valueField] || ""}
+          onChange={(e) =>
+            emit({ type: def.key, [valueField]: e.target.value })
+          }
+          placeholder={picker.placeholder}
+          dir="ltr"
+          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+        />
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // ============================================================

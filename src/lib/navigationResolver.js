@@ -4,22 +4,28 @@
  * Resolves a Website Builder navigation item (saved as JSON in layout_json)
  * to an actual href the renderer can use.
  *
- * Supported destination shapes (new):
- *   { destination: { type: "system_page",  page: "services" } }
- *   { destination: { type: "custom_page",  slug: "doctors" } }
- *   { destination: { type: "section",      section_id: "pricing" } }
- *   { destination: { type: "external",     url: "https://...", open_new_tab: true } }
+ * All destination types live in destinationTypes.js. This file delegates
+ * lookups to that registry — adding a new type means adding a registry
+ * entry, not editing this file.
  *
- * Legacy shape (still supported indefinitely):
- *   { url: "/services" }       → matched back to a system_page if known
- *   { url: "https://..." }     → treated as external
- *   { url: "#contact" }        → treated as anchor
+ * Supported shapes:
+ *   New (preferred):
+ *     { destination: { type: "system_page", page: "services" } }
+ *     { destination: { type: "service",     slug: "logo-design" } }
+ *     { destination: { type: "external",    url: "https://...", open_new_tab: true } }
+ *     { destination: { type: "email",       value: "hi@example.com" } }
+ *     ...etc.
  *
- * The resolver intentionally never prepends `/${domain}` — tenant resolution
- * is handled by the proxy middleware (see src/proxy.js).
+ *   Legacy:
+ *     { url: "/services" }      → mapped to a known system_page when possible
+ *     { url: "https://..." }    → treated as external
+ *     { url: "#contact" }       → treated as section anchor
+ *
+ * Paths returned are always BROWSER paths (no /${domain} prefix). The
+ * proxy middleware (src/proxy.js) handles tenant resolution.
  */
 
-import { SYSTEM_PAGES } from "./systemPages";
+import { DESTINATION_TYPES } from "./destinationTypes";
 import { tenantRoutes } from "./tenantRoutes";
 
 const KNOWN_LEGACY_PATHS = {
@@ -34,18 +40,15 @@ const KNOWN_LEGACY_PATHS = {
 /**
  * Resolve a builder navigation item to a renderable href descriptor.
  *
- * @param {object} item        Nav item from layout JSON
- * @returns {{ href: string, isExternal: boolean, isAnchor: boolean, target?: string, rel?: string, requiresAuth?: boolean, ok: boolean }}
+ * @returns {{ href: string, isExternal: boolean, isAnchor: boolean, target?: string, rel?: string, ok: boolean }}
  */
 export function resolveNavItem(item) {
   if (!item) return fallback();
 
-  // ── New format: structured destination ──────────────────────────────────
   if (item.destination && typeof item.destination === "object") {
     return resolveDestination(item.destination);
   }
 
-  // ── Legacy format: raw url string ───────────────────────────────────────
   if (typeof item.url === "string" && item.url.length) {
     return resolveLegacyUrl(item.url);
   }
@@ -54,100 +57,60 @@ export function resolveNavItem(item) {
 }
 
 function resolveDestination(d) {
-  switch (d.type) {
-    case "system_page": {
-      const sp = SYSTEM_PAGES[d.page];
-      if (!sp) return fallback();
-      return {
-        href: sp.resolve(),
-        isExternal: false,
-        isAnchor: false,
-        requiresAuth: !!sp.auth,
-        ok: true,
-      };
-    }
+  const def = DESTINATION_TYPES[d.type];
+  if (!def) return fallback();
 
-    case "custom_page": {
-      if (!d.slug) return fallback();
-      return {
-        href: tenantRoutes.customPage(d.slug),
-        isExternal: false,
-        isAnchor: false,
-        ok: true,
-      };
-    }
+  const href = def.resolve(d) || "#";
+  const isExternal = !!def.isExternal;
+  const isAnchor = !!def.isAnchor;
 
-    case "section": {
-      if (!d.section_id) return fallback();
-      return {
-        href: `#${d.section_id}`,
-        isExternal: false,
-        isAnchor: true,
-        ok: true,
-      };
-    }
-
-    case "external": {
-      if (!d.url) return fallback();
-      const openNewTab = d.open_new_tab !== false; // default to true for external
-      return {
-        href: d.url,
-        isExternal: true,
-        isAnchor: false,
-        target: openNewTab ? "_blank" : undefined,
-        rel: openNewTab ? "noopener noreferrer" : undefined,
-        ok: true,
-      };
-    }
-
-    default:
-      return fallback();
+  // External destinations default to opening in a new tab.
+  // The "external" type respects open_new_tab; truly-external types
+  // (whatsapp, maps) always open in a new tab.
+  let openNewTab;
+  if (d.type === "external") {
+    openNewTab = d.open_new_tab !== false;
+  } else {
+    openNewTab = isExternal;
   }
+
+  return {
+    href,
+    isExternal,
+    isAnchor,
+    target: openNewTab ? "_blank" : undefined,
+    rel: openNewTab ? "noopener noreferrer" : undefined,
+    ok: href !== "#",
+  };
 }
 
 function resolveLegacyUrl(url) {
-  // Hash → anchor
   if (url.startsWith("#")) {
     return { href: url, isExternal: false, isAnchor: true, ok: true };
   }
 
-  // Absolute URL → external
-  if (/^https?:\/\//i.test(url) || url.startsWith("mailto:") || url.startsWith("tel:")) {
-    const isHttp = /^https?:\/\//i.test(url);
-    return {
-      href: url,
-      isExternal: true,
-      isAnchor: false,
-      target: isHttp ? "_blank" : undefined,
-      rel: isHttp ? "noopener noreferrer" : undefined,
-      ok: true,
-    };
+  if (/^mailto:/i.test(url)) return resolveDestination({ type: "email", value: url.replace(/^mailto:/i, "") });
+  if (/^tel:/i.test(url))    return resolveDestination({ type: "phone", value: url.replace(/^tel:/i, "") });
+
+  if (/^https?:\/\//i.test(url)) {
+    return resolveDestination({ type: "external", url, open_new_tab: true });
   }
 
-  // Defensive: strip any accidental `/${domain}/...` prefix written by older code.
-  // We don't have the domain here, but we can detect the pattern: a known system
-  // path appearing as the second segment of a 2-segment-or-deeper path.
   const stripped = stripDomainPrefixIfPresent(url);
-
-  // Known system path → upgrade to system_page resolution (keeps behavior consistent
-  // even if routes are later renamed in tenantRoutes.js)
   const systemKey = KNOWN_LEGACY_PATHS[stripped];
-  if (systemKey) {
-    return resolveDestination({ type: "system_page", page: systemKey });
-  }
+  if (systemKey) return resolveDestination({ type: "system_page", page: systemKey });
 
-  // Internal path we don't recognize — treat as custom page / passthrough
-  return {
-    href: stripped,
-    isExternal: false,
-    isAnchor: false,
-    ok: true,
-  };
+  return { href: stripped, isExternal: false, isAnchor: false, ok: true };
 }
 
+/**
+ * Defensive: strip any accidental `/${domain}/...` prefix written by older
+ * code so legacy data still renders to the canonical bare path.
+ */
 function stripDomainPrefixIfPresent(url) {
-  // Pattern: /<segment>/<known-system-path>...   → /<known-system-path>...
-  const m = url.match(/^\/[^/]+(\/(?:services|my-bookings|my-orders|my-requests|request-service)(\/.*)?)$/);
+  const m = url.match(
+    /^\/[^/]+(\/(?:services|my-bookings|my-orders|my-requests|request-service)(\/.*)?)$/
+  );
   return m ? m[1] : url;
 }
 
