@@ -989,11 +989,12 @@ function ServicesContentEditor({ content, onUpdate, language, isRTL }) {
           isRTL={isRTL}
         />
         {currentMode === "static" && (
-          <TextField
-            label={{ en: "Button URL", ar: "رابط الزر", ur: "بٹن URL" }}
-            value={content.book_button_url || ""}
-            onChange={(val) => onUpdate("book_button_url", val)}
-            placeholder="/book"
+          <DestinationPicker
+            value={{ destination: content.book_button_destination, url: content.book_button_url }}
+            onChange={(patch) => {
+              onUpdate("book_button_destination", patch.destination);
+              onUpdate("book_button_url", patch.url);
+            }}
             language={language}
             isRTL={isRTL}
           />
