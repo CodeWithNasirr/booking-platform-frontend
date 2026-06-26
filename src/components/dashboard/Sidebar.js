@@ -25,6 +25,8 @@ import {
   CreditCard,
   LifeBuoy,
   RotateCcw,
+  FileText,
+  RefreshCw,
 } from "lucide-react";
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
@@ -85,6 +87,16 @@ const menuItems = [
     key: "tenant-orders",
     label: t("tenant.orders"),
     icon: ShoppingBag,
+  },
+  {
+    key: "tenant-custom-requests",
+    label: t("tenant.customRequests") || "Custom Requests",
+    icon: FileText,
+  },
+  {
+    key: "tenant-subscriptions",
+    label: t("tenant.subscriptions") || "Subscriptions",
+    icon: RefreshCw,
   },
   {
     key: "tenant-users",
