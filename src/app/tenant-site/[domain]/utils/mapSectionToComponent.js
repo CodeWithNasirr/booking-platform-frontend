@@ -81,9 +81,14 @@ const FileUploadModule = dynamic(() => import("../../modules/FileUploadModule"),
   loading: () => <ModulePlaceholder type="file_upload" />
 });
 
-const ContactFormModule = dynamic(() => import("../../modules/ContactFormModule"), { 
+const ContactFormModule = dynamic(() => import("../../modules/ContactFormModule"), {
   ssr: false,
   loading: () => <ModulePlaceholder type="contact_form" />
+});
+
+const CustomRequestModule = dynamic(() => import("../../modules/CustomRequestModule"), {
+  ssr: false,
+  loading: () => <ModulePlaceholder type="custom_request" />
 });
 
 // =============================================================================
@@ -98,6 +103,7 @@ function ModulePlaceholder({ type }) {
     video_call: { height: "h-12", icon: "📹", label: "" },
     file_upload: { height: "h-32", icon: "📁", label: "Loading..." },
     contact_form: { height: "h-64", icon: "✉️", label: "Loading Form..." },
+    custom_request: { height: "h-96", icon: "📝", label: "Loading Custom Request..." },
     order_checkout: { height: "h-96", icon: "🛒", label: "Loading Checkout..." },
     order_dashboard: { height: "h-96", icon: "📦", label: "Loading Orders..." },
     // provider_orders: { height: "h-96", icon: "📋", label: "Loading Orders..." },
@@ -214,6 +220,7 @@ const MODULE_MAP = {
   video_call: VideoCallModule,
   file_upload: FileUploadModule,
   contact_form: ContactFormModule,
+  custom_request: CustomRequestModule,
   order_checkout: OrderCheckoutModule,
   order_dashboard: OrderDashboardModule,
   // provider_orders: ProviderOrdersModule,
