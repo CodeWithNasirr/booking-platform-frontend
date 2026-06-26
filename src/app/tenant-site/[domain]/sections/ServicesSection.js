@@ -506,9 +506,12 @@ import {
   getServiceType,
   getServiceRoute,
   getServiceBadge,
+  getServiceCTA,
   isBookableService,
   isMilestoneService,
   isProjectService,
+  isSubscriptionService,
+  isCustomQuoteService,
 } from "@/lib/serviceTypeHelper";
 
 
@@ -539,6 +542,9 @@ export default function ServicesSection({ data, lang: propLang, domain }) {
     book_button_url,
     book_button_text,
     card_style = "elevated",
+    show_custom_request_cta = true,
+    custom_request_cta_text,
+    custom_request_cta_url,
   } = data || {};
 
   // State for database mode
@@ -692,6 +698,47 @@ export default function ServicesSection({ data, lang: propLang, domain }) {
           <p className="text-gray-500">No services available at the moment.</p>
         </div>
       )}
+
+      {/* Custom Request CTA */}
+      {mode === "database" && show_custom_request_cta && displayServices.length > 0 && (
+        <div className="max-w-3xl mx-auto mt-16">
+          <div
+            className="rounded-2xl p-8 text-center border-2 border-dashed"
+            style={{ borderColor: `${theme.primary_color || "#3B82F6"}40` }}
+          >
+            <div className="text-3xl mb-3">💡</div>
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              {resolveTranslated(custom_request_cta_text, lang) ||
+                resolveTranslated({
+                  en: "Can't find what you're looking for?",
+                  ar: "لا تجد ما تبحث عنه؟",
+                  ur: "آپ جو ڈھونڈ رہے ہیں وہ نہیں مل رہا؟",
+                }, lang)}
+            </h3>
+            <p className="text-gray-600 mb-6">
+              {resolveTranslated({
+                en: "Tell us what you need and we'll create a custom quote just for you.",
+                ar: "أخبرنا بما تحتاجه وسنقدم لك عرض سعر مخصص.",
+                ur: "ہمیں بتائیں آپ کو کیا چاہیے اور ہم آپ کے لیے ایک حسب ضرورت کوٹ بنائیں گے۔",
+              }, lang)}
+            </p>
+            <Link
+              href={custom_request_cta_url || "#custom-request"}
+              className="inline-flex items-center gap-2 px-8 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-all"
+              style={buttonStyle}
+            >
+              {resolveTranslated({
+                en: "Request Custom Service",
+                ar: "طلب خدمة مخصصة",
+                ur: "حسب ضرورت خدمت کی درخواست کریں",
+              }, lang)}
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isRTL ? "M19 12H5M12 5l-7 7 7 7" : "M5 12h14M12 5l7 7-7 7"} />
+              </svg>
+            </Link>
+          </div>
+        </div>
+      )}
     </section>
   );
 }
@@ -749,28 +796,22 @@ function ServiceCard({
       };
     }
 
+    if (isCustomQuoteService(service)) {
+      return {
+        text: getServiceCTA(service, lang),
+        url: "#custom-request",
+      };
+    }
+
     const route = getServiceRoute(service);
-
-    // Pick CTA label based on flow type
-    const labels = {
-      booking: bookButtonText || resolveTranslated({ 
-        en: "Book Now", ar: "احجز الآن", ur: "ابھی بک کریں" 
-      }, lang),
-      milestone: resolveTranslated({ 
-        en: "Start Project", ar: "ابدأ المشروع", ur: "پروجیکٹ شروع کریں" 
-      }, lang),
-      order: resolveTranslated({ 
-        en: "Order Now", ar: "اطلب الآن", ur: "ابھی آرڈر کریں" 
-      }, lang),
-    };
-
     return {
-      text: labels[route.flow] || labels.booking,
+      text: getServiceCTA(service, lang),
       url: route.url,
     };
   };
 
   const cta = getCtaInfo();
+  const subscription = mode === "database" && isSubscriptionService(service);
 
   // ── Use centralized badge helper ──
   const getTypeBadge = () => {
@@ -848,15 +889,38 @@ function ServiceCard({
           </div>
         )}
 
+        {/* Subscription Badge */}
+        {subscription && (
+          <div className="mb-3 flex items-center gap-2">
+            <span className="inline-flex items-center gap-1 px-3 py-1 rounded-full text-xs font-semibold bg-indigo-100 text-indigo-700">
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+              </svg>
+              {service.billing_type === "yearly"
+                ? resolveTranslated({ en: "Yearly Plan", ar: "خطة سنوية", ur: "سالانہ پلان" }, lang)
+                : resolveTranslated({ en: "Monthly Plan", ar: "خطة شهرية", ur: "ماہانہ پلان" }, lang)}
+            </span>
+          </div>
+        )}
+
         {/* Price & Duration (for booking/static) */}
         {(mode === "database" || (mode === "static" && (price || duration))) && (
         <div className={`flex items-center justify-between mb-4 ${isRTL ? "flex-row-reverse" : ""}`}>
             {showPrice && typeof price === "number" && price > 0 && (
-            <div
+            <div className="flex items-baseline gap-1">
+              <span
                 className="text-2xl font-bold"
                 style={{ color: theme.primary_color || "#3B82F6" }}
-            >
-                ${price}
+              >
+                {service.currency || "SAR"} {price}
+              </span>
+              {subscription && (
+                <span className="text-sm text-gray-500">
+                  /{service.billing_type === "yearly"
+                    ? resolveTranslated({ en: "yr", ar: "سنة", ur: "سال" }, lang)
+                    : resolveTranslated({ en: "mo", ar: "شهر", ur: "مہینہ" }, lang)}
+                </span>
+              )}
             </div>
             )}
 

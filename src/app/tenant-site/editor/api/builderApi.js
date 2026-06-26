@@ -860,6 +860,61 @@ export function getModulePresets() {
         },
       },
     },
+    {
+      type: "module",
+      module_type: "custom_request",
+      moduleKey: "custom_request",
+      name: { en: "Custom Request", ar: "طلب مخصص", ur: "حسب ضرورت درخواست" },
+      icon: "📋",
+      description: {
+        en: "Multi-step custom service request form",
+        ar: "نموذج طلب خدمة مخصصة متعدد الخطوات",
+        ur: "ملٹی سٹیپ حسب ضرورت سروس ریکویسٹ فارم"
+      },
+      required: false,
+      defaultContent: {
+        module_type: "custom_request",
+        module_key: "custom_request",
+        enabled: true,
+        title: { en: "Request Custom Service", ar: "طلب خدمة مخصصة", ur: "حسب ضرورت سروس کی درخواست" },
+        subtitle: { en: "Tell us what you need and we'll create a custom quote for you", ar: "أخبرنا بما تحتاجه وسنقدم لك عرض سعر مخصص", ur: "ہمیں بتائیں آپ کو کیا چاہیے اور ہم آپ کے لیے ایک حسب ضرورت کوٹ بنائیں گے" },
+        settings: {
+          allow_file_uploads: true,
+          require_budget: false,
+          require_deadline: false,
+          allow_guest_submissions: true,
+          max_attachments: 5,
+          max_file_size_mb: 10,
+          show_trust_badges: true,
+          show_response_time: true,
+          average_response_time: { en: "Within 24 hours", ar: "خلال 24 ساعة", ur: "24 گھنٹوں کے اندر" },
+          success_message: { en: "Your request has been submitted successfully! We'll review it and get back to you soon.", ar: "تم إرسال طلبك بنجاح! سنراجعه ونرد عليك قريباً.", ur: "آپ کی درخواست کامیابی سے جمع ہو گئی! ہم اس کا جائزہ لیں گے اور جلد آپ سے رابطہ کریں گے۔" },
+          redirect_after_submit: "",
+          categories: [],
+        },
+      },
+    },
+    {
+      type: "module",
+      module_type: "customer_requests",
+      moduleKey: "customer_requests",
+      name: { en: "My Requests Portal", ar: "بوابة طلباتي", ur: "میری درخواستیں پورٹل" },
+      icon: "📊",
+      description: {
+        en: "Customer portal to track custom service requests",
+        ar: "بوابة العملاء لتتبع طلبات الخدمة المخصصة",
+        ur: "حسب ضرورت سروس کی درخواستوں کو ٹریک کرنے کا کسٹمر پورٹل"
+      },
+      required: false,
+      defaultContent: {
+        module_type: "customer_requests",
+        module_key: "customer_requests",
+        enabled: true,
+        title: { en: "My Requests", ar: "طلباتي", ur: "میری درخواستیں" },
+        subtitle: { en: "Track the status of your custom service requests", ar: "تتبع حالة طلبات الخدمة المخصصة", ur: "اپنی حسب ضرورت سروس کی درخواستوں کی حیثیت ٹریک کریں" },
+        settings: {},
+      },
+    },
   ];
 }
 
@@ -872,7 +927,7 @@ export function getSectionCategories() {
     { id: "hero", name: { en: "Hero", ar: "البطل", ur: "ہیرو" }, icon: "🎯" },
     { id: "content", name: { en: "Content", ar: "المحتوى", ur: "مواد" }, icon: "📝" },
     { id: "cta", name: { en: "Call to Action", ar: "دعوة للعمل", ur: "کال ٹو ایکشن" }, icon: "📢" },
-    // { id: "modules", name: { en: "Modules", ar: "الوحدات", ur: "ماڈیولز" }, icon: "🧩", badge: "Required" },
+    { id: "modules", name: { en: "Modules", ar: "الوحدات", ur: "ماڈیولز" }, icon: "🧩" },
   ];
 }
 

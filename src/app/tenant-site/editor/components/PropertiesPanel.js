@@ -34,6 +34,7 @@ import {
   ExternalLink,
   RefreshCw,
   Search,
+  LayoutList,
 
 } from "lucide-react";
 
@@ -3088,6 +3089,8 @@ function ModuleContentEditor({ moduleKey, content, onUpdate, language, isRTL }) 
     chat: { en: "Chat Module", ar: "وحدة الدردشة", ur: "چیٹ ماڈیول", icon: MessageSquare },
     file_upload: { en: "File Upload Module", ar: "وحدة رفع الملفات", ur: "فائل اپ لوڈ ماڈیول", icon: Upload },
     payment: { en: "Payment Module", ar: "وحدة الدفع", ur: "ادائیگی ماڈیول", icon: CreditCard },
+    custom_request: { en: "Custom Request", ar: "طلب مخصص", ur: "حسب ضرورت درخواست", icon: FileText },
+    customer_requests: { en: "My Requests Portal", ar: "بوابة طلباتي", ur: "میری درخواستیں پورٹل", icon: LayoutList },
   };
 
   const moduleInfo = moduleLabels[moduleKey] || { en: "Module", ar: "وحدة", ur: "ماڈیول", icon: Settings };
@@ -3214,6 +3217,130 @@ function ModuleContentEditor({ moduleKey, content, onUpdate, language, isRTL }) 
             checked={content.settings?.refund_policy_display !== false}
             onChange={(val) => handleSettingUpdate("refund_policy_display", val)}
             language={language}
+          />
+        </FieldGroup>
+      )}
+
+      {/* Custom Request Module Settings */}
+      {moduleKey === "custom_request" && (
+        <FieldGroup title={T({ en: "Request Form Settings", ar: "إعدادات نموذج الطلب", ur: "درخواست فارم کی ترتیبات" })} isRTL={isRTL}>
+          <CheckboxField
+            label={{ en: "Allow File Uploads", ar: "السماح برفع الملفات", ur: "فائل اپ لوڈ کی اجازت دیں" }}
+            checked={content.settings?.allow_file_uploads !== false}
+            onChange={(val) => handleSettingUpdate("allow_file_uploads", val)}
+            language={language}
+          />
+          <CheckboxField
+            label={{ en: "Require Budget", ar: "الميزانية مطلوبة", ur: "بجٹ ضروری ہے" }}
+            checked={content.settings?.require_budget === true}
+            onChange={(val) => handleSettingUpdate("require_budget", val)}
+            language={language}
+          />
+          <CheckboxField
+            label={{ en: "Require Deadline", ar: "الموعد النهائي مطلوب", ur: "ڈیڈ لائن ضروری ہے" }}
+            checked={content.settings?.require_deadline === true}
+            onChange={(val) => handleSettingUpdate("require_deadline", val)}
+            language={language}
+          />
+          <CheckboxField
+            label={{ en: "Allow Guest Submissions", ar: "السماح بالإرسال بدون حساب", ur: "مہمان جمع کرانے کی اجازت دیں" }}
+            checked={content.settings?.allow_guest_submissions !== false}
+            onChange={(val) => handleSettingUpdate("allow_guest_submissions", val)}
+            language={language}
+          />
+          <CheckboxField
+            label={{ en: "Show Trust Badges", ar: "إظهار شارات الثقة", ur: "ٹرسٹ بیجز دکھائیں" }}
+            checked={content.settings?.show_trust_badges !== false}
+            onChange={(val) => handleSettingUpdate("show_trust_badges", val)}
+            language={language}
+          />
+          <CheckboxField
+            label={{ en: "Show Response Time", ar: "إظهار وقت الاستجابة", ur: "رسپانس ٹائم دکھائیں" }}
+            checked={content.settings?.show_response_time !== false}
+            onChange={(val) => handleSettingUpdate("show_response_time", val)}
+            language={language}
+          />
+          <TextField
+            label={{ en: "Max Attachments", ar: "الحد الأقصى للمرفقات", ur: "زیادہ سے زیادہ منسلکات" }}
+            value={String(content.settings?.max_attachments || 5)}
+            onChange={(val) => handleSettingUpdate("max_attachments", parseInt(val) || 5)}
+            language={language}
+            isRTL={isRTL}
+          />
+          <TextField
+            label={{ en: "Max File Size (MB)", ar: "الحد الأقصى لحجم الملف", ur: "زیادہ سے زیادہ فائل سائز" }}
+            value={String(content.settings?.max_file_size_mb || 10)}
+            onChange={(val) => handleSettingUpdate("max_file_size_mb", parseInt(val) || 10)}
+            language={language}
+            isRTL={isRTL}
+          />
+        </FieldGroup>
+      )}
+      {moduleKey === "custom_request" && (
+        <FieldGroup title={T({ en: "Success & Redirect", ar: "النجاح والتوجيه", ur: "کامیابی اور ری ڈائریکٹ" })} isRTL={isRTL}>
+          <MultilingualTextField
+            label={{ en: "Success Message", ar: "رسالة النجاح", ur: "کامیابی کا پیغام" }}
+            value={content.settings?.success_message}
+            onChange={(lang, val) => {
+              const updated = { ...(content.settings?.success_message || {}), [lang]: val };
+              handleSettingUpdate("success_message", updated);
+            }}
+            language={language}
+            isRTL={isRTL}
+            multiline
+          />
+          <MultilingualTextField
+            label={{ en: "Average Response Time", ar: "متوسط وقت الاستجابة", ur: "اوسط جوابی وقت" }}
+            value={content.settings?.average_response_time}
+            onChange={(lang, val) => {
+              const updated = { ...(content.settings?.average_response_time || {}), [lang]: val };
+              handleSettingUpdate("average_response_time", updated);
+            }}
+            language={language}
+            isRTL={isRTL}
+          />
+          <TextField
+            label={{ en: "Redirect URL (after submit)", ar: "رابط التوجيه (بعد الإرسال)", ur: "ری ڈائریکٹ URL (جمع کرانے کے بعد)" }}
+            value={content.settings?.redirect_after_submit || ""}
+            onChange={(val) => handleSettingUpdate("redirect_after_submit", val)}
+            language={language}
+            isRTL={isRTL}
+          />
+        </FieldGroup>
+      )}
+
+      {/* Trust Badges Configuration */}
+      {moduleKey === "custom_request" && (
+        <FieldGroup title={T({ en: "Trust Badges", ar: "شارات الثقة", ur: "ٹرسٹ بیجز" })} isRTL={isRTL}>
+          <MultilingualTextField
+            label={{ en: "Badge 1", ar: "الشارة 1", ur: "بیج 1" }}
+            value={content.settings?.trust_badge_1}
+            onChange={(lang, val) => {
+              const updated = { ...(content.settings?.trust_badge_1 || {}), [lang]: val };
+              handleSettingUpdate("trust_badge_1", updated);
+            }}
+            language={language}
+            isRTL={isRTL}
+          />
+          <MultilingualTextField
+            label={{ en: "Badge 2", ar: "الشارة 2", ur: "بیج 2" }}
+            value={content.settings?.trust_badge_2}
+            onChange={(lang, val) => {
+              const updated = { ...(content.settings?.trust_badge_2 || {}), [lang]: val };
+              handleSettingUpdate("trust_badge_2", updated);
+            }}
+            language={language}
+            isRTL={isRTL}
+          />
+          <MultilingualTextField
+            label={{ en: "Badge 3", ar: "الشارة 3", ur: "بیج 3" }}
+            value={content.settings?.trust_badge_3}
+            onChange={(lang, val) => {
+              const updated = { ...(content.settings?.trust_badge_3 || {}), [lang]: val };
+              handleSettingUpdate("trust_badge_3", updated);
+            }}
+            language={language}
+            isRTL={isRTL}
           />
         </FieldGroup>
       )}

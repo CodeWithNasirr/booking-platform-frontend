@@ -48,7 +48,7 @@ const ALL_STATUSES = Object.keys(STATUS_CONFIG);
 export default function SubscriptionsPage() {
   const router = useRouter();
   const { t, activeTenant, isRTL } = useApp();
-  const { allowed: canManage } = useTenantPermission("subscriptions.manage");
+  const { allowed: canManage } = useTenantPermission("custom_requests.manage");
 
   const tenantId = activeTenant?.id || activeTenant;
 

@@ -129,6 +129,40 @@ export function getServiceRoute(service, domain = "") {
 // 5. Display helpers
 // ─────────────────────────────────────────────────────────────────────────────
 
+// ─────────────────────────────────────────────────────────────────────────────
+// 6. Billing & pricing helpers
+// ─────────────────────────────────────────────────────────────────────────────
+
+export function isSubscriptionService(service) {
+  const billing = service?.billing_type;
+  return billing === "monthly" || billing === "yearly";
+}
+
+export function isCustomQuoteService(service) {
+  return service?.pricing_type === "custom";
+}
+
+export function getServiceCTA(service, lang = "en") {
+  if (isSubscriptionService(service)) {
+    const labels = { en: "Subscribe", ar: "اشترك", ur: "سبسکرائب کریں" };
+    return labels[lang] || labels.en;
+  }
+  if (isCustomQuoteService(service)) {
+    const labels = { en: "Request Quote", ar: "اطلب عرض سعر", ur: "کوٹ کی درخواست کریں" };
+    return labels[lang] || labels.en;
+  }
+  const type = getServiceType(service);
+  const ctaMap = {
+    booking: { en: "Book Now", ar: "احجز الآن", ur: "ابھی بک کریں" },
+    online: { en: "Book Now", ar: "احجز الآن", ur: "ابھی بک کریں" },
+    milestone: { en: "Start Project", ar: "ابدأ المشروع", ur: "پروجیکٹ شروع کریں" },
+    digital: { en: "Order Now", ar: "اطلب الآن", ur: "ابھی آرڈر کریں" },
+    order: { en: "Order Now", ar: "اطلب الآن", ur: "ابھی آرڈر کریں" },
+  };
+  const labels = ctaMap[type] || ctaMap.booking;
+  return labels[lang] || labels.en;
+}
+
 /** Badge metadata keyed by canonical type. */
 const BADGES = {
   online:    { labelKey: "Booking",  color: "bg-green-100 text-green-700" },
@@ -138,7 +172,15 @@ const BADGES = {
   order:     { labelKey: "Order",    color: "bg-orange-100 text-orange-700" },
 };
 
+const BILLING_BADGES = {
+  monthly: { labelKey: "Monthly", color: "bg-indigo-100 text-indigo-700" },
+  yearly:  { labelKey: "Yearly",  color: "bg-indigo-100 text-indigo-700" },
+};
+
 export function getServiceBadge(service) {
+  if (isSubscriptionService(service)) {
+    return BILLING_BADGES[service.billing_type] || BILLING_BADGES.monthly;
+  }
   const type = getServiceType(service);
   return BADGES[type] || BADGES.online;
 }

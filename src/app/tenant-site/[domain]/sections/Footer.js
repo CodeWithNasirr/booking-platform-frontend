@@ -18,6 +18,7 @@ export default function Footer({ data, lang: propLang }) {
     copyright,
     show_powered_by = true,
     background = "dark",
+    cta_banner,
   } = data || {};
 
   const resolvedTagline = resolveTranslated(tagline, lang);
@@ -136,6 +137,37 @@ export default function Footer({ data, lang: propLang }) {
             </div>
           ))}
         </div>
+
+        {/* ================= CTA BANNER ================= */}
+        {cta_banner && (resolveTranslated(cta_banner.title, lang) || resolveTranslated(cta_banner.text, lang)) && (
+          <div className={`mt-10 p-6 rounded-2xl text-center ${
+            background === "dark" ? "bg-white/10" : "bg-gray-100"
+          }`}>
+            {resolveTranslated(cta_banner.title, lang) && (
+              <p className={`text-lg font-semibold mb-2 ${textClass}`}>
+                {resolveTranslated(cta_banner.title, lang)}
+              </p>
+            )}
+            {resolveTranslated(cta_banner.text, lang) && (
+              <p className={`text-sm mb-4 ${mutedClass}`}>
+                {resolveTranslated(cta_banner.text, lang)}
+              </p>
+            )}
+            {cta_banner.url && (
+              <a
+                href={cta_banner.url}
+                className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium text-white transition hover:opacity-90"
+                style={{ backgroundColor: "var(--color-primary, #3B82F6)" }}
+              >
+                {resolveTranslated(cta_banner.button_text, lang) ||
+                  resolveTranslated({ en: "Request Custom Service", ar: "طلب خدمة مخصصة", ur: "حسب ضرورت سروس کی درخواست" }, lang)}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isRTL ? "M19 12H5M12 5l-7 7 7 7" : "M5 12h14M12 5l7 7-7 7"} />
+                </svg>
+              </a>
+            )}
+          </div>
+        )}
 
         {/* ================= SOCIAL ================= */}
         {social_links.length > 0 && (
