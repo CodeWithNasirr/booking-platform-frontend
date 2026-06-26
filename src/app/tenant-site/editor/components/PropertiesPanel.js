@@ -20,6 +20,7 @@ import {
   getDestinationType,
   computeLegacyUrl as computeLegacyUrlFromRegistry,
 } from "@/lib/destinationTypes";
+import { useNavigationContext } from "@/lib/navigationContext";
 import {
   X,
   Type,
@@ -3842,9 +3843,15 @@ function sectionDisplayLabel(s, lang) {
  */
 function useDestinationPickerContext() {
   const { state } = useBuilder();
+  const searchParams = useSearchParams();
+  const domain = searchParams?.get("domain") || "";
+
+  // Services / categories / availability — fetched once per session per
+  // domain and reused across every DestinationPicker instance.
+  const navData = useNavigationContext(domain);
 
   // Sections eligible as anchor targets: content sections only, not
-  // header/hero/footer (those don't make sense as nav targets).
+  // header/footer (those don't make sense as nav targets).
   const sections = (state?.sections || [])
     .filter((s) => {
       const t = s.section_type;
@@ -3853,18 +3860,15 @@ function useDestinationPickerContext() {
     .map((s) => ({
       id: s.id || s.section_type,
       section_type: s.section_type,
-      // a stable display label
       label: sectionDisplayLabel(s, state?.language || "en"),
     }));
 
   return {
     sections,
     customPages: state?.pages || [],
-    // Populated by Phase B (services + categories fetch hook)
-    services: state?.navServices || [],
-    categories: state?.navCategories || [],
-    // Populated by Phase C (capability inference)
-    availability: state?.navAvailability || {},
+    services: navData.services,
+    categories: navData.categories,
+    availability: navData.availability,
   };
 }
 
