@@ -225,6 +225,7 @@ export function mapHeaderData(raw, site) {
     navigation: raw.nav_links || [],
     cta_button: raw.cta_button?.text || null,
     cta_url: raw.cta_button?.url || "#",
+    cta_destination: raw.cta_button?.destination || null,
     background: raw.style?.background || "white",
     sticky: raw.style?.sticky ?? true,
   };
