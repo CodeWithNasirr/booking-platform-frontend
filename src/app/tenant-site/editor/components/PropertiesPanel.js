@@ -3086,9 +3086,9 @@ function ModuleContentEditor({ moduleKey, content, onUpdate, language, isRTL }) 
   };
 
   const moduleLabels = {
-    chat: { en: "Chat Module", ar: "وحدة الدردشة", ur: "چیٹ ماڈیول", icon: MessageSquare },
-    file_upload: { en: "File Upload Module", ar: "وحدة رفع الملفات", ur: "فائل اپ لوڈ ماڈیول", icon: Upload },
-    payment: { en: "Payment Module", ar: "وحدة الدفع", ur: "ادائیگی ماڈیول", icon: CreditCard },
+    // chat: { en: "Chat Module", ar: "وحدة الدردشة", ur: "چیٹ ماڈیول", icon: MessageSquare },
+    // file_upload: { en: "File Upload Module", ar: "وحدة رفع الملفات", ur: "فائل اپ لوڈ ماڈیول", icon: Upload },
+    // payment: { en: "Payment Module", ar: "وحدة الدفع", ur: "ادائیگی ماڈیول", icon: CreditCard },
     custom_request: { en: "Custom Request", ar: "طلب مخصص", ur: "حسب ضرورت درخواست", icon: FileText },
     customer_requests: { en: "My Requests Portal", ar: "بوابة طلباتي", ur: "میری درخواستیں پورٹل", icon: LayoutList },
   };
@@ -3129,7 +3129,7 @@ function ModuleContentEditor({ moduleKey, content, onUpdate, language, isRTL }) 
       </FieldGroup>
 
       {/* Chat Module Settings */}
-      {moduleKey === "chat" && (
+      {/* {moduleKey === "chat" && (
         <FieldGroup title={T({ en: "Chat Settings", ar: "إعدادات الدردشة", ur: "چیٹ کی ترتیبات" })} isRTL={isRTL}>
           <CheckboxField
             label={{ en: "Auto Response", ar: "الرد التلقائي", ur: "آٹو رسپانس" }}
@@ -3157,10 +3157,10 @@ function ModuleContentEditor({ moduleKey, content, onUpdate, language, isRTL }) 
             isRTL={isRTL}
           />
         </FieldGroup>
-      )}
+      )} */}
 
       {/* File Upload Module Settings */}
-      {moduleKey === "file_upload" && (
+      {/* {moduleKey === "file_upload" && (
         <FieldGroup title={T({ en: "Upload Settings", ar: "إعدادات الرفع", ur: "اپ لوڈ کی ترتیبات" })} isRTL={isRTL}>
           <TextField
             label={{ en: "Max Files", ar: "الحد الأقصى للملفات", ur: "زیادہ سے زیادہ فائلز" }}
@@ -3189,10 +3189,10 @@ function ModuleContentEditor({ moduleKey, content, onUpdate, language, isRTL }) 
             language={language}
           />
         </FieldGroup>
-      )}
+      )} */}
 
       {/* Payment Module Settings */}
-      {moduleKey === "payment" && (
+      {/* {moduleKey === "payment" && (
         <FieldGroup title={T({ en: "Payment Settings", ar: "إعدادات الدفع", ur: "ادائیگی کی ترتیبات" })} isRTL={isRTL}>
           <CheckboxField
             label={{ en: "Enable Escrow", ar: "تفعيل الضمان", ur: "ایسکرو فعال کریں" }}
@@ -3219,7 +3219,7 @@ function ModuleContentEditor({ moduleKey, content, onUpdate, language, isRTL }) 
             language={language}
           />
         </FieldGroup>
-      )}
+      )} */}
 
       {/* Custom Request Module Settings */}
       {moduleKey === "custom_request" && (

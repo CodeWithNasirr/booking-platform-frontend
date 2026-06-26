@@ -716,15 +716,15 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
         <label className={labelClass}>
           {t.title} <span className="text-red-500">*</span>
         </label>
-        <input
-          type="text"
-          name="title"
-          value={form.title}
-          onChange={handleChange}
-          className={`${inputClass} ${inputFocusClass}`}
-          style={inputStyle(fieldErrors.title)}
-          placeholder={t.titlePlaceholder}
-        />
+       <input
+        type="text"
+        name="title"
+        value={typeof form.title === "string" ? form.title : ""}
+        onChange={handleChange}
+        className={`${inputClass} ${inputFocusClass}`}
+        style={inputStyle(fieldErrors.title)}
+        placeholder={t.titlePlaceholder}
+      />
         {fieldErrors.title && (
           <p className="text-xs text-red-500 mt-1">{t.required}</p>
         )}
@@ -740,10 +740,20 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
                 className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm"
               >
                 <span className="text-blue-800">
-                  {t.weOffer} <strong>{svc.name || svc.title}</strong> - {t.instead}
+                  {t.weOffer} <strong>
+                  {typeof svc.name === "object"
+                    ? svc.name?.[language] ||
+                      svc.name?.en ||
+                      Object.values(svc.name)[0]
+                    : typeof svc.title === "object"
+                    ? svc.title?.[language] ||
+                      svc.title?.en ||
+                      Object.values(svc.title)[0]
+                    : svc.name || svc.title}
+                </strong> - {t.instead}
                 </span>
                 <a
-                  href={`/${domain}/services/${svc.slug}`}
+                  href={`/services/${svc.slug}`}
                   className="shrink-0 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-90 min-h-[32px] flex items-center"
                   style={{ backgroundColor: primaryColor }}
                 >
@@ -1209,7 +1219,7 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
   };
 
   const isLastStep = currentStep === totalSteps;
-
+  
   return (
     <div className={`${bgClass} py-12 px-4`} dir={isRTL ? "rtl" : "ltr"} ref={containerRef}>
       <div className="max-w-2xl mx-auto">

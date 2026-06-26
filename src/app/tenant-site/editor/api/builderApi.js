@@ -719,147 +719,147 @@ export function getSectionPresets() {
  */
 export function getModulePresets() {
   return [
-    {
-      type: "module",
-      module_type: "chat",
-      moduleKey: "chat",
-      name: { en: "Chat Module", ar: "وحدة الدردشة", ur: "چیٹ ماڈیول" },
-      icon: "💬",
-      description: { 
-        en: "Real-time chat communication with clients", 
-        ar: "التواصل عبر الدردشة في الوقت الفعلي مع العملاء", 
-        ur: "کلائنٹس کے ساتھ ریئل ٹائم چیٹ مواصلات" 
-      },
-      required: true,
-      defaultContent: {
-        module_type: "chat",
-        module_key: "chat",
-        enabled: true,
-        settings: {
-          auto_response: {
-            enabled: true,
-            message: { 
-              en: "Thanks for reaching out! I'll respond within 24 hours.", 
-              ar: "شكراً للتواصل! سأرد خلال 24 ساعة.",
-              ur: "رابطہ کرنے کا شکریہ! میں 24 گھنٹوں میں جواب دوں گا۔"
-            },
-          },
-          file_sharing: true,
-          project_brief_form: true,
-          response_time: { en: "Usually responds within 24 hours", ar: "يستجيب عادة خلال 24 ساعة", ur: "عام طور پر 24 گھنٹوں میں جواب دیتا ہے" },
-        },
-        style: {
-          position: "bottom-right",
-          primary_color: "brand",
-        },
-      },
-    },
-    {
-      type: "module",
-      module_type: "file_upload",
-      moduleKey: "file_upload",
-      name: { en: "File Upload", ar: "رفع الملفات", ur: "فائل اپ لوڈ" },
-      icon: "📁",
-      description: { 
-        en: "Secure file exchange with clients", 
-        ar: "تبادل آمن للملفات مع العملاء", 
-        ur: "کلائنٹس کے ساتھ محفوظ فائل تبادلہ" 
-      },
-      required: true,
-      defaultContent: {
-        module_type: "file_upload",
-        module_key: "file_upload",
-        enabled: true,
-        settings: {
-          max_files: 10,
-          max_file_size: "50MB",
-          allowed_types: ["image/*", "application/pdf", ".doc", ".docx", ".xls", ".xlsx"],
-          preview_enabled: true,
-        },
-        labels: {
-          upload_button: { en: "Upload Files", ar: "رفع الملفات", ur: "فائلیں اپ لوڈ کریں" },
-          drag_drop: { en: "Drag & drop files here", ar: "اسحب وأفلت الملفات هنا", ur: "فائلیں یہاں ڈریگ اور ڈراپ کریں" },
-        },
-      },
-    },
-    {
-      type: "module",
-      module_type: "payment",
-      moduleKey: "payment",
-      name: { en: "Payment Module", ar: "وحدة الدفع", ur: "پیمنٹ ماڈیول" },
-      icon: "💳",
-      description: { 
-        en: "Secure payment processing", 
-        ar: "معالجة الدفع الآمنة", 
-        ur: "محفوظ ادائیگی پروسیسنگ" 
-      },
-      required: true,
-      defaultContent: {
-        module_type: "payment",
-        module_key: "payment",
-        enabled: true,
-        settings: {
-          escrow_enabled: true,
-          milestone_payments: true,
-          invoice_generation: true,
-        },
-        labels: {
-          pay_button: { en: "Pay Now", ar: "ادفع الآن", ur: "ابھی ادائیگی کریں" },
-        },
-      },
-    },
-    {
-      type: "module",
-      module_type: "booking",
-      moduleKey: "booking",
-      name: { en: "Booking Widget", ar: "أداة الحجز", ur: "بکنگ ویجٹ" },
-      icon: "📅",
-      description: { 
-        en: "Allow clients to book appointments", 
-        ar: "السماح للعملاء بحجز المواعيد", 
-        ur: "کلائنٹس کو اپائنٹمنٹ بک کرنے کی اجازت دیں" 
-      },
-      required: false,
-      defaultContent: {
-        module_type: "booking",
-        module_key: "booking",
-        enabled: true,
-        settings: {
-          calendar_view: "week",
-          time_slot_duration: 30,
-          buffer_time: 15,
-        },
-        labels: {
-          book_button: { en: "Book Appointment", ar: "احجز موعد", ur: "اپائنٹمنٹ بک کریں" },
-        },
-      },
-    },
-    {
-      type: "module",
-      module_type: "contact_form",
-      moduleKey: "contact_form",
-      name: { en: "Contact Form", ar: "نموذج الاتصال", ur: "رابطہ فارم" },
-      icon: "📧",
-      description: { 
-        en: "Contact form with custom fields", 
-        ar: "نموذج اتصال مع حقول مخصصة", 
-        ur: "کسٹم فیلڈز کے ساتھ رابطہ فارم" 
-      },
-      required: false,
-      defaultContent: {
-        module_type: "contact_form",
-        module_key: "contact_form",
-        enabled: true,
-        settings: {
-          fields: ["name", "email", "phone", "message"],
-          required_fields: ["name", "email", "message"],
-        },
-        labels: {
-          submit_button: { en: "Send Message", ar: "إرسال رسالة", ur: "پیغام بھیجیں" },
-          success_message: { en: "Thanks! We'll be in touch.", ar: "شكراً! سنتواصل معك قريباً.", ur: "شکریہ! ہم جلد رابطہ کریں گے۔" },
-        },
-      },
-    },
+    // {
+    //   type: "module",
+    //   module_type: "chat",
+    //   moduleKey: "chat",
+    //   name: { en: "Chat Module", ar: "وحدة الدردشة", ur: "چیٹ ماڈیول" },
+    //   icon: "💬",
+    //   description: { 
+    //     en: "Real-time chat communication with clients", 
+    //     ar: "التواصل عبر الدردشة في الوقت الفعلي مع العملاء", 
+    //     ur: "کلائنٹس کے ساتھ ریئل ٹائم چیٹ مواصلات" 
+    //   },
+    //   required: true,
+    //   defaultContent: {
+    //     module_type: "chat",
+    //     module_key: "chat",
+    //     enabled: true,
+    //     settings: {
+    //       auto_response: {
+    //         enabled: true,
+    //         message: { 
+    //           en: "Thanks for reaching out! I'll respond within 24 hours.", 
+    //           ar: "شكراً للتواصل! سأرد خلال 24 ساعة.",
+    //           ur: "رابطہ کرنے کا شکریہ! میں 24 گھنٹوں میں جواب دوں گا۔"
+    //         },
+    //       },
+    //       file_sharing: true,
+    //       project_brief_form: true,
+    //       response_time: { en: "Usually responds within 24 hours", ar: "يستجيب عادة خلال 24 ساعة", ur: "عام طور پر 24 گھنٹوں میں جواب دیتا ہے" },
+    //     },
+    //     style: {
+    //       position: "bottom-right",
+    //       primary_color: "brand",
+    //     },
+    //   },
+    // },
+    // {
+    //   type: "module",
+    //   module_type: "file_upload",
+    //   moduleKey: "file_upload",
+    //   name: { en: "File Upload", ar: "رفع الملفات", ur: "فائل اپ لوڈ" },
+    //   icon: "📁",
+    //   description: { 
+    //     en: "Secure file exchange with clients", 
+    //     ar: "تبادل آمن للملفات مع العملاء", 
+    //     ur: "کلائنٹس کے ساتھ محفوظ فائل تبادلہ" 
+    //   },
+    //   required: true,
+    //   defaultContent: {
+    //     module_type: "file_upload",
+    //     module_key: "file_upload",
+    //     enabled: true,
+    //     settings: {
+    //       max_files: 10,
+    //       max_file_size: "50MB",
+    //       allowed_types: ["image/*", "application/pdf", ".doc", ".docx", ".xls", ".xlsx"],
+    //       preview_enabled: true,
+    //     },
+    //     labels: {
+    //       upload_button: { en: "Upload Files", ar: "رفع الملفات", ur: "فائلیں اپ لوڈ کریں" },
+    //       drag_drop: { en: "Drag & drop files here", ar: "اسحب وأفلت الملفات هنا", ur: "فائلیں یہاں ڈریگ اور ڈراپ کریں" },
+    //     },
+    //   },
+    // },
+    // {
+    //   type: "module",
+    //   module_type: "payment",
+    //   moduleKey: "payment",
+    //   name: { en: "Payment Module", ar: "وحدة الدفع", ur: "پیمنٹ ماڈیول" },
+    //   icon: "💳",
+    //   description: { 
+    //     en: "Secure payment processing", 
+    //     ar: "معالجة الدفع الآمنة", 
+    //     ur: "محفوظ ادائیگی پروسیسنگ" 
+    //   },
+    //   required: true,
+    //   defaultContent: {
+    //     module_type: "payment",
+    //     module_key: "payment",
+    //     enabled: true,
+    //     settings: {
+    //       escrow_enabled: true,
+    //       milestone_payments: true,
+    //       invoice_generation: true,
+    //     },
+    //     labels: {
+    //       pay_button: { en: "Pay Now", ar: "ادفع الآن", ur: "ابھی ادائیگی کریں" },
+    //     },
+    //   },
+    // },
+    // {
+    //   type: "module",
+    //   module_type: "booking",
+    //   moduleKey: "booking",
+    //   name: { en: "Booking Widget", ar: "أداة الحجز", ur: "بکنگ ویجٹ" },
+    //   icon: "📅",
+    //   description: { 
+    //     en: "Allow clients to book appointments", 
+    //     ar: "السماح للعملاء بحجز المواعيد", 
+    //     ur: "کلائنٹس کو اپائنٹمنٹ بک کرنے کی اجازت دیں" 
+    //   },
+    //   required: false,
+    //   defaultContent: {
+    //     module_type: "booking",
+    //     module_key: "booking",
+    //     enabled: true,
+    //     settings: {
+    //       calendar_view: "week",
+    //       time_slot_duration: 30,
+    //       buffer_time: 15,
+    //     },
+    //     labels: {
+    //       book_button: { en: "Book Appointment", ar: "احجز موعد", ur: "اپائنٹمنٹ بک کریں" },
+    //     },
+    //   },
+    // },
+    // {
+    //   type: "module",
+    //   module_type: "contact_form",
+    //   moduleKey: "contact_form",
+    //   name: { en: "Contact Form", ar: "نموذج الاتصال", ur: "رابطہ فارم" },
+    //   icon: "📧",
+    //   description: { 
+    //     en: "Contact form with custom fields", 
+    //     ar: "نموذج اتصال مع حقول مخصصة", 
+    //     ur: "کسٹم فیلڈز کے ساتھ رابطہ فارم" 
+    //   },
+    //   required: false,
+    //   defaultContent: {
+    //     module_type: "contact_form",
+    //     module_key: "contact_form",
+    //     enabled: true,
+    //     settings: {
+    //       fields: ["name", "email", "phone", "message"],
+    //       required_fields: ["name", "email", "message"],
+    //     },
+    //     labels: {
+    //       submit_button: { en: "Send Message", ar: "إرسال رسالة", ur: "پیغام بھیجیں" },
+    //       success_message: { en: "Thanks! We'll be in touch.", ar: "شكراً! سنتواصل معك قريباً.", ur: "شکریہ! ہم جلد رابطہ کریں گے۔" },
+    //     },
+    //   },
+    // },
     {
       type: "module",
       module_type: "custom_request",
