@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import LayoutRenderer from "../../LayoutRenderer";
+import { tenantRoutes } from "@/lib/tenantRoutes";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -76,7 +77,7 @@ export default function BookingDetailClient({
       console.log(`[BookingDetail] Looking for booking: ${bookingId}`);
 
       if (!auth.token) {
-        router.replace(`/${domain}/my-bookings`);
+        router.replace(tenantRoutes.myBookings());
         return;
       }
 
@@ -91,7 +92,7 @@ export default function BookingDetailClient({
           localStorage.removeItem(`customer_booking_token_${tenantId}`);
           localStorage.removeItem(`customer_booking_email_${tenantId}`);
           localStorage.removeItem("guest_booking_token");
-          router.replace(`/${domain}/my-bookings`);
+          router.replace(tenantRoutes.myBookings());
           return;
         }
         throw new Error(`Failed: ${res.status}`);
@@ -125,7 +126,7 @@ export default function BookingDetailClient({
     if (isClient) fetchBookingDetail();
   }, [fetchBookingDetail, isClient]);
 
-  const handleBack = () => router.push(`/${domain}/my-bookings`);
+  const handleBack = () => router.push(tenantRoutes.myBookings());
 
   const getStatusColor = (status) => {
     const colors = {

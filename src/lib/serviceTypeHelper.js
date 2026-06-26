@@ -1,3 +1,5 @@
+import { tenantRoutes } from "./tenantRoutes";
+
 /**
  * serviceTypeHelper.js
  *
@@ -90,31 +92,33 @@ export function filterProjectServices(services = []) {
 /**
  * Given a service, return the correct client-side route.
  *
+ * Paths are returned WITHOUT a /${domain} prefix. Tenant resolution is
+ * handled by the proxy middleware (src/proxy.js), so client code should
+ * always use the browser-facing path.
+ *
  * @param {Object}  service
- * @param {string}  domain   – tenant domain slug (for tenant-site routes)
  * @returns {{ url: string, flow: "booking" | "milestone" | "order" }}
  */
-export function getServiceRoute(service, domain = "") {
+export function getServiceRoute(service) {
   const slug = service.slug || service.id;
   const type = getServiceType(service);
-  const prefix = domain ? `/${domain}` : "";
   switch (type) {
     case "digital":
     case "order":
       return {
-        url: `${prefix}/services/${slug}/order`,
+        url: tenantRoutes.serviceOrder(slug),
         flow: "order",
       };
 
     case "booking":
       return {
-        url: `${prefix}/services/${slug}/book`,
+        url: tenantRoutes.serviceBook(slug),
         flow: "booking",
       };
 
     default:
       return {
-        url: `${prefix}/booking/service/${slug}`,
+        url: tenantRoutes.bookingByService(slug),
         flow: "booking",
       };
   }

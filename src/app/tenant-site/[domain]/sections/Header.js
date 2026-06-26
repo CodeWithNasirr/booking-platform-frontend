@@ -4,16 +4,15 @@ import { useState, useEffect } from "react";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { useTenantLang } from "../../contexts/TenantLangContext";
 import { useTenantTheme } from "../../contexts/TenantThemeContext";
-import { useTenantSite } from "../TenantClientWrapper";
 import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
 import LanguageSwitcher from "../utils/LanguageSwitcher";
 import Link from "next/link";
+import { tenantRoutes } from "@/lib/tenantRoutes";
 
 export default function Header({ data, lang: propLang }) {
   const { language, isRTL } = useTenantLang();
   const theme = useTenantTheme();
-  const { domain: tenantDomain } = useTenantSite();
-  const homeUrl = tenantDomain ? `/${tenantDomain}` : "/";
+  const homeUrl = tenantRoutes.home();
   // Use prop lang or context lang
   const lang = propLang || language;
   const {

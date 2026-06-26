@@ -4,6 +4,7 @@
 import Link from "next/link";
 import { resolveTranslated } from "../../../[domain]/utils/resolveTranslated";
 import { useTenantSite } from "../../../[domain]/TenantClientWrapper";
+import { tenantRoutes } from "@/lib/tenantRoutes";
 
 export default function ConfirmationStep({
   orderId,
@@ -82,7 +83,7 @@ export default function ConfirmationStep({
       <div className="flex flex-wrap gap-4 justify-center">
         {/* View Order — middleware handles tenant prefix on subdomains */}
         <Link
-          href={`/${domain}/my-orders/${orderId}`}
+          href={tenantRoutes.myOrder(orderId)}
           className="px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity"
           style={{ backgroundColor: color }}
         >
@@ -93,7 +94,7 @@ export default function ConfirmationStep({
         </Link>
 
         <Link
-          href={domain ? `/${domain}` : "/"}
+          href={tenantRoutes.home()}
           onClick={() => onReset?.()}
           className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200"
         >

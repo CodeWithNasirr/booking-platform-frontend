@@ -5,6 +5,7 @@ import { useTenantLang } from "../../contexts/TenantLangContext";
 import { useTenantTheme } from "../../contexts/TenantThemeContext";
 import { useTenantSite } from "../TenantClientWrapper";
 import { resolveTranslated } from "../utils/resolveTranslated";
+import { tenantRoutes } from "@/lib/tenantRoutes";
 
 export default function ContactForm({ data, lang: propLang }) {
   const { language, isRTL } = useTenantLang();
@@ -272,7 +273,7 @@ export default function ContactForm({ data, lang: propLang }) {
                 )}
               </p>
               <a
-                href={custom_request_cta_url || `/${tenantDomain}/request-service`}
+                href={custom_request_cta_url || tenantRoutes.requestService()}
                 className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-xl font-medium transition hover:opacity-90"
                 style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
               >

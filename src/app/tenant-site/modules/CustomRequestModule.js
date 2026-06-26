@@ -4,6 +4,7 @@ import { useState, useEffect, useRef, useCallback, useMemo } from "react";
 import { useTenantLang } from "../contexts/TenantLangContext";
 import { useTenantTheme } from "../contexts/TenantThemeContext";
 import { useTenantSite } from "../[domain]/TenantClientWrapper";
+import { tenantRoutes } from "@/lib/tenantRoutes";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -633,7 +634,7 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
               {t.submitAnother}
             </button>
             <a
-              href={`/${domain}/services`}
+              href={tenantRoutes.services()}
               className="px-6 py-3 rounded-xl border font-medium transition-all duration-200 hover:bg-gray-50 min-h-[44px] flex items-center justify-center"
               style={{ borderColor: primaryColor, color: primaryColor }}
             >
@@ -743,7 +744,7 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
                   {t.weOffer} <strong>{svc.name || svc.title}</strong> - {t.instead}
                 </span>
                 <a
-                  href={`/${domain}/services/${svc.slug}`}
+                  href={tenantRoutes.service(svc.slug)}
                   className="shrink-0 px-3 py-1.5 rounded-lg text-white text-xs font-medium transition hover:opacity-90 min-h-[32px] flex items-center"
                   style={{ backgroundColor: primaryColor }}
                 >

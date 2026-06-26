@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useTenantLang } from "../../contexts/TenantLangContext";
 import { useTenantSite } from "../TenantClientWrapper";
 import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
+import { tenantRoutes } from "@/lib/tenantRoutes";
 
 export default function PricingTable({ data, lang: propLang }) {
   const { language, isRTL } = useTenantLang();
@@ -193,7 +194,7 @@ export default function PricingTable({ data, lang: propLang }) {
                 {/* CTA */}
                 {(() => {
                   const ctaUrl = plan.cta_url || (plan.service_slug
-                    ? `/${domain}/services/${plan.service_slug}/order`
+                    ? tenantRoutes.serviceOrder(plan.service_slug)
                     : null);
                   const style = isFeatured
                     ? { backgroundColor: "var(--color-primary)", color: "#fff" }

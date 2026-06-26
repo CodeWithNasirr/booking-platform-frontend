@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import LayoutRenderer from "../LayoutRenderer";
 import CustomerBookingsDashboard from "@/app/tenant-site/modules/CustomerBookingsDashboard";
+import { tenantRoutes } from "@/lib/tenantRoutes";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -100,7 +101,7 @@ export default function MyBookingsClient({
   }, [fetchBookings]);
 
   const handleSelectBooking = (bookingId) => {
-    router.push(`/${domain}/my-bookings/${bookingId}`);
+    router.push(tenantRoutes.myBooking(bookingId));
   };
 
   const headerSection = header ? [header] : [];

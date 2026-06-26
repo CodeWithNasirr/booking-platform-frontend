@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import LayoutRenderer from "../LayoutRenderer";
 import CustomerOrdersDashboard from "@/app/tenant-site/modules/CustomerOrdersDashboard";
+import { tenantRoutes } from "@/lib/tenantRoutes";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -95,7 +96,7 @@ export default function MyOrdersClient({
   }, [fetchOrders]);
 
   const handleSelectOrder = (orderId) => {
-    router.push(`/${domain}/my-orders/${orderId}`);
+    router.push(tenantRoutes.myOrder(orderId));
   };
 
   const headerSection = header ? [header] : [];

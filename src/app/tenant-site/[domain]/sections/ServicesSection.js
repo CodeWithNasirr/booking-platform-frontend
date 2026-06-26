@@ -500,6 +500,7 @@ import { useTenantLang } from "../../contexts/TenantLangContext";
 import { useTenantTheme } from "../../contexts/TenantThemeContext";
 import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
 import Link from "next/link";
+import { tenantRoutes } from "@/lib/tenantRoutes";
 
 // ─── Centralized service type logic ─────────────────────────────────────────
 import {
@@ -724,7 +725,7 @@ export default function ServicesSection({ data, lang: propLang, domain }) {
               }, lang)}
             </p>
             <Link
-              href={custom_request_cta_url || (domain ? `/${domain}/request-service` : "#custom-request")}
+              href={custom_request_cta_url || tenantRoutes.requestService()}
               className="inline-flex items-center gap-2 px-8 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-all"
               style={buttonStyle}
             >
@@ -805,7 +806,7 @@ function ServiceCard({
       };
     }
 
-    const route = getServiceRoute(service, domain);
+    const route = getServiceRoute(service);
     return {
       text: getServiceCTA(service, lang),
       url: route.url,
