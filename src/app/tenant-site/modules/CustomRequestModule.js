@@ -268,10 +268,12 @@ function formatFileSize(bytes) {
 
 const DRAFT_KEY_PREFIX = "custom_request_draft_";
 
-export default function CustomRequestModule({ data = {}, settings, tenantId, domain }) {
+export default function CustomRequestModule({ data = {}, settings = {}, tenantId, domain }) {
   const { isRTL, language } = useTenantLang();
   const { theme } = useTenantTheme();
   const { currency } = useTenantSite();
+
+  const cfg = { ...data, ...settings };
 
   const t = useMemo(() => {
     const lang = ["ar", "ur"].includes(language) ? language : "en";
@@ -280,14 +282,20 @@ export default function CustomRequestModule({ data = {}, settings, tenantId, dom
 
   const primaryColor = theme?.primary_color || "#8B1E3F";
 
-  const allowUploads = data.allow_file_uploads !== false;
-  const requireBudget = data.require_budget === true;
-  const requireDeadline = data.require_deadline === true;
-  const maxAttachments = data.max_attachments || 5;
-  const maxFileSize = data.max_file_size || "10MB";
-  const showTrustBadges = data.show_trust_badges !== false;
-  const avgResponseTime = data.avg_response_time || "24 hours";
-  const categories = data.categories || [];
+  const allowUploads = cfg.allow_file_uploads !== false;
+  const requireBudget = cfg.require_budget === true;
+  const requireDeadline = cfg.require_deadline === true;
+  const maxAttachments = cfg.max_attachments || 5;
+  const maxFileSize = cfg.max_file_size_mb ? `${cfg.max_file_size_mb}MB` : (cfg.max_file_size || "10MB");
+  const showTrustBadges = cfg.show_trust_badges !== false;
+  const showResponseTime = cfg.show_response_time !== false;
+  const avgResponseTime = (typeof cfg.average_response_time === "object"
+    ? (cfg.average_response_time[language] || cfg.average_response_time.en)
+    : cfg.avg_response_time) || "24 hours";
+  const categories = cfg.categories || [];
+  const trustBadges = [cfg.trust_badge_1, cfg.trust_badge_2, cfg.trust_badge_3].filter(Boolean);
+  const successMessageOverride = cfg.success_message;
+  const redirectAfterSubmit = cfg.redirect_after_submit || "";
 
   const totalSteps = allowUploads ? 5 : 4;
   const stepMapping = useMemo(() => {
@@ -500,6 +508,10 @@ export default function CustomRequestModule({ data = {}, settings, tenantId, dom
       try { localStorage.removeItem(draftKey); } catch {}
       setSubmitResult(result);
       setSubmitted(true);
+
+      if (redirectAfterSubmit) {
+        setTimeout(() => { window.location.href = redirectAfterSubmit; }, 3000);
+      }
     } catch (err) {
       setError(err.message);
     } finally {
@@ -572,7 +584,9 @@ export default function CustomRequestModule({ data = {}, settings, tenantId, dom
             {data.success_title || t.successTitle}
           </h2>
           <p className="text-gray-600 mb-6">
-            {data.success_message || t.successMessage}
+            {(successMessageOverride && typeof successMessageOverride === "object"
+              ? (successMessageOverride[language] || successMessageOverride.en)
+              : successMessageOverride) || data.success_message || t.successMessage}
           </p>
 
           {submitResult?.id && (
@@ -584,21 +598,29 @@ export default function CustomRequestModule({ data = {}, settings, tenantId, dom
             </div>
           )}
 
-          <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mb-8">
-            <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-            </svg>
-            <span>{t.avgResponse} {avgResponseTime}</span>
-          </div>
+          {showResponseTime && (
+            <div className="flex items-center justify-center gap-2 text-sm text-gray-500 mb-8">
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+              </svg>
+              <span>{t.avgResponse} {avgResponseTime}</span>
+            </div>
+          )}
 
-          {showTrustBadges && data.trust_badges?.length > 0 && (
+          {showTrustBadges && (trustBadges.length > 0 || data.trust_badges?.length > 0) && (
             <div className="flex flex-wrap justify-center gap-4 mb-8">
-              {data.trust_badges.map((badge, i) => (
-                <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-2 text-sm text-gray-600">
-                  {badge.icon && <span className="text-lg">{badge.icon}</span>}
-                  <span>{badge.label}</span>
-                </div>
-              ))}
+              {trustBadges.length > 0
+                ? trustBadges.map((badge, i) => (
+                    <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-2 text-sm text-gray-600">
+                      <span>{typeof badge === "object" ? (badge[language] || badge.en) : badge}</span>
+                    </div>
+                  ))
+                : data.trust_badges?.map((badge, i) => (
+                    <div key={i} className="flex items-center gap-2 bg-gray-50 rounded-xl px-4 py-2 text-sm text-gray-600">
+                      {badge.icon && <span className="text-lg">{badge.icon}</span>}
+                      <span>{badge.label}</span>
+                    </div>
+                  ))}
             </div>
           )}
 

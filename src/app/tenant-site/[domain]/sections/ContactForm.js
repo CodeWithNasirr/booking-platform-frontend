@@ -23,6 +23,9 @@ export default function ContactForm({ data, lang: propLang }) {
     fields = ["name", "email", "phone", "message"],
     submit_text,
     success_message,
+    show_custom_request_cta = false,
+    custom_request_cta_text,
+    custom_request_cta_url,
   } = data || {};
 
   // Resolve translations
@@ -254,6 +257,36 @@ export default function ContactForm({ data, lang: propLang }) {
             )}
           </div>
         </div>
+
+        {show_custom_request_cta && (
+          <div className="mt-12 text-center">
+            <div className="inline-block bg-white rounded-2xl p-8 shadow-lg max-w-lg">
+              <p className="text-lg font-semibold text-gray-900 mb-2">
+                {resolveTranslated(custom_request_cta_text, lang) ||
+                  resolveTranslated({ en: "Need something custom?", ar: "تحتاج شيئاً مخصصاً؟", ur: "کچھ حسب ضرورت چاہیے؟" }, lang)}
+              </p>
+              <p className="text-sm text-gray-500 mb-4">
+                {resolveTranslated(
+                  { en: "Submit a custom request and we'll create a personalized quote for you.", ar: "أرسل طلباً مخصصاً وسنقدم لك عرض سعر مخصص.", ur: "حسب ضرورت درخواست جمع کروائیں اور ہم آپ کے لیے ذاتی کوٹ بنائیں گے۔" },
+                  lang
+                )}
+              </p>
+              <a
+                href={custom_request_cta_url || "/request-service"}
+                className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-xl font-medium transition hover:opacity-90"
+                style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
+              >
+                {resolveTranslated(
+                  custom_request_cta_text || { en: "Request Custom Service", ar: "طلب خدمة مخصصة", ur: "حسب ضرورت سروس کی درخواست" },
+                  lang
+                )}
+                <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isRTL ? "M19 12H5M12 5l-7 7 7 7" : "M5 12h14M12 5l7 7-7 7"} />
+                </svg>
+              </a>
+            </div>
+          </div>
+        )}
       </div>
     </section>
   );
