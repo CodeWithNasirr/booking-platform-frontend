@@ -14,6 +14,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { useBuilder } from "../context/BuilderContext";
 import { useTenantLang } from "../../contexts/TenantLangContext";
 import { resolveTranslated } from "../../[domain]/utils/resolveTranslated";
+import { SYSTEM_PAGES, listSystemPages } from "@/lib/systemPages";
 import {
   X,
   Type,
@@ -242,9 +243,9 @@ function HeaderContentEditor({ content, onUpdate, language, isRTL }) {
     onUpdate("logo", updatedLogo);
   };
 
-  const handleNavLinkUpdate = (index, field, value) => {
+  const handleNavLinkPatch = (index, patch) => {
     const links = [...(content.nav_links || [])];
-    links[index] = { ...links[index], [field]: value };
+    links[index] = { ...links[index], ...patch };
     onUpdate("nav_links", links);
   };
 
@@ -261,7 +262,8 @@ function HeaderContentEditor({ content, onUpdate, language, isRTL }) {
     const links = [...(content.nav_links || [])];
     links.push({
       label: { en: "New Link", ar: "رابط جديد", ur: "نیا لنک" },
-      url: "#",
+      destination: { type: "system_page", page: "home" },
+      url: "/",
     });
     onUpdate("nav_links", links);
   };
@@ -271,15 +273,15 @@ function HeaderContentEditor({ content, onUpdate, language, isRTL }) {
     onUpdate("nav_links", links);
   };
 
-  const handleCtaUpdate = (field, lang, value) => {
-    if (field === "url") {
-      onUpdate("cta_button", { ...content.cta_button, url: value });
-    } else {
-      onUpdate("cta_button", {
-        ...content.cta_button,
-        text: { ...content.cta_button?.text, [lang]: value },
-      });
-    }
+  const handleCtaTextUpdate = (lang, value) => {
+    onUpdate("cta_button", {
+      ...content.cta_button,
+      text: { ...content.cta_button?.text, [lang]: value },
+    });
+  };
+
+  const handleCtaDestinationPatch = (patch) => {
+    onUpdate("cta_button", { ...content.cta_button, ...patch });
   };
 
   return (
@@ -320,11 +322,9 @@ function HeaderContentEditor({ content, onUpdate, language, isRTL }) {
               language={language}
               isRTL={isRTL}
             />
-            <TextField
-              label={{ en: "URL", ar: "الرابط", ur: "URL" }}
-              value={link.url}
-              onChange={(val) => handleNavLinkUpdate(index, "url", val)}
-              icon={Link2}
+            <DestinationPicker
+              value={{ destination: link.destination, url: link.url }}
+              onChange={(patch) => handleNavLinkPatch(index, patch)}
               language={language}
               isRTL={isRTL}
             />
@@ -338,15 +338,14 @@ function HeaderContentEditor({ content, onUpdate, language, isRTL }) {
         <MultilingualTextField
           label={{ en: "Button Text", ar: "نص الزر", ur: "بٹن ٹیکسٹ" }}
           value={content.cta_button?.text}
-          onChange={(lang, val) => handleCtaUpdate("text", lang, val)}
+          onChange={(lang, val) => handleCtaTextUpdate(lang, val)}
           language={language}
           isRTL={isRTL}
         />
-        <TextField
-          label={{ en: "Button URL", ar: "رابط الزر", ur: "بٹن URL" }}
-          value={content.cta_button?.url || ""}
-          onChange={(val) => handleCtaUpdate("url", null, val)}
-          icon={Link2}
+        <DestinationPicker
+          label={{ en: "Button Destination", ar: "وجهة الزر", ur: "بٹن کی منزل" }}
+          value={{ destination: content.cta_button?.destination, url: content.cta_button?.url }}
+          onChange={handleCtaDestinationPatch}
           language={language}
           isRTL={isRTL}
         />
@@ -2754,6 +2753,14 @@ function FooterContentEditor({ content, onUpdate, language, isRTL }) {
     onUpdate("columns", columns);
   };
 
+  const handleColumnLinkPatch = (colIndex, linkIndex, patch) => {
+    const columns = [...(content.columns || [])];
+    const links = [...(columns[colIndex].links || [])];
+    links[linkIndex] = { ...links[linkIndex], ...patch };
+    columns[colIndex] = { ...columns[colIndex], links };
+    onUpdate("columns", columns);
+  };
+
   const addColumn = () => {
     const columns = [...(content.columns || [])];
     columns.push({
@@ -2847,6 +2854,7 @@ function FooterContentEditor({ content, onUpdate, language, isRTL }) {
             colIndex={colIndex}
             onUpdateColumn={(field, lang, val) => handleColumnUpdate(colIndex, field, lang, val)}
             onUpdateLink={(linkIndex, field, lang, val) => handleColumnLinkUpdate(colIndex, linkIndex, field, lang, val)}
+            onUpdateLinkPatch={(linkIndex, patch) => handleColumnLinkPatch(colIndex, linkIndex, patch)}
             onAddLink={() => addLink(colIndex)}
             onRemoveLink={(linkIndex) => removeLink(colIndex, linkIndex)}
             onRemove={() => removeColumn(colIndex)}
@@ -2898,7 +2906,7 @@ function FooterContentEditor({ content, onUpdate, language, isRTL }) {
   );
 }
 
-function FooterColumnEditor({ column, colIndex, onUpdateColumn, onUpdateLink, onAddLink, onRemoveLink, onRemove, language, isRTL }) {
+function FooterColumnEditor({ column, colIndex, onUpdateColumn, onUpdateLink, onUpdateLinkPatch, onAddLink, onRemoveLink, onRemove, language, isRTL }) {
   const [expanded, setExpanded] = useState(false);
   const T = (v) => resolveTranslated(v, language);
 
@@ -2938,11 +2946,9 @@ function FooterColumnEditor({ column, colIndex, onUpdateColumn, onUpdateLink, on
                     language={language}
                     isRTL={isRTL}
                   />
-                  <TextField
-                    label={{ en: "URL", ar: "الرابط", ur: "URL" }}
-                    value={link.url}
-                    onChange={(val) => onUpdateLink(linkIndex, "url", null, val)}
-                    icon={Link2}
+                  <DestinationPicker
+                    value={{ destination: link.destination, url: link.url }}
+                    onChange={(patch) => onUpdateLinkPatch(linkIndex, patch)}
                     language={language}
                     isRTL={isRTL}
                   />
@@ -3775,6 +3781,226 @@ function AddItemButton({ onClick, label, language, isRTL, small = false }) {
       <Plus className={small ? "w-3 h-3" : "w-4 h-4"} />
       {T(label)}
     </button>
+  );
+}
+
+// ============================================================
+// DESTINATION PICKER
+// ============================================================
+// Replaces raw URL inputs in nav/CTA editors. The tenant picks a
+// destination type (System Page / Custom Page / Section / External)
+// and a target; we save BOTH `destination` (new structured shape) and
+// `url` (computed legacy fallback) so older renderers keep rendering.
+
+function computeLegacyUrlFromDestination(d) {
+  if (!d || typeof d !== "object") return "#";
+  switch (d.type) {
+    case "system_page": {
+      const sp = SYSTEM_PAGES[d.page];
+      return sp ? sp.resolve() : "#";
+    }
+    case "custom_page":
+      return d.slug ? `/${d.slug}` : "#";
+    case "section":
+      return d.section_id ? `#${d.section_id}` : "#";
+    case "external":
+      return d.url || "#";
+    default:
+      return "#";
+  }
+}
+
+function inferDestinationFromLegacyUrl(url) {
+  if (!url || typeof url !== "string") return null;
+  if (/^https?:\/\//i.test(url) || url.startsWith("mailto:") || url.startsWith("tel:")) {
+    return { type: "external", url, open_new_tab: true };
+  }
+  if (url.startsWith("#")) {
+    return { type: "section", section_id: url.slice(1) };
+  }
+  // Match a known system path → upgrade
+  const KNOWN = {
+    "/": "home",
+    "/services": "services",
+    "/my-bookings": "my_bookings",
+    "/my-orders": "my_orders",
+    "/my-requests": "my_requests",
+    "/request-service": "request_service",
+  };
+  if (KNOWN[url]) return { type: "system_page", page: KNOWN[url] };
+  // Bare /slug → custom page
+  if (url.startsWith("/") && !url.includes("/", 1)) {
+    return { type: "custom_page", slug: url.slice(1) };
+  }
+  // Unrecognized internal path: present as external so the tenant can see + fix
+  return { type: "external", url, open_new_tab: false };
+}
+
+function sectionDisplayLabel(s, lang) {
+  const title = s.content?.title;
+  const resolved =
+    typeof title === "object"
+      ? title[lang] || title.en || Object.values(title)[0]
+      : title;
+  if (resolved) return resolved;
+  const moduleLabel = s.module_key || s.content?.module_key;
+  return moduleLabel ? `Module: ${moduleLabel}` : s.section_type || "Section";
+}
+
+function DestinationPicker({ value, onChange, language, isRTL, label }) {
+  const T = (v) => resolveTranslated(v, language);
+  const { state } = useBuilder();
+
+  const sections = (state?.sections || []).filter(
+    (s) => s.id || s.section_type
+  );
+  const pages = state?.pages || [];
+
+  // Effective destination: explicit or inferred from legacy url
+  const effective =
+    value?.destination ||
+    inferDestinationFromLegacyUrl(value?.url) ||
+    { type: "system_page", page: "" };
+
+  const type = effective.type || "system_page";
+
+  const emit = (next) => {
+    onChange({
+      destination: next,
+      url: computeLegacyUrlFromDestination(next),
+    });
+  };
+
+  const setType = (newType) => {
+    if (newType === type) return;
+    // Reset payload when switching types
+    const reset = { type: newType };
+    if (newType === "external") reset.open_new_tab = true;
+    emit(reset);
+  };
+
+  const TYPE_TABS = [
+    { code: "system_page", label: { en: "System", ar: "نظام", ur: "سسٹم" } },
+    { code: "custom_page", label: { en: "Page", ar: "صفحة", ur: "صفحہ" } },
+    { code: "section", label: { en: "Section", ar: "قسم", ur: "سیکشن" } },
+    { code: "external", label: { en: "External", ar: "خارجي", ur: "بیرونی" } },
+  ];
+
+  return (
+    <div className="space-y-2">
+      <label
+        className={`block text-xs font-medium text-slate-600 ${
+          isRTL ? "text-right" : ""
+        }`}
+      >
+        {T(label || { en: "Destination", ar: "الوجهة", ur: "منزل" })}
+      </label>
+
+      {/* Type tabs */}
+      <div className={`flex gap-1 p-1 bg-slate-100 rounded-lg ${isRTL ? "flex-row-reverse" : ""}`}>
+        {TYPE_TABS.map((t) => (
+          <button
+            key={t.code}
+            type="button"
+            onClick={() => setType(t.code)}
+            className={`flex-1 px-2 py-1.5 text-xs rounded transition-colors ${
+              type === t.code
+                ? "bg-white text-blue-700 font-medium shadow-sm"
+                : "text-slate-600 hover:text-slate-800"
+            }`}
+          >
+            {T(t.label)}
+          </button>
+        ))}
+      </div>
+
+      {/* Type-specific control */}
+      {type === "system_page" && (
+        <SelectField
+          label={{ en: "Page", ar: "الصفحة", ur: "صفحہ" }}
+          value={effective.page || ""}
+          onChange={(page) => emit({ type: "system_page", page })}
+          options={[
+            { value: "", label: "— Select —" },
+            ...listSystemPages().map((sp) => ({
+              value: sp.key,
+              label: T(sp.labels) + (sp.auth ? "  (login required)" : ""),
+            })),
+          ]}
+          language={language}
+          isRTL={isRTL}
+        />
+      )}
+
+      {type === "custom_page" && (
+        <SelectField
+          label={{ en: "Custom Page", ar: "صفحة مخصصة", ur: "صفحہ" }}
+          value={effective.slug || ""}
+          onChange={(slug) => emit({ type: "custom_page", slug })}
+          options={[
+            { value: "", label: pages.length ? "— Select —" : "No custom pages yet" },
+            ...pages.map((p) => ({
+              value: p.slug,
+              label:
+                (typeof p.title === "object"
+                  ? p.title[language] || p.title.en
+                  : p.title) || p.slug,
+            })),
+          ]}
+          language={language}
+          isRTL={isRTL}
+        />
+      )}
+
+      {type === "section" && (
+        <SelectField
+          label={{ en: "Section on Home", ar: "قسم", ur: "سیکشن" }}
+          value={effective.section_id || ""}
+          onChange={(section_id) => emit({ type: "section", section_id })}
+          options={[
+            { value: "", label: sections.length ? "— Select —" : "No sections in layout" },
+            ...sections.map((s) => ({
+              value: s.id || s.section_type,
+              label: sectionDisplayLabel(s, language),
+            })),
+          ]}
+          language={language}
+          isRTL={isRTL}
+        />
+      )}
+
+      {type === "external" && (
+        <div className="space-y-2">
+          <TextField
+            label={{ en: "URL", ar: "الرابط", ur: "URL" }}
+            value={effective.url || ""}
+            onChange={(url) =>
+              emit({
+                type: "external",
+                url,
+                open_new_tab: effective.open_new_tab !== false,
+              })
+            }
+            icon={ExternalLink}
+            placeholder="https://..."
+            language={language}
+            isRTL={isRTL}
+          />
+          <CheckboxField
+            label={{ en: "Open in new tab", ar: "افتح في نافذة جديدة", ur: "نئے ٹیب میں کھولیں" }}
+            checked={effective.open_new_tab !== false}
+            onChange={(b) =>
+              emit({
+                type: "external",
+                url: effective.url || "",
+                open_new_tab: b,
+              })
+            }
+            language={language}
+          />
+        </div>
+      )}
+    </div>
   );
 }
 

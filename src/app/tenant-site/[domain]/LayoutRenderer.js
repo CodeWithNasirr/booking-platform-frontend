@@ -153,7 +153,10 @@ function SectionRenderer({ section, language, themeConfig, site, domain }) {  //
         : {};
 
     return (
-      <section className="section-wrapper module-wrapper">
+      <section
+        id={section.id || section.section_type}
+        className="section-wrapper module-wrapper"
+      >
         <Component
           data={moduleData}
           settings={moduleSettings}
@@ -199,7 +202,10 @@ function SectionRenderer({ section, language, themeConfig, site, domain }) {  //
   const safeData = JSON.parse(JSON.stringify(resolvedContent));
 
   return (
-    <section className="section-wrapper">
+    <section
+      id={section.id || section.section_type}
+      className="section-wrapper"
+    >
       <Component
         data={safeData}
         lang={language}
