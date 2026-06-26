@@ -666,7 +666,7 @@ function ConfirmationStep({ orderResult, service, pkg, deliveryDays, theme, lang
 
       <div className="flex flex-wrap gap-4 justify-center">
         <Link
-          href={`/my-orders/${orderId}`}
+          href={`/${domain}/my-orders/${orderId}`}
           className="px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity"
           style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
         >

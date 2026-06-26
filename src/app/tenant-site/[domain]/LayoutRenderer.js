@@ -320,7 +320,7 @@ export function mapServicesSectionData(raw) {
     book_button_url: raw.book_button_url || raw.cta_button?.url || "#",
 
     // Custom Request CTA
-    show_custom_request_cta: raw.show_custom_request_cta !== false,
+    show_custom_request_cta: raw.show_custom_request_cta === true,
     custom_request_cta_text: raw.custom_request_cta_text || null,
     custom_request_cta_url: raw.custom_request_cta_url || null,
   };
@@ -445,7 +445,7 @@ export function mapContactFormData(raw) {
     fields: raw.fields || ["name", "email", "phone", "message"],
     submit_text: raw.submit_text || raw.submit_button || "Send Message",
     success_message: raw.success_message || "Thank you! We'll get back to you soon.",
-    show_custom_request_cta: raw.show_custom_request_cta ?? false,
+    show_custom_request_cta: raw.show_custom_request_cta === true,
     custom_request_cta_text: raw.custom_request_cta_text || null,
     custom_request_cta_url: raw.custom_request_cta_url || null,
   };

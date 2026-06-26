@@ -95,7 +95,7 @@ export default function MyOrdersClient({
   }, [fetchOrders]);
 
   const handleSelectOrder = (orderId) => {
-    router.push(`/my-orders/${orderId}`);
+    router.push(`/${domain}/my-orders/${orderId}`);
   };
 
   const headerSection = header ? [header] : [];

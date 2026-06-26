@@ -97,29 +97,24 @@ export function filterProjectServices(services = []) {
 export function getServiceRoute(service, domain = "") {
   const slug = service.slug || service.id;
   const type = getServiceType(service);
+  const prefix = domain ? `/${domain}` : "";
   switch (type) {
-    // case "milestone":
-    //   return {
-    //     url: `/services/${slug}/checkout`,
-    //     flow: "milestone",
-    //   };
     case "digital":
     case "order":
       return {
-        url: `/services/${slug}/order`,
+        url: `${prefix}/services/${slug}/order`,
         flow: "order",
       };
 
     case "booking":
       return {
-        url: `/services/${slug}/book`,
+        url: `${prefix}/services/${slug}/book`,
         flow: "booking",
       };
 
-    // online / booking / appointment / virtual_meeting
     default:
       return {
-        url: `/booking/service/${slug}`,
+        url: `${prefix}/booking/service/${slug}`,
         flow: "booking",
       };
   }

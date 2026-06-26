@@ -76,7 +76,7 @@ export default function BookingDetailClient({
       console.log(`[BookingDetail] Looking for booking: ${bookingId}`);
 
       if (!auth.token) {
-        router.replace(`/my-bookings`);
+        router.replace(`/${domain}/my-bookings`);
         return;
       }
 
@@ -91,7 +91,7 @@ export default function BookingDetailClient({
           localStorage.removeItem(`customer_booking_token_${tenantId}`);
           localStorage.removeItem(`customer_booking_email_${tenantId}`);
           localStorage.removeItem("guest_booking_token");
-          router.replace(`/my-bookings`);
+          router.replace(`/${domain}/my-bookings`);
           return;
         }
         throw new Error(`Failed: ${res.status}`);
@@ -125,7 +125,7 @@ export default function BookingDetailClient({
     if (isClient) fetchBookingDetail();
   }, [fetchBookingDetail, isClient]);
 
-  const handleBack = () => router.push(`/my-bookings`);
+  const handleBack = () => router.push(`/${domain}/my-bookings`);
 
   const getStatusColor = (status) => {
     const colors = {

@@ -100,7 +100,7 @@ export default function MyBookingsClient({
   }, [fetchBookings]);
 
   const handleSelectBooking = (bookingId) => {
-    router.push(`/my-bookings/${bookingId}`);
+    router.push(`/${domain}/my-bookings/${bookingId}`);
   };
 
   const headerSection = header ? [header] : [];

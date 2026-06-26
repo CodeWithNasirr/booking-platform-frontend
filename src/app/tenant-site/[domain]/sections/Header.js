@@ -4,14 +4,16 @@ import { useState, useEffect } from "react";
 import { Menu, X, ChevronDown } from "lucide-react";
 import { useTenantLang } from "../../contexts/TenantLangContext";
 import { useTenantTheme } from "../../contexts/TenantThemeContext";
+import { useTenantSite } from "../TenantClientWrapper";
 import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
 import LanguageSwitcher from "../utils/LanguageSwitcher";
 import Link from "next/link";
 
 export default function Header({ data, lang: propLang }) {
   const { language, isRTL } = useTenantLang();
- 
   const theme = useTenantTheme();
+  const { domain: tenantDomain } = useTenantSite();
+  const homeUrl = tenantDomain ? `/${tenantDomain}` : "/";
   // Use prop lang or context lang
   const lang = propLang || language;
   const {
@@ -114,7 +116,7 @@ export default function Header({ data, lang: propLang }) {
           <div className="max-w-7xl mx-auto px-6 lg:px-8 h-20 flex items-center justify-between">
             {/* Logo */}
            <Link
-            href="/"
+            href={homeUrl}
             onClick={(e) => {
               if (window.self !== window.top) {
                 e.preventDefault();

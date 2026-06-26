@@ -9,7 +9,7 @@ import { resolveTranslated } from "../utils/resolveTranslated";
 export default function ContactForm({ data, lang: propLang }) {
   const { language, isRTL } = useTenantLang();
   const theme = useTenantTheme();
-  const { site } = useTenantSite();
+  const { site, domain: tenantDomain } = useTenantSite();
   
   const lang = propLang || language;
 
@@ -272,7 +272,7 @@ export default function ContactForm({ data, lang: propLang }) {
                 )}
               </p>
               <a
-                href={custom_request_cta_url || "/request-service"}
+                href={custom_request_cta_url || `/${tenantDomain}/request-service`}
                 className="inline-flex items-center gap-2 px-6 py-3 text-white rounded-xl font-medium transition hover:opacity-90"
                 style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
               >

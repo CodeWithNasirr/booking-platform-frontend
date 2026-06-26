@@ -1,11 +1,14 @@
 "use client";
 
 import { useState } from "react";
+import Link from "next/link";
 import { useTenantLang } from "../../contexts/TenantLangContext";
+import { useTenantSite } from "../TenantClientWrapper";
 import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
 
 export default function PricingTable({ data, lang: propLang }) {
   const { language, isRTL } = useTenantLang();
+  const { domain } = useTenantSite();
   const lang = propLang || language;
 
   const {
@@ -107,8 +110,8 @@ export default function PricingTable({ data, lang: propLang }) {
             const ctaText = resolveTranslated(plan.cta, lang) || "Get Started";
 
             const price = isYearly
-              ? plan.price_yearly
-              : plan.price_monthly;
+              ? (plan.price_yearly ?? plan.price)
+              : (plan.price_monthly ?? plan.price);
 
             const isFeatured =
               plan.highlighted ||
@@ -188,23 +191,31 @@ export default function PricingTable({ data, lang: propLang }) {
                 )}
 
                 {/* CTA */}
-                <button
-                  className="w-full py-3 px-6 rounded-xl font-semibold transition-all"
-                  style={
-                    isFeatured
-                      ? {
-                          backgroundColor: "var(--color-primary)",
-                          color: "#fff",
-                        }
-                      : {
-                          border: "2px solid var(--color-primary)",
-                          color: "var(--color-primary)",
-                          backgroundColor: "transparent",
-                        }
-                  }
-                >
-                  {ctaText}
-                </button>
+                {(() => {
+                  const ctaUrl = plan.cta_url || (plan.service_slug
+                    ? `/${domain}/services/${plan.service_slug}/order`
+                    : null);
+                  const style = isFeatured
+                    ? { backgroundColor: "var(--color-primary)", color: "#fff" }
+                    : { border: "2px solid var(--color-primary)", color: "var(--color-primary)", backgroundColor: "transparent" };
+
+                  return ctaUrl ? (
+                    <Link
+                      href={ctaUrl}
+                      className="block w-full py-3 px-6 rounded-xl font-semibold transition-all text-center"
+                      style={style}
+                    >
+                      {ctaText}
+                    </Link>
+                  ) : (
+                    <button
+                      className="w-full py-3 px-6 rounded-xl font-semibold transition-all"
+                      style={style}
+                    >
+                      {ctaText}
+                    </button>
+                  );
+                })()}
               </div>
             );
           })}

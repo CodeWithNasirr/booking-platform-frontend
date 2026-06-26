@@ -145,7 +145,7 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
 
       if (!auth.token) {
         // No token at all → go to my-orders where email verification runs
-        router.push(`/my-orders`);
+        router.push(`/${domain}/my-orders`);
         return;
       }
 
@@ -161,7 +161,7 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
       if (err.status === 401 || err.status === 403) {
         // Token invalid/expired → go back to my-orders for re-verification
         // Do NOT redirect to /login — tenant sites use email-based access
-        router.push(`/my-orders`);
+        router.push(`/${domain}/my-orders`);
         return;
       }
 
@@ -283,7 +283,7 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
         <div className="text-4xl mb-4">📦</div>
         <p className="text-gray-600 mb-6">{error || "Order not found"}</p>
         <button
-          onClick={() => router.push(`/my-orders`)}
+          onClick={() => router.push(`/${domain}/my-orders`)}
           className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium"
         >
           ← Back to My Orders
@@ -306,7 +306,7 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
     <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Back link */}
       <button
-        onClick={() => router.push(`/my-orders`)}
+        onClick={() => router.push(`/${domain}/my-orders`)}
         className="text-sm text-gray-400 hover:text-gray-600 mb-6 flex items-center gap-1.5 transition-colors"
       >
         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
