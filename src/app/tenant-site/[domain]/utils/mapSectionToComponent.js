@@ -91,6 +91,11 @@ const CustomRequestModule = dynamic(() => import("../../modules/CustomRequestMod
   loading: () => <ModulePlaceholder type="custom_request" />
 });
 
+const CustomerRequestsDashboard = dynamic(() => import("../../modules/CustomerRequestsDashboard"), {
+  ssr: false,
+  loading: () => <ModulePlaceholder type="customer_requests" />
+});
+
 // =============================================================================
 // PLACEHOLDER COMPONENT
 // =============================================================================
@@ -221,6 +226,7 @@ const MODULE_MAP = {
   file_upload: FileUploadModule,
   contact_form: ContactFormModule,
   custom_request: CustomRequestModule,
+  customer_requests: CustomerRequestsDashboard,
   order_checkout: OrderCheckoutModule,
   order_dashboard: OrderDashboardModule,
   // provider_orders: ProviderOrdersModule,

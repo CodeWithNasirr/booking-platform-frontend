@@ -318,6 +318,11 @@ export function mapServicesSectionData(raw) {
     // CTA
     book_button_text: raw.book_button_text || raw.cta_button?.text || null,
     book_button_url: raw.book_button_url || raw.cta_button?.url || "#",
+
+    // Custom Request CTA
+    show_custom_request_cta: raw.show_custom_request_cta !== false,
+    custom_request_cta_text: raw.custom_request_cta_text || null,
+    custom_request_cta_url: raw.custom_request_cta_url || null,
   };
 }
 
