@@ -802,7 +802,7 @@ function ServiceCard({
     if (isCustomQuoteService(service)) {
       return {
         text: getServiceCTA(service, lang),
-        url: "#custom-request",
+        url: tenantRoutes.requestService(),
       };
     }
 
