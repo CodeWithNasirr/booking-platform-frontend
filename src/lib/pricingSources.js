@@ -121,6 +121,10 @@ function normalizeSubscriptionPlan(service) {
 // ─── Helpers ───────────────────────────────────────────────────────────────
 
 function extractServiceFeatures(service) {
+  // Tenant-curated subscription bullets win when present.
+  if (Array.isArray(service.plan_features) && service.plan_features.length) {
+    return service.plan_features;
+  }
   if (Array.isArray(service.features)) return service.features;
   if (Array.isArray(service.highlights)) return service.highlights;
   if (Array.isArray(service.packages)) {
