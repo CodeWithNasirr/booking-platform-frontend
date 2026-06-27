@@ -223,6 +223,9 @@ function ContentEditor({ sectionType, moduleKey, content, onUpdate, onDeepUpdate
       return <TeamContentEditor content={content} onUpdate={onUpdate} language={language} isRTL={isRTL} />;
     case "cta":
       return <CtaContentEditor content={content} onUpdate={onUpdate} language={language} isRTL={isRTL} />;
+    case "contact":
+    case "contact_form":
+      return <ContactFormContentEditor content={content} onUpdate={onUpdate} language={language} isRTL={isRTL} />;
     case "footer":
       return <FooterContentEditor content={content} onUpdate={onUpdate} language={language} isRTL={isRTL} />;
     case "module":
@@ -1001,12 +1004,53 @@ function ServicesContentEditor({ content, onUpdate, language, isRTL }) {
         )}
         {currentMode === "database" && (
           <p className="text-xs text-slate-500 mt-2">
-            {T({ 
-              en: "💡 In database mode, buttons automatically link to booking or order pages based on service type.", 
+            {T({
+              en: "💡 In database mode, buttons automatically link to booking or order pages based on service type.",
               ar: "💡 في وضع قاعدة البيانات، ترتبط الأزرار تلقائيًا بصفحات الحجز أو الطلب.",
               ur: "💡 ڈیٹا بیس موڈ میں، بٹن خودکار طور پر بکنگ یا آرڈر پیجز سے لنک ہوتے ہیں۔"
             })}
           </p>
+        )}
+      </FieldGroup>
+
+      {/* Custom request CTA (shown below the service grid when enabled) */}
+      <FieldGroup
+        title={T({ en: "Custom Request CTA", ar: "زر طلب مخصص", ur: "حسب ضرورت درخواست بٹن" })}
+        isRTL={isRTL}
+      >
+        <CheckboxField
+          label={{ en: "Show \"Need something custom?\" CTA", ar: "إظهار زر طلب خدمة مخصصة", ur: "حسب ضرورت سی ٹی اے دکھائیں" }}
+          checked={content.show_custom_request_cta === true}
+          onChange={(val) => onUpdate("show_custom_request_cta", val)}
+          language={language}
+        />
+        {content.show_custom_request_cta === true && (
+          <>
+            <MultilingualTextField
+              label={{ en: "CTA Text", ar: "نص الزر", ur: "سی ٹی اے ٹیکسٹ" }}
+              value={content.custom_request_cta_text}
+              onChange={(lang, val) => handleMultilingualUpdate("custom_request_cta_text", lang, val)}
+              language={language}
+              isRTL={isRTL}
+            />
+            <DestinationPicker
+              label={{ en: "CTA Destination", ar: "وجهة الزر", ur: "سی ٹی اے کی منزل" }}
+              value={{ destination: content.custom_request_cta_destination, url: content.custom_request_cta_url }}
+              onChange={(patch) => {
+                onUpdate("custom_request_cta_destination", patch.destination);
+                onUpdate("custom_request_cta_url", patch.url);
+              }}
+              language={language}
+              isRTL={isRTL}
+            />
+            <p className="text-xs text-slate-500">
+              {T({
+                en: "Defaults to the Request a Service system page if you don't pick a destination.",
+                ar: "يستخدم صفحة طلب الخدمة افتراضياً إذا لم تختر وجهة.",
+                ur: "اگر آپ منزل منتخب نہ کریں تو ڈیفالٹ \"Request a Service\" سسٹم پیج ہے۔",
+              })}
+            </p>
+          </>
         )}
       </FieldGroup>
     </div>
@@ -2899,6 +2943,159 @@ function CtaContentEditor({ content, onUpdate, language, isRTL }) {
           language={language}
           isRTL={isRTL}
         />
+      </FieldGroup>
+    </div>
+  );
+}
+
+// ============================================================
+// CONTACT FORM CONTENT EDITOR
+// ============================================================
+
+function ContactFormContentEditor({ content, onUpdate, language, isRTL }) {
+  const T = (v) => resolveTranslated(v, language);
+
+  const handleMultilingualUpdate = (field, lang, value) => {
+    onUpdate(field, { ...(content[field] || {}), [lang]: value });
+  };
+
+  const handleContactInfoUpdate = (field, val) => {
+    onUpdate("contact_info", { ...(content.contact_info || {}), [field]: val });
+  };
+
+  return (
+    <div className="space-y-6">
+      <FieldGroup
+        title={T({ en: "Section Header", ar: "عنوان القسم", ur: "سیکشن ہیڈر" })}
+        isRTL={isRTL}
+        defaultOpen
+      >
+        <MultilingualTextField
+          label={{ en: "Title", ar: "العنوان", ur: "عنوان" }}
+          value={content.title}
+          onChange={(lang, val) => handleMultilingualUpdate("title", lang, val)}
+          language={language}
+          isRTL={isRTL}
+        />
+        <MultilingualTextField
+          label={{ en: "Subtitle", ar: "العنوان الفرعي", ur: "ذیلی عنوان" }}
+          value={content.subtitle}
+          onChange={(lang, val) => handleMultilingualUpdate("subtitle", lang, val)}
+          language={language}
+          isRTL={isRTL}
+          multiline
+        />
+      </FieldGroup>
+
+      <FieldGroup title={T({ en: "Form", ar: "النموذج", ur: "فارم" })} isRTL={isRTL}>
+        <MultilingualTextField
+          label={{ en: "Submit Button Text", ar: "نص زر الإرسال", ur: "سبمٹ بٹن ٹیکسٹ" }}
+          value={content.submit_text}
+          onChange={(lang, val) => handleMultilingualUpdate("submit_text", lang, val)}
+          language={language}
+          isRTL={isRTL}
+        />
+        <MultilingualTextField
+          label={{ en: "Success Message", ar: "رسالة النجاح", ur: "کامیابی کا پیغام" }}
+          value={content.success_message}
+          onChange={(lang, val) => handleMultilingualUpdate("success_message", lang, val)}
+          language={language}
+          isRTL={isRTL}
+          multiline
+        />
+      </FieldGroup>
+
+      <FieldGroup
+        title={T({ en: "Contact Info", ar: "معلومات التواصل", ur: "رابطہ کی معلومات" })}
+        isRTL={isRTL}
+      >
+        <CheckboxField
+          label={{ en: "Show contact info block", ar: "إظهار كتلة معلومات الاتصال", ur: "کنٹیکٹ انفو دکھائیں" }}
+          checked={content.show_contact_info !== false}
+          onChange={(val) => onUpdate("show_contact_info", val)}
+          language={language}
+        />
+        {content.show_contact_info !== false && (
+          <>
+            <TextField
+              label={{ en: "Email", ar: "البريد", ur: "ای میل" }}
+              value={content.contact_info?.email || ""}
+              onChange={(val) => handleContactInfoUpdate("email", val)}
+              language={language}
+              isRTL={isRTL}
+            />
+            <TextField
+              label={{ en: "Phone", ar: "الهاتف", ur: "فون" }}
+              value={content.contact_info?.phone || ""}
+              onChange={(val) => handleContactInfoUpdate("phone", val)}
+              language={language}
+              isRTL={isRTL}
+            />
+            <MultilingualTextField
+              label={{ en: "Address", ar: "العنوان", ur: "ایڈریس" }}
+              value={content.contact_info?.address}
+              onChange={(lang, val) =>
+                handleContactInfoUpdate("address", { ...(content.contact_info?.address || {}), [lang]: val })
+              }
+              language={language}
+              isRTL={isRTL}
+            />
+          </>
+        )}
+      </FieldGroup>
+
+      <FieldGroup
+        title={T({ en: "Map", ar: "الخريطة", ur: "نقشہ" })}
+        isRTL={isRTL}
+      >
+        <CheckboxField
+          label={{ en: "Show map", ar: "إظهار الخريطة", ur: "نقشہ دکھائیں" }}
+          checked={content.show_map === true}
+          onChange={(val) => onUpdate("show_map", val)}
+          language={language}
+        />
+        {content.show_map && (
+          <TextField
+            label={{ en: "Map embed URL", ar: "رابط الخريطة المضمنة", ur: "میپ ایمبیڈ URL" }}
+            value={content.map_embed || ""}
+            onChange={(val) => onUpdate("map_embed", val)}
+            language={language}
+            isRTL={isRTL}
+          />
+        )}
+      </FieldGroup>
+
+      <FieldGroup
+        title={T({ en: "Custom Request CTA", ar: "زر طلب مخصص", ur: "حسب ضرورت درخواست بٹن" })}
+        isRTL={isRTL}
+      >
+        <CheckboxField
+          label={{ en: "Show \"Need something custom?\" CTA", ar: "إظهار زر طلب خدمة مخصصة", ur: "حسب ضرورت سی ٹی اے دکھائیں" }}
+          checked={content.show_custom_request_cta === true}
+          onChange={(val) => onUpdate("show_custom_request_cta", val)}
+          language={language}
+        />
+        {content.show_custom_request_cta === true && (
+          <>
+            <MultilingualTextField
+              label={{ en: "CTA Text", ar: "نص الزر", ur: "سی ٹی اے ٹیکسٹ" }}
+              value={content.custom_request_cta_text}
+              onChange={(lang, val) => handleMultilingualUpdate("custom_request_cta_text", lang, val)}
+              language={language}
+              isRTL={isRTL}
+            />
+            <DestinationPicker
+              label={{ en: "CTA Destination", ar: "وجهة الزر", ur: "سی ٹی اے کی منزل" }}
+              value={{ destination: content.custom_request_cta_destination, url: content.custom_request_cta_url }}
+              onChange={(patch) => {
+                onUpdate("custom_request_cta_destination", patch.destination);
+                onUpdate("custom_request_cta_url", patch.url);
+              }}
+              language={language}
+              isRTL={isRTL}
+            />
+          </>
+        )}
       </FieldGroup>
     </div>
   );
