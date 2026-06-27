@@ -37,4 +37,5 @@ export const tenantRoutes = {
   myOrders: () => "/my-orders",
   myOrder: (id) => `/my-orders/${id}`,
   myRequests: () => "/my-requests",
+  mySubscriptions: () => "/my-subscriptions",
 };

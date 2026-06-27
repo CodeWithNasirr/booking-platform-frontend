@@ -53,6 +53,13 @@ export const SYSTEM_PAGES = {
     auth: true,
     resolve: () => tenantRoutes.myRequests(),
   },
+  my_subscriptions: {
+    key: "my_subscriptions",
+    labels: { en: "My Subscriptions", ar: "اشتراكاتي", ur: "میری سبسکرپشنز" },
+    icon: "RefreshCw",
+    auth: true,
+    resolve: () => tenantRoutes.mySubscriptions(),
+  },
 };
 
 export function listSystemPages({ includeAuthOnly = true } = {}) {

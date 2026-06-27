@@ -45,8 +45,7 @@ export function inferAvailability(services = []) {
     my_bookings: hasBookings,
     my_orders: hasOrders,
     my_requests: true,
-    // Future system pages can be added here:
-    subscriptions: hasSubscriptions,
+    my_subscriptions: hasSubscriptions,
   };
 }
 

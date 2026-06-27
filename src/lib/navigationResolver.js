@@ -34,6 +34,7 @@ const KNOWN_LEGACY_PATHS = {
   "/my-bookings": "my_bookings",
   "/my-orders": "my_orders",
   "/my-requests": "my_requests",
+  "/my-subscriptions": "my_subscriptions",
   "/request-service": "request_service",
 };
 
