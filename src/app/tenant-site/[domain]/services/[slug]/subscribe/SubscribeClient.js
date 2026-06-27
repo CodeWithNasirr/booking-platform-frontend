@@ -78,14 +78,31 @@ export default function SubscribeClient({ domain, site, header, footer, service 
         ? { service: service.slug || service.id }
         : { service: service.slug || service.id, customer_email: email.trim(), customer_name: name.trim() };
 
+      const successUrl = `${window.location.origin}${tenantRoutes.mySubscriptions()}`;
+      const cancelUrl = window.location.href;
+
       const res = await fetch(
         `${API_BASE}/api/v1/custom-requests/public/subscribe/`,
-        { method: "POST", headers, body: JSON.stringify(body), credentials: "include" }
+        {
+          method: "POST",
+          headers,
+          body: JSON.stringify({ ...body, success_url: successUrl, cancel_url: cancelUrl }),
+          credentials: "include",
+        }
       );
 
       if (!res.ok) {
         const data = await res.json().catch(() => ({}));
         throw new Error(data.error || data.detail || String(res.status));
+      }
+
+      const data = await res.json();
+
+      // Gateway path: backend returns { checkout_url }, redirect to hosted checkout.
+      // Direct-create path: backend returns the subscription object.
+      if (data.checkout_url) {
+        window.location.href = data.checkout_url;
+        return;
       }
 
       router.push(tenantRoutes.mySubscriptions());
