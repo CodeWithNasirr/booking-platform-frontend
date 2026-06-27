@@ -1776,35 +1776,21 @@ function PricingContentEditor({ content, onUpdate, language, isRTL }) {
     onUpdate(field, { ...(content[field] || {}), [lang]: value });
   };
 
-  const handlePlanUpdate = (index, field, lang, value) => {
-    const plans = [...(content.plans || [])];
-    if (lang) {
-      plans[index] = {
-        ...plans[index],
-        [field]: { ...plans[index][field], [lang]: value },
-      };
-    } else {
-      plans[index] = { ...plans[index], [field]: value };
-    }
-    onUpdate("plans", plans);
+  // Effective source: prefer explicit content.source, fall back to legacy plans
+  const source = content.source
+    || (Array.isArray(content.plans) && content.plans.length
+      ? { type: "static", plans: content.plans }
+      : { type: "static", plans: [] });
+
+  const setSource = (patch) => {
+    onUpdate("source", { ...source, ...patch });
   };
 
-  const addPlan = () => {
-    const plans = [...(content.plans || [])];
-    plans.push({
-      name: { en: "New Plan", ar: "خطة جديدة", ur: "نیا پلان" },
-      price_monthly: "$99",
-      price_yearly: "$999",
-      period: { en: "per month", ar: "شهرياً", ur: "فی مہینہ" },
-      features: [],
-      cta: { en: "Get Started", ar: "ابدأ الآن", ur: "شروع کریں" },
-      highlighted: false,
-    });
-    onUpdate("plans", plans);
-  };
-
-  const removePlan = (index) => {
-    onUpdate("plans", content.plans.filter((_, i) => i !== index));
+  const setSourceType = (type) => {
+    if (type === source.type) return;
+    if (type === "static") setSource({ type: "static", plans: source.plans || [] });
+    if (type === "services") setSource({ type: "services", service_ids: source.service_ids || [], max_items: 6 });
+    if (type === "subscriptions") setSource({ type: "subscriptions", service_ids: source.service_ids || [], show_billing_toggle: true });
   };
 
   return (
@@ -1827,28 +1813,218 @@ function PricingContentEditor({ content, onUpdate, language, isRTL }) {
         />
       </FieldGroup>
 
-      <CheckboxField
-        label={{ en: "Show Billing Toggle", ar: "إظهار تبديل الفوترة", ur: "بلنگ ٹوگل دکھائیں" }}
-        checked={content.billing_toggle !== false}
-        onChange={(val) => onUpdate("billing_toggle", val)}
-        language={language}
-      />
+      {/* Source type — drives the rest of the editor */}
+      <FieldGroup title={T({ en: "Data Source", ar: "مصدر البيانات", ur: "ڈیٹا سورس" })} isRTL={isRTL} defaultOpen>
+        <SelectField
+          label={{ en: "Source", ar: "المصدر", ur: "سورس" }}
+          value={source.type}
+          onChange={setSourceType}
+          options={[
+            { value: "static", label: T({ en: "Static plans", ar: "خطط ثابتة", ur: "سٹیٹک پلانز" }) },
+            { value: "services", label: T({ en: "Services from database", ar: "خدمات من القاعدة", ur: "ڈیٹا بیس سروسز" }) },
+            { value: "subscriptions", label: T({ en: "Subscription services", ar: "خدمات الاشتراك", ur: "سبسکرپشن سروسز" }) },
+          ]}
+          language={language}
+          isRTL={isRTL}
+        />
+        <p className="text-xs text-slate-500">
+          {T({
+            en: "Subscription services show only services with monthly or yearly billing. The billing toggle appears automatically.",
+            ar: "تظهر خدمات الاشتراك فقط الخدمات ذات الفوترة الشهرية أو السنوية.",
+            ur: "سبسکرپشن سورس صرف ماہانہ یا سالانہ بلنگ والی سروسز دکھاتا ہے۔",
+          })}
+        </p>
+      </FieldGroup>
 
-      <FieldGroup title={T({ en: "Pricing Plans", ar: "خطط الأسعار", ur: "قیمتوں کے پلانز" })} isRTL={isRTL} defaultOpen>
-        {(content.plans || []).map((plan, index) => (
-          <PlanItemEditor
-            key={index}
-            plan={plan}
-            index={index}
-            onUpdate={(field, lang, val) => handlePlanUpdate(index, field, lang, val)}
-            onRemove={() => removePlan(index)}
+      {source.type === "static" && (
+        <StaticPlansEditor source={source} setSource={setSource} language={language} isRTL={isRTL} />
+      )}
+
+      {source.type === "services" && (
+        <ServiceSelectorEditor source={source} setSource={setSource} mode="services" language={language} isRTL={isRTL} />
+      )}
+
+      {source.type === "subscriptions" && (
+        <ServiceSelectorEditor source={source} setSource={setSource} mode="subscriptions" language={language} isRTL={isRTL} />
+      )}
+
+      <FieldGroup title={T({ en: "Display", ar: "العرض", ur: "ڈسپلے" })} isRTL={isRTL}>
+        <CheckboxField
+          label={{ en: "Highlight recommended plan", ar: "إبراز الخطة الموصى بها", ur: "تجویز کردہ پلان نمایاں کریں" }}
+          checked={content.highlight_recommended === true}
+          onChange={(val) => onUpdate("highlight_recommended", val)}
+          language={language}
+        />
+        {source.type === "static" && (
+          <CheckboxField
+            label={{ en: "Show monthly/yearly toggle", ar: "إظهار تبديل شهري/سنوي", ur: "ماہانہ/سالانہ ٹوگل" }}
+            checked={content.billing_toggle === true}
+            onChange={(val) => onUpdate("billing_toggle", val)}
             language={language}
-            isRTL={isRTL}
           />
-        ))}
-        <AddItemButton onClick={addPlan} label={{ en: "Add Plan", ar: "إضافة خطة", ur: "پلان شامل کریں" }} language={language} isRTL={isRTL} />
+        )}
+        <SelectField
+          label={{ en: "Default billing", ar: "الفوترة الافتراضية", ur: "ڈیفالٹ بلنگ" }}
+          value={content.default_billing || "monthly"}
+          onChange={(val) => onUpdate("default_billing", val)}
+          options={[
+            { value: "monthly", label: T({ en: "Monthly", ar: "شهري", ur: "ماہانہ" }) },
+            { value: "yearly", label: T({ en: "Yearly", ar: "سنوي", ur: "سالانہ" }) },
+          ]}
+          language={language}
+          isRTL={isRTL}
+        />
       </FieldGroup>
     </div>
+  );
+}
+
+function StaticPlansEditor({ source, setSource, language, isRTL }) {
+  const T = (v) => resolveTranslated(v, language);
+  const plans = source.plans || [];
+
+  const handlePlanUpdate = (index, field, lang, value) => {
+    const next = [...plans];
+    if (lang) {
+      next[index] = { ...next[index], [field]: { ...next[index][field], [lang]: value } };
+    } else {
+      next[index] = { ...next[index], [field]: value };
+    }
+    setSource({ plans: next });
+  };
+
+  const addPlan = () => {
+    setSource({
+      plans: [
+        ...plans,
+        {
+          name: { en: "New Plan", ar: "خطة جديدة", ur: "نیا پلان" },
+          price_monthly: "99",
+          price_yearly: "999",
+          period_monthly: { en: "/mo", ar: "/شهر", ur: "/ماہ" },
+          period_yearly: { en: "/yr", ar: "/سنة", ur: "/سال" },
+          features: [],
+          highlighted: false,
+        },
+      ],
+    });
+  };
+
+  const removePlan = (index) => {
+    setSource({ plans: plans.filter((_, i) => i !== index) });
+  };
+
+  return (
+    <FieldGroup title={T({ en: "Pricing Plans", ar: "خطط الأسعار", ur: "قیمتوں کے پلانز" })} isRTL={isRTL} defaultOpen>
+      {plans.map((plan, index) => (
+        <PlanItemEditor
+          key={index}
+          plan={plan}
+          index={index}
+          onUpdate={(field, lang, val) => handlePlanUpdate(index, field, lang, val)}
+          onRemove={() => removePlan(index)}
+          language={language}
+          isRTL={isRTL}
+        />
+      ))}
+      <AddItemButton onClick={addPlan} label={{ en: "Add Plan", ar: "إضافة خطة", ur: "پلان شامل کریں" }} language={language} isRTL={isRTL} />
+    </FieldGroup>
+  );
+}
+
+function ServiceSelectorEditor({ source, setSource, mode, language, isRTL }) {
+  const T = (v) => resolveTranslated(v, language);
+  const ctx = useDestinationPickerContext();
+  const allServices = ctx.services || [];
+  const filtered = mode === "subscriptions"
+    ? allServices.filter((s) => ["monthly", "yearly"].includes(s.billing_type))
+    : allServices;
+
+  const selectedIds = (source.service_ids || []).map(String);
+
+  const toggle = (idOrSlug) => {
+    const v = String(idOrSlug);
+    const next = selectedIds.includes(v)
+      ? selectedIds.filter((x) => x !== v)
+      : [...selectedIds, v];
+    setSource({ service_ids: next });
+  };
+
+  return (
+    <FieldGroup
+      title={T({
+        en: mode === "subscriptions" ? "Subscription Services" : "Services",
+        ar: mode === "subscriptions" ? "خدمات الاشتراك" : "الخدمات",
+        ur: mode === "subscriptions" ? "سبسکرپشن سروسز" : "سروسز",
+      })}
+      isRTL={isRTL}
+      defaultOpen
+    >
+      {filtered.length === 0 ? (
+        <p className="text-xs text-slate-500">
+          {mode === "subscriptions"
+            ? T({
+                en: "No subscription services found. Create services with monthly or yearly billing in the Services tab.",
+                ar: "لا توجد خدمات اشتراك. أنشئ خدمات بالفوترة الشهرية أو السنوية.",
+                ur: "کوئی سبسکرپشن سروس نہیں ملی۔",
+              })
+            : T({
+                en: "No services found.",
+                ar: "لا توجد خدمات.",
+                ur: "کوئی سروسز نہیں ملیں۔",
+              })}
+        </p>
+      ) : (
+        <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
+          {filtered.map((s) => {
+            const id = String(s.slug || s.id);
+            const checked = selectedIds.includes(id) || selectedIds.includes(String(s.id));
+            const name =
+              (typeof s.name === "object" ? s.name[language] || s.name.en : s.name) ||
+              s.slug;
+            return (
+              <label
+                key={id}
+                className={`flex items-center gap-2 p-2 rounded border text-sm cursor-pointer ${
+                  checked ? "bg-blue-50 border-blue-300" : "bg-white border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggle(s.slug || s.id)}
+                  className="w-4 h-4"
+                />
+                <span className="flex-1 truncate">{name}</span>
+                {mode === "subscriptions" && (
+                  <span className="text-xs text-slate-500">{s.billing_type}</span>
+                )}
+                <span className="text-xs text-slate-400">
+                  {s.currency || "SAR"} {s.base_price}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 pt-2">
+        <SelectField
+          label={{ en: "Max items", ar: "الحد الأقصى", ur: "زیادہ سے زیادہ آئٹمز" }}
+          value={String(source.max_items || 6)}
+          onChange={(v) => setSource({ max_items: parseInt(v) || 6 })}
+          options={[2, 3, 4, 5, 6, 8, 12].map((n) => ({ value: String(n), label: String(n) }))}
+          language={language}
+          isRTL={isRTL}
+        />
+        <CheckboxField
+          label={{ en: "Featured only", ar: "المميزة فقط", ur: "صرف فیچرڈ" }}
+          checked={!!source.featured_only}
+          onChange={(v) => setSource({ featured_only: v })}
+          language={language}
+        />
+      </div>
+    </FieldGroup>
   );
 }
 
@@ -1917,22 +2093,41 @@ function PlanItemEditor({ plan, index, onUpdate, onRemove, language, isRTL }) {
               isRTL={isRTL}
             />
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <MultilingualTextField
+              label={{ en: "Monthly Period", ar: "فترة شهرية", ur: "ماہانہ مدت" }}
+              value={plan.period_monthly || plan.period}
+              onChange={(lang, val) => onUpdate("period_monthly", lang, val)}
+              language={language}
+              isRTL={isRTL}
+            />
+            <MultilingualTextField
+              label={{ en: "Yearly Period", ar: "فترة سنوية", ur: "سالانہ مدت" }}
+              value={plan.period_yearly}
+              onChange={(lang, val) => onUpdate("period_yearly", lang, val)}
+              language={language}
+              isRTL={isRTL}
+            />
+          </div>
           <MultilingualTextField
-            label={{ en: "Period Label", ar: "فترة الدفع", ur: "مدت کا لیبل" }}
-            value={plan.period}
-            onChange={(lang, val) => onUpdate("period", lang, val)}
+            label={{ en: "CTA Text", ar: "نص الزر", ur: "سی ٹی اے ٹیکسٹ" }}
+            value={plan.cta_text || plan.cta}
+            onChange={(lang, val) => onUpdate("cta_text", lang, val)}
             language={language}
             isRTL={isRTL}
           />
-          <MultilingualTextField
-            label={{ en: "CTA Text", ar: "نص الزر", ur: "سی ٹی اے ٹیکسٹ" }}
-            value={plan.cta}
-            onChange={(lang, val) => onUpdate("cta", lang, val)}
+          <DestinationPicker
+            label={{ en: "Button Destination", ar: "وجهة الزر", ur: "بٹن کی منزل" }}
+            value={{ destination: plan.cta_destination, url: plan.cta_url }}
+            onChange={(patch) => {
+              onUpdate("cta_destination", null, patch.destination);
+              onUpdate("cta_url", null, patch.url);
+            }}
             language={language}
             isRTL={isRTL}
           />
           <CheckboxField
-            label={{ en: "Highlighted", ar: "مميز", ur: "ہائی لائٹڈ" }}
+            label={{ en: "Highlighted (recommended)", ar: "مميز", ur: "ہائی لائٹڈ" }}
             checked={plan.highlighted}
             onChange={(val) => onUpdate("highlighted", null, val)}
             language={language}
