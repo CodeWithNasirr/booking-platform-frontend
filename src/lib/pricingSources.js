@@ -85,8 +85,23 @@ function normalizeServicePlan(service) {
 function normalizeSubscriptionPlan(service) {
   if (!service) return null;
   const billing = service.billing_type; // "monthly" | "yearly" | "one_time"
-  const monthly = billing === "monthly" ? Number(service.base_price) : null;
-  const yearly = billing === "yearly" ? Number(service.base_price) : null;
+
+  // Prefer the dedicated subscription price fields. Fall back to
+  // base_price only for the active billing_type so legacy services
+  // (created before Phase 2 added price_monthly/price_yearly) keep
+  // rendering with the single price they had.
+  const monthly = pickPrice(
+    service.price_monthly,
+    billing === "monthly" ? service.base_price : null,
+  );
+  const yearly = pickPrice(
+    service.price_yearly,
+    billing === "yearly" ? service.base_price : null,
+  );
+
+  // Marking yearly as the "best value" only makes sense when BOTH
+  // cadences are available — otherwise the badge looks arbitrary.
+  const hasBoth = monthly != null && yearly != null;
 
   return {
     id: service.id || service.slug,
@@ -101,10 +116,9 @@ function normalizeSubscriptionPlan(service) {
       currency: service.currency || "SAR",
     },
     features: extractServiceFeatures(service),
-    badge:
-      billing === "yearly"
-        ? { text: { en: "Best Value", ar: "أفضل قيمة", ur: "بہترین ویلیو" } }
-        : null,
+    badge: hasBoth
+      ? { text: { en: "Best Value", ar: "أفضل قيمة", ur: "بہترین ویلیو" } }
+      : null,
     cta: {
       text: { en: "Subscribe", ar: "اشترك", ur: "سبسکرائب کریں" },
       // Goes to the dedicated subscribe flow, not the generic service detail
@@ -114,8 +128,16 @@ function normalizeSubscriptionPlan(service) {
       source: "subscription",
       original_id: service.id || service.slug,
       billing_type: billing,
+      trial_days: service.trial_days || 0,
+      auto_renew_default: service.auto_renew_default !== false,
     },
   };
+}
+
+function pickPrice(primary, fallback) {
+  if (primary != null && primary !== "" && Number(primary) > 0) return Number(primary);
+  if (fallback != null && fallback !== "" && Number(fallback) > 0) return Number(fallback);
+  return null;
 }
 
 // ─── Helpers ───────────────────────────────────────────────────────────────
