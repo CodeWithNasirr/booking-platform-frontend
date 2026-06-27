@@ -15,7 +15,7 @@ import { useStripe, useElements, PaymentElement } from "@stripe/react-stripe-js"
 import { resolveTranslated } from "../../../[domain]/utils/resolveTranslated";
 import { confirmOrderPayment } from "@/lib/orderApi";
 import OrderSummary from "../components/OrderSummary";
-
+import { formatCurrency } from "@/lib/currency";
 export default function PaymentStep({
   domain,
   orderId,
@@ -134,7 +134,10 @@ export default function PaymentStep({
               {resolveTranslated({ en: "Processing...", ar: "جاري المعالجة...", ur: "پروسیسنگ..." }, lang)}
             </>
           ) : (
-            `${resolveTranslated({ en: "Pay Now", ar: "ادفع الآن", ur: "ابھی ادا کریں" }, lang)} — $${Number(currentPrice).toFixed(2)}`
+            `${resolveTranslated(
+  { en: "Pay Now", ar: "ادفع الآن", ur: "ابھی ادا کریں" },
+  lang
+)} — ${formatCurrency(currentPrice, service.currency)}`
           )}
         </button>
       </div>

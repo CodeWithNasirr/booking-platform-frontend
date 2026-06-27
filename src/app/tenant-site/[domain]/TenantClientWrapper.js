@@ -59,8 +59,11 @@ export default function TenantClientWrapper({
   children,
 }) {
   // Memoize site context value
+  const domain = site.primary_domain || site.subdomain || site.custom_domain || "";
+
   const siteContextValue = useMemo(() => ({
     site,
+    domain,
     subdomain: site.subdomain,
     customDomain: site.custom_domain,
     businessName: theme.business_name || site.tenant?.name || "",
@@ -69,10 +72,10 @@ export default function TenantClientWrapper({
     publishedAt: site.published_at,
     templateSlug: site.template?.slug,
     templateName: site.template?.name,
-    // ✅ IMPORTANT
     timezone: tenantTimezone,
     currency: site.currency || "SAR",
-  }), [site, theme]);
+    tenantUrl: (path) => `/${domain}${path.startsWith("/") ? path : `/${path}`}`,
+  }), [site, theme, domain]);
 
   return (
     <TenantSiteContext.Provider value={siteContextValue}>

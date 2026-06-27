@@ -112,7 +112,7 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
     fetchServiceBySlug(data.preselected_service_slug).then(service => {
       // ── ROUTE GUARD: redirect non-booking services ──
       if (isProjectService(service)) {
-        const route = getServiceRoute(service, domain);
+        const route = getServiceRoute(service);
         router.push(route.url);
         return;
       }
@@ -317,7 +317,7 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
             onServiceSelect={(service) => {
               // ── ROUTE GUARD: non-booking services redirect ──
               if (service && isProjectService(service)) {
-                const route = getServiceRoute(service, domain);
+                const route = getServiceRoute(service);
                 router.push(route.url);
                 return;
               }

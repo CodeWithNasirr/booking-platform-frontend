@@ -15,6 +15,13 @@ import { useBuilder } from "../context/BuilderContext";
 import { useTenantLang } from "../../contexts/TenantLangContext";
 import { resolveTranslated } from "../../[domain]/utils/resolveTranslated";
 import {
+  DESTINATION_TYPES,
+  listDestinationTypes,
+  getDestinationType,
+  computeLegacyUrl as computeLegacyUrlFromRegistry,
+} from "@/lib/destinationTypes";
+import { useNavigationContext } from "@/lib/navigationContext";
+import {
   X,
   Type,
   Image,
@@ -216,6 +223,9 @@ function ContentEditor({ sectionType, moduleKey, content, onUpdate, onDeepUpdate
       return <TeamContentEditor content={content} onUpdate={onUpdate} language={language} isRTL={isRTL} />;
     case "cta":
       return <CtaContentEditor content={content} onUpdate={onUpdate} language={language} isRTL={isRTL} />;
+    case "contact":
+    case "contact_form":
+      return <ContactFormContentEditor content={content} onUpdate={onUpdate} language={language} isRTL={isRTL} />;
     case "footer":
       return <FooterContentEditor content={content} onUpdate={onUpdate} language={language} isRTL={isRTL} />;
     case "module":
@@ -242,9 +252,9 @@ function HeaderContentEditor({ content, onUpdate, language, isRTL }) {
     onUpdate("logo", updatedLogo);
   };
 
-  const handleNavLinkUpdate = (index, field, value) => {
+  const handleNavLinkPatch = (index, patch) => {
     const links = [...(content.nav_links || [])];
-    links[index] = { ...links[index], [field]: value };
+    links[index] = { ...links[index], ...patch };
     onUpdate("nav_links", links);
   };
 
@@ -261,7 +271,8 @@ function HeaderContentEditor({ content, onUpdate, language, isRTL }) {
     const links = [...(content.nav_links || [])];
     links.push({
       label: { en: "New Link", ar: "رابط جديد", ur: "نیا لنک" },
-      url: "#",
+      destination: { type: "system_page", page: "home" },
+      url: "/",
     });
     onUpdate("nav_links", links);
   };
@@ -271,15 +282,15 @@ function HeaderContentEditor({ content, onUpdate, language, isRTL }) {
     onUpdate("nav_links", links);
   };
 
-  const handleCtaUpdate = (field, lang, value) => {
-    if (field === "url") {
-      onUpdate("cta_button", { ...content.cta_button, url: value });
-    } else {
-      onUpdate("cta_button", {
-        ...content.cta_button,
-        text: { ...content.cta_button?.text, [lang]: value },
-      });
-    }
+  const handleCtaTextUpdate = (lang, value) => {
+    onUpdate("cta_button", {
+      ...content.cta_button,
+      text: { ...content.cta_button?.text, [lang]: value },
+    });
+  };
+
+  const handleCtaDestinationPatch = (patch) => {
+    onUpdate("cta_button", { ...content.cta_button, ...patch });
   };
 
   return (
@@ -320,11 +331,9 @@ function HeaderContentEditor({ content, onUpdate, language, isRTL }) {
               language={language}
               isRTL={isRTL}
             />
-            <TextField
-              label={{ en: "URL", ar: "الرابط", ur: "URL" }}
-              value={link.url}
-              onChange={(val) => handleNavLinkUpdate(index, "url", val)}
-              icon={Link2}
+            <DestinationPicker
+              value={{ destination: link.destination, url: link.url }}
+              onChange={(patch) => handleNavLinkPatch(index, patch)}
               language={language}
               isRTL={isRTL}
             />
@@ -338,15 +347,14 @@ function HeaderContentEditor({ content, onUpdate, language, isRTL }) {
         <MultilingualTextField
           label={{ en: "Button Text", ar: "نص الزر", ur: "بٹن ٹیکسٹ" }}
           value={content.cta_button?.text}
-          onChange={(lang, val) => handleCtaUpdate("text", lang, val)}
+          onChange={(lang, val) => handleCtaTextUpdate(lang, val)}
           language={language}
           isRTL={isRTL}
         />
-        <TextField
-          label={{ en: "Button URL", ar: "رابط الزر", ur: "بٹن URL" }}
-          value={content.cta_button?.url || ""}
-          onChange={(val) => handleCtaUpdate("url", null, val)}
-          icon={Link2}
+        <DestinationPicker
+          label={{ en: "Button Destination", ar: "وجهة الزر", ur: "بٹن کی منزل" }}
+          value={{ destination: content.cta_button?.destination, url: content.cta_button?.url }}
+          onChange={handleCtaDestinationPatch}
           language={language}
           isRTL={isRTL}
         />
@@ -369,16 +377,17 @@ function HeroContentEditor({ content, onUpdate, language, isRTL }) {
     });
   };
 
-  const handleCtaUpdate = (ctaField, field, lang, value) => {
+  const handleCtaTextUpdate = (ctaField, lang, value) => {
     const cta = content[ctaField] || {};
-    if (field === "url") {
-      onUpdate(ctaField, { ...cta, url: value });
-    } else {
-      onUpdate(ctaField, {
-        ...cta,
-        text: { ...cta.text, [lang]: value },
-      });
-    }
+    onUpdate(ctaField, {
+      ...cta,
+      text: { ...cta.text, [lang]: value },
+    });
+  };
+
+  const handleCtaDestinationPatch = (ctaField, patch) => {
+    const cta = content[ctaField] || {};
+    onUpdate(ctaField, { ...cta, ...patch });
   };
 
   const handleFeatureUpdate = (index, lang, value) => {
@@ -455,15 +464,13 @@ function HeroContentEditor({ content, onUpdate, language, isRTL }) {
         <MultilingualTextField
           label={{ en: "Button Text", ar: "نص الزر", ur: "بٹن ٹیکسٹ" }}
           value={content.primary_cta?.text}
-          onChange={(lang, val) => handleCtaUpdate("primary_cta", "text", lang, val)}
+          onChange={(lang, val) => handleCtaTextUpdate("primary_cta", lang, val)}
           language={language}
           isRTL={isRTL}
         />
-        <TextField
-          label={{ en: "Button URL", ar: "رابط الزر", ur: "بٹن URL" }}
-          value={content.primary_cta?.url || ""}
-          onChange={(val) => handleCtaUpdate("primary_cta", "url", null, val)}
-          icon={Link2}
+        <DestinationPicker
+          value={{ destination: content.primary_cta?.destination, url: content.primary_cta?.url }}
+          onChange={(patch) => handleCtaDestinationPatch("primary_cta", patch)}
           language={language}
           isRTL={isRTL}
         />
@@ -474,15 +481,13 @@ function HeroContentEditor({ content, onUpdate, language, isRTL }) {
         <MultilingualTextField
           label={{ en: "Button Text", ar: "نص الزر", ur: "بٹن ٹیکسٹ" }}
           value={content.secondary_cta?.text}
-          onChange={(lang, val) => handleCtaUpdate("secondary_cta", "text", lang, val)}
+          onChange={(lang, val) => handleCtaTextUpdate("secondary_cta", lang, val)}
           language={language}
           isRTL={isRTL}
         />
-        <TextField
-          label={{ en: "Button URL", ar: "رابط الزر", ur: "بٹن URL" }}
-          value={content.secondary_cta?.url || ""}
-          onChange={(val) => handleCtaUpdate("secondary_cta", "url", null, val)}
-          icon={Link2}
+        <DestinationPicker
+          value={{ destination: content.secondary_cta?.destination, url: content.secondary_cta?.url }}
+          onChange={(patch) => handleCtaDestinationPatch("secondary_cta", patch)}
           language={language}
           isRTL={isRTL}
         />
@@ -987,23 +992,65 @@ function ServicesContentEditor({ content, onUpdate, language, isRTL }) {
           isRTL={isRTL}
         />
         {currentMode === "static" && (
-          <TextField
-            label={{ en: "Button URL", ar: "رابط الزر", ur: "بٹن URL" }}
-            value={content.book_button_url || ""}
-            onChange={(val) => onUpdate("book_button_url", val)}
-            placeholder="/book"
+          <DestinationPicker
+            value={{ destination: content.book_button_destination, url: content.book_button_url }}
+            onChange={(patch) => {
+              onUpdate("book_button_destination", patch.destination);
+              onUpdate("book_button_url", patch.url);
+            }}
             language={language}
             isRTL={isRTL}
           />
         )}
         {currentMode === "database" && (
           <p className="text-xs text-slate-500 mt-2">
-            {T({ 
-              en: "💡 In database mode, buttons automatically link to booking or order pages based on service type.", 
+            {T({
+              en: "💡 In database mode, buttons automatically link to booking or order pages based on service type.",
               ar: "💡 في وضع قاعدة البيانات، ترتبط الأزرار تلقائيًا بصفحات الحجز أو الطلب.",
               ur: "💡 ڈیٹا بیس موڈ میں، بٹن خودکار طور پر بکنگ یا آرڈر پیجز سے لنک ہوتے ہیں۔"
             })}
           </p>
+        )}
+      </FieldGroup>
+
+      {/* Custom request CTA (shown below the service grid when enabled) */}
+      <FieldGroup
+        title={T({ en: "Custom Request CTA", ar: "زر طلب مخصص", ur: "حسب ضرورت درخواست بٹن" })}
+        isRTL={isRTL}
+      >
+        <CheckboxField
+          label={{ en: "Show \"Need something custom?\" CTA", ar: "إظهار زر طلب خدمة مخصصة", ur: "حسب ضرورت سی ٹی اے دکھائیں" }}
+          checked={content.show_custom_request_cta === true}
+          onChange={(val) => onUpdate("show_custom_request_cta", val)}
+          language={language}
+        />
+        {content.show_custom_request_cta === true && (
+          <>
+            <MultilingualTextField
+              label={{ en: "CTA Text", ar: "نص الزر", ur: "سی ٹی اے ٹیکسٹ" }}
+              value={content.custom_request_cta_text}
+              onChange={(lang, val) => handleMultilingualUpdate("custom_request_cta_text", lang, val)}
+              language={language}
+              isRTL={isRTL}
+            />
+            <DestinationPicker
+              label={{ en: "CTA Destination", ar: "وجهة الزر", ur: "سی ٹی اے کی منزل" }}
+              value={{ destination: content.custom_request_cta_destination, url: content.custom_request_cta_url }}
+              onChange={(patch) => {
+                onUpdate("custom_request_cta_destination", patch.destination);
+                onUpdate("custom_request_cta_url", patch.url);
+              }}
+              language={language}
+              isRTL={isRTL}
+            />
+            <p className="text-xs text-slate-500">
+              {T({
+                en: "Defaults to the Request a Service system page if you don't pick a destination.",
+                ar: "يستخدم صفحة طلب الخدمة افتراضياً إذا لم تختر وجهة.",
+                ur: "اگر آپ منزل منتخب نہ کریں تو ڈیفالٹ \"Request a Service\" سسٹم پیج ہے۔",
+              })}
+            </p>
+          </>
         )}
       </FieldGroup>
     </div>
@@ -1773,35 +1820,21 @@ function PricingContentEditor({ content, onUpdate, language, isRTL }) {
     onUpdate(field, { ...(content[field] || {}), [lang]: value });
   };
 
-  const handlePlanUpdate = (index, field, lang, value) => {
-    const plans = [...(content.plans || [])];
-    if (lang) {
-      plans[index] = {
-        ...plans[index],
-        [field]: { ...plans[index][field], [lang]: value },
-      };
-    } else {
-      plans[index] = { ...plans[index], [field]: value };
-    }
-    onUpdate("plans", plans);
+  // Effective source: prefer explicit content.source, fall back to legacy plans
+  const source = content.source
+    || (Array.isArray(content.plans) && content.plans.length
+      ? { type: "static", plans: content.plans }
+      : { type: "static", plans: [] });
+
+  const setSource = (patch) => {
+    onUpdate("source", { ...source, ...patch });
   };
 
-  const addPlan = () => {
-    const plans = [...(content.plans || [])];
-    plans.push({
-      name: { en: "New Plan", ar: "خطة جديدة", ur: "نیا پلان" },
-      price_monthly: "$99",
-      price_yearly: "$999",
-      period: { en: "per month", ar: "شهرياً", ur: "فی مہینہ" },
-      features: [],
-      cta: { en: "Get Started", ar: "ابدأ الآن", ur: "شروع کریں" },
-      highlighted: false,
-    });
-    onUpdate("plans", plans);
-  };
-
-  const removePlan = (index) => {
-    onUpdate("plans", content.plans.filter((_, i) => i !== index));
+  const setSourceType = (type) => {
+    if (type === source.type) return;
+    if (type === "static") setSource({ type: "static", plans: source.plans || [] });
+    if (type === "services") setSource({ type: "services", service_ids: source.service_ids || [], max_items: 6 });
+    if (type === "subscriptions") setSource({ type: "subscriptions", service_ids: source.service_ids || [], show_billing_toggle: true });
   };
 
   return (
@@ -1824,28 +1857,218 @@ function PricingContentEditor({ content, onUpdate, language, isRTL }) {
         />
       </FieldGroup>
 
-      <CheckboxField
-        label={{ en: "Show Billing Toggle", ar: "إظهار تبديل الفوترة", ur: "بلنگ ٹوگل دکھائیں" }}
-        checked={content.billing_toggle !== false}
-        onChange={(val) => onUpdate("billing_toggle", val)}
-        language={language}
-      />
+      {/* Source type — drives the rest of the editor */}
+      <FieldGroup title={T({ en: "Data Source", ar: "مصدر البيانات", ur: "ڈیٹا سورس" })} isRTL={isRTL} defaultOpen>
+        <SelectField
+          label={{ en: "Source", ar: "المصدر", ur: "سورس" }}
+          value={source.type}
+          onChange={setSourceType}
+          options={[
+            { value: "static", label: T({ en: "Static plans", ar: "خطط ثابتة", ur: "سٹیٹک پلانز" }) },
+            { value: "services", label: T({ en: "Services from database", ar: "خدمات من القاعدة", ur: "ڈیٹا بیس سروسز" }) },
+            { value: "subscriptions", label: T({ en: "Subscription services", ar: "خدمات الاشتراك", ur: "سبسکرپشن سروسز" }) },
+          ]}
+          language={language}
+          isRTL={isRTL}
+        />
+        <p className="text-xs text-slate-500">
+          {T({
+            en: "Subscription services show only services with monthly or yearly billing. The billing toggle appears automatically.",
+            ar: "تظهر خدمات الاشتراك فقط الخدمات ذات الفوترة الشهرية أو السنوية.",
+            ur: "سبسکرپشن سورس صرف ماہانہ یا سالانہ بلنگ والی سروسز دکھاتا ہے۔",
+          })}
+        </p>
+      </FieldGroup>
 
-      <FieldGroup title={T({ en: "Pricing Plans", ar: "خطط الأسعار", ur: "قیمتوں کے پلانز" })} isRTL={isRTL} defaultOpen>
-        {(content.plans || []).map((plan, index) => (
-          <PlanItemEditor
-            key={index}
-            plan={plan}
-            index={index}
-            onUpdate={(field, lang, val) => handlePlanUpdate(index, field, lang, val)}
-            onRemove={() => removePlan(index)}
+      {source.type === "static" && (
+        <StaticPlansEditor source={source} setSource={setSource} language={language} isRTL={isRTL} />
+      )}
+
+      {source.type === "services" && (
+        <ServiceSelectorEditor source={source} setSource={setSource} mode="services" language={language} isRTL={isRTL} />
+      )}
+
+      {source.type === "subscriptions" && (
+        <ServiceSelectorEditor source={source} setSource={setSource} mode="subscriptions" language={language} isRTL={isRTL} />
+      )}
+
+      <FieldGroup title={T({ en: "Display", ar: "العرض", ur: "ڈسپلے" })} isRTL={isRTL}>
+        <CheckboxField
+          label={{ en: "Highlight recommended plan", ar: "إبراز الخطة الموصى بها", ur: "تجویز کردہ پلان نمایاں کریں" }}
+          checked={content.highlight_recommended === true}
+          onChange={(val) => onUpdate("highlight_recommended", val)}
+          language={language}
+        />
+        {source.type === "static" && (
+          <CheckboxField
+            label={{ en: "Show monthly/yearly toggle", ar: "إظهار تبديل شهري/سنوي", ur: "ماہانہ/سالانہ ٹوگل" }}
+            checked={content.billing_toggle === true}
+            onChange={(val) => onUpdate("billing_toggle", val)}
             language={language}
-            isRTL={isRTL}
           />
-        ))}
-        <AddItemButton onClick={addPlan} label={{ en: "Add Plan", ar: "إضافة خطة", ur: "پلان شامل کریں" }} language={language} isRTL={isRTL} />
+        )}
+        <SelectField
+          label={{ en: "Default billing", ar: "الفوترة الافتراضية", ur: "ڈیفالٹ بلنگ" }}
+          value={content.default_billing || "monthly"}
+          onChange={(val) => onUpdate("default_billing", val)}
+          options={[
+            { value: "monthly", label: T({ en: "Monthly", ar: "شهري", ur: "ماہانہ" }) },
+            { value: "yearly", label: T({ en: "Yearly", ar: "سنوي", ur: "سالانہ" }) },
+          ]}
+          language={language}
+          isRTL={isRTL}
+        />
       </FieldGroup>
     </div>
+  );
+}
+
+function StaticPlansEditor({ source, setSource, language, isRTL }) {
+  const T = (v) => resolveTranslated(v, language);
+  const plans = source.plans || [];
+
+  const handlePlanUpdate = (index, field, lang, value) => {
+    const next = [...plans];
+    if (lang) {
+      next[index] = { ...next[index], [field]: { ...next[index][field], [lang]: value } };
+    } else {
+      next[index] = { ...next[index], [field]: value };
+    }
+    setSource({ plans: next });
+  };
+
+  const addPlan = () => {
+    setSource({
+      plans: [
+        ...plans,
+        {
+          name: { en: "New Plan", ar: "خطة جديدة", ur: "نیا پلان" },
+          price_monthly: "99",
+          price_yearly: "999",
+          period_monthly: { en: "/mo", ar: "/شهر", ur: "/ماہ" },
+          period_yearly: { en: "/yr", ar: "/سنة", ur: "/سال" },
+          features: [],
+          highlighted: false,
+        },
+      ],
+    });
+  };
+
+  const removePlan = (index) => {
+    setSource({ plans: plans.filter((_, i) => i !== index) });
+  };
+
+  return (
+    <FieldGroup title={T({ en: "Pricing Plans", ar: "خطط الأسعار", ur: "قیمتوں کے پلانز" })} isRTL={isRTL} defaultOpen>
+      {plans.map((plan, index) => (
+        <PlanItemEditor
+          key={index}
+          plan={plan}
+          index={index}
+          onUpdate={(field, lang, val) => handlePlanUpdate(index, field, lang, val)}
+          onRemove={() => removePlan(index)}
+          language={language}
+          isRTL={isRTL}
+        />
+      ))}
+      <AddItemButton onClick={addPlan} label={{ en: "Add Plan", ar: "إضافة خطة", ur: "پلان شامل کریں" }} language={language} isRTL={isRTL} />
+    </FieldGroup>
+  );
+}
+
+function ServiceSelectorEditor({ source, setSource, mode, language, isRTL }) {
+  const T = (v) => resolveTranslated(v, language);
+  const ctx = useDestinationPickerContext();
+  const allServices = ctx.services || [];
+  const filtered = mode === "subscriptions"
+    ? allServices.filter((s) => ["monthly", "yearly"].includes(s.billing_type))
+    : allServices;
+
+  const selectedIds = (source.service_ids || []).map(String);
+
+  const toggle = (idOrSlug) => {
+    const v = String(idOrSlug);
+    const next = selectedIds.includes(v)
+      ? selectedIds.filter((x) => x !== v)
+      : [...selectedIds, v];
+    setSource({ service_ids: next });
+  };
+
+  return (
+    <FieldGroup
+      title={T({
+        en: mode === "subscriptions" ? "Subscription Services" : "Services",
+        ar: mode === "subscriptions" ? "خدمات الاشتراك" : "الخدمات",
+        ur: mode === "subscriptions" ? "سبسکرپشن سروسز" : "سروسز",
+      })}
+      isRTL={isRTL}
+      defaultOpen
+    >
+      {filtered.length === 0 ? (
+        <p className="text-xs text-slate-500">
+          {mode === "subscriptions"
+            ? T({
+                en: "No subscription services found. Create services with monthly or yearly billing in the Services tab.",
+                ar: "لا توجد خدمات اشتراك. أنشئ خدمات بالفوترة الشهرية أو السنوية.",
+                ur: "کوئی سبسکرپشن سروس نہیں ملی۔",
+              })
+            : T({
+                en: "No services found.",
+                ar: "لا توجد خدمات.",
+                ur: "کوئی سروسز نہیں ملیں۔",
+              })}
+        </p>
+      ) : (
+        <div className="space-y-1 max-h-80 overflow-y-auto pr-1">
+          {filtered.map((s) => {
+            const id = String(s.slug || s.id);
+            const checked = selectedIds.includes(id) || selectedIds.includes(String(s.id));
+            const name =
+              (typeof s.name === "object" ? s.name[language] || s.name.en : s.name) ||
+              s.slug;
+            return (
+              <label
+                key={id}
+                className={`flex items-center gap-2 p-2 rounded border text-sm cursor-pointer ${
+                  checked ? "bg-blue-50 border-blue-300" : "bg-white border-slate-200 hover:bg-slate-50"
+                }`}
+              >
+                <input
+                  type="checkbox"
+                  checked={checked}
+                  onChange={() => toggle(s.slug || s.id)}
+                  className="w-4 h-4"
+                />
+                <span className="flex-1 truncate">{name}</span>
+                {mode === "subscriptions" && (
+                  <span className="text-xs text-slate-500">{s.billing_type}</span>
+                )}
+                <span className="text-xs text-slate-400">
+                  {s.currency || "SAR"} {s.base_price}
+                </span>
+              </label>
+            );
+          })}
+        </div>
+      )}
+
+      <div className="grid grid-cols-2 gap-2 pt-2">
+        <SelectField
+          label={{ en: "Max items", ar: "الحد الأقصى", ur: "زیادہ سے زیادہ آئٹمز" }}
+          value={String(source.max_items || 6)}
+          onChange={(v) => setSource({ max_items: parseInt(v) || 6 })}
+          options={[2, 3, 4, 5, 6, 8, 12].map((n) => ({ value: String(n), label: String(n) }))}
+          language={language}
+          isRTL={isRTL}
+        />
+        <CheckboxField
+          label={{ en: "Featured only", ar: "المميزة فقط", ur: "صرف فیچرڈ" }}
+          checked={!!source.featured_only}
+          onChange={(v) => setSource({ featured_only: v })}
+          language={language}
+        />
+      </div>
+    </FieldGroup>
   );
 }
 
@@ -1914,22 +2137,41 @@ function PlanItemEditor({ plan, index, onUpdate, onRemove, language, isRTL }) {
               isRTL={isRTL}
             />
           </div>
+          <div className="grid grid-cols-2 gap-2">
+            <MultilingualTextField
+              label={{ en: "Monthly Period", ar: "فترة شهرية", ur: "ماہانہ مدت" }}
+              value={plan.period_monthly || plan.period}
+              onChange={(lang, val) => onUpdate("period_monthly", lang, val)}
+              language={language}
+              isRTL={isRTL}
+            />
+            <MultilingualTextField
+              label={{ en: "Yearly Period", ar: "فترة سنوية", ur: "سالانہ مدت" }}
+              value={plan.period_yearly}
+              onChange={(lang, val) => onUpdate("period_yearly", lang, val)}
+              language={language}
+              isRTL={isRTL}
+            />
+          </div>
           <MultilingualTextField
-            label={{ en: "Period Label", ar: "فترة الدفع", ur: "مدت کا لیبل" }}
-            value={plan.period}
-            onChange={(lang, val) => onUpdate("period", lang, val)}
+            label={{ en: "CTA Text", ar: "نص الزر", ur: "سی ٹی اے ٹیکسٹ" }}
+            value={plan.cta_text || plan.cta}
+            onChange={(lang, val) => onUpdate("cta_text", lang, val)}
             language={language}
             isRTL={isRTL}
           />
-          <MultilingualTextField
-            label={{ en: "CTA Text", ar: "نص الزر", ur: "سی ٹی اے ٹیکسٹ" }}
-            value={plan.cta}
-            onChange={(lang, val) => onUpdate("cta", lang, val)}
+          <DestinationPicker
+            label={{ en: "Button Destination", ar: "وجهة الزر", ur: "بٹن کی منزل" }}
+            value={{ destination: plan.cta_destination, url: plan.cta_url }}
+            onChange={(patch) => {
+              onUpdate("cta_destination", null, patch.destination);
+              onUpdate("cta_url", null, patch.url);
+            }}
             language={language}
             isRTL={isRTL}
           />
           <CheckboxField
-            label={{ en: "Highlighted", ar: "مميز", ur: "ہائی لائٹڈ" }}
+            label={{ en: "Highlighted (recommended)", ar: "مميز", ur: "ہائی لائٹڈ" }}
             checked={plan.highlighted}
             onChange={(val) => onUpdate("highlighted", null, val)}
             language={language}
@@ -2663,9 +2905,7 @@ function CtaContentEditor({ content, onUpdate, language, isRTL }) {
         multiline
       />
 
-      {/* ====================================================== */}
-      {/* PRIMARY BUTTON */}
-      {/* ====================================================== */}
+      {/* Primary button */}
       <FieldGroup title={T({ en: "Primary Button", ar: "الزر الأساسي", ur: "بنیادی بٹن" })} isRTL={isRTL}>
         <MultilingualTextField
           label={{ en: "Button Text", ar: "نص الزر", ur: "بٹن ٹیکسٹ" }}
@@ -2674,42 +2914,188 @@ function CtaContentEditor({ content, onUpdate, language, isRTL }) {
           language={language}
           isRTL={isRTL}
         />
-        <TextField
-          label={{ en: "Button URL", ar: "رابط الزر", ur: "بٹن URL" }}
-          value={content.button_url || ""}
-          onChange={(val) => onUpdate("button_url", val)}
-          icon={Link2}
+        <DestinationPicker
+          value={{ destination: content.button_destination, url: content.button_url }}
+          onChange={(patch) => {
+            onUpdate("button_destination", patch.destination);
+            onUpdate("button_url", patch.url);
+          }}
           language={language}
           isRTL={isRTL}
         />
       </FieldGroup>
 
-      {/* ====================================================== */}
-      {/* SECONDARY BUTTON (NEW) */}
-      {/* ====================================================== */}
-      <FieldGroup
-        title={T({ en: "Secondary Button", ar: "الزر الثانوي", ur: "ثانوی بٹن" })}
-        isRTL={isRTL}
-      >
+      {/* Secondary button */}
+      <FieldGroup title={T({ en: "Secondary Button", ar: "الزر الثانوي", ur: "ثانوی بٹن" })} isRTL={isRTL}>
         <MultilingualTextField
           label={{ en: "Button Text", ar: "نص الزر", ur: "بٹن ٹیکسٹ" }}
           value={content.secondary_button}
-          onChange={(lang, val) =>
-            handleMultilingualUpdate("secondary_button", lang, val)
-          }
+          onChange={(lang, val) => handleMultilingualUpdate("secondary_button", lang, val)}
           language={language}
           isRTL={isRTL}
         />
+        <DestinationPicker
+          value={{ destination: content.secondary_button_destination, url: content.secondary_button_url }}
+          onChange={(patch) => {
+            onUpdate("secondary_button_destination", patch.destination);
+            onUpdate("secondary_button_url", patch.url);
+          }}
+          language={language}
+          isRTL={isRTL}
+        />
+      </FieldGroup>
+    </div>
+  );
+}
 
-        <TextField
-          label={{ en: "Button URL", ar: "رابط الزر", ur: "بٹن URL" }}
-          value={content.secondary_button_url || ""}
-          onChange={(val) => onUpdate("secondary_button_url", val)}
-          placeholder="tel:+15551234567"
-          icon={Link2}
+// ============================================================
+// CONTACT FORM CONTENT EDITOR
+// ============================================================
+
+function ContactFormContentEditor({ content, onUpdate, language, isRTL }) {
+  const T = (v) => resolveTranslated(v, language);
+
+  const handleMultilingualUpdate = (field, lang, value) => {
+    onUpdate(field, { ...(content[field] || {}), [lang]: value });
+  };
+
+  const handleContactInfoUpdate = (field, val) => {
+    onUpdate("contact_info", { ...(content.contact_info || {}), [field]: val });
+  };
+
+  return (
+    <div className="space-y-6">
+      <FieldGroup
+        title={T({ en: "Section Header", ar: "عنوان القسم", ur: "سیکشن ہیڈر" })}
+        isRTL={isRTL}
+        defaultOpen
+      >
+        <MultilingualTextField
+          label={{ en: "Title", ar: "العنوان", ur: "عنوان" }}
+          value={content.title}
+          onChange={(lang, val) => handleMultilingualUpdate("title", lang, val)}
           language={language}
           isRTL={isRTL}
         />
+        <MultilingualTextField
+          label={{ en: "Subtitle", ar: "العنوان الفرعي", ur: "ذیلی عنوان" }}
+          value={content.subtitle}
+          onChange={(lang, val) => handleMultilingualUpdate("subtitle", lang, val)}
+          language={language}
+          isRTL={isRTL}
+          multiline
+        />
+      </FieldGroup>
+
+      <FieldGroup title={T({ en: "Form", ar: "النموذج", ur: "فارم" })} isRTL={isRTL}>
+        <MultilingualTextField
+          label={{ en: "Submit Button Text", ar: "نص زر الإرسال", ur: "سبمٹ بٹن ٹیکسٹ" }}
+          value={content.submit_text}
+          onChange={(lang, val) => handleMultilingualUpdate("submit_text", lang, val)}
+          language={language}
+          isRTL={isRTL}
+        />
+        <MultilingualTextField
+          label={{ en: "Success Message", ar: "رسالة النجاح", ur: "کامیابی کا پیغام" }}
+          value={content.success_message}
+          onChange={(lang, val) => handleMultilingualUpdate("success_message", lang, val)}
+          language={language}
+          isRTL={isRTL}
+          multiline
+        />
+      </FieldGroup>
+
+      <FieldGroup
+        title={T({ en: "Contact Info", ar: "معلومات التواصل", ur: "رابطہ کی معلومات" })}
+        isRTL={isRTL}
+      >
+        <CheckboxField
+          label={{ en: "Show contact info block", ar: "إظهار كتلة معلومات الاتصال", ur: "کنٹیکٹ انفو دکھائیں" }}
+          checked={content.show_contact_info !== false}
+          onChange={(val) => onUpdate("show_contact_info", val)}
+          language={language}
+        />
+        {content.show_contact_info !== false && (
+          <>
+            <TextField
+              label={{ en: "Email", ar: "البريد", ur: "ای میل" }}
+              value={content.contact_info?.email || ""}
+              onChange={(val) => handleContactInfoUpdate("email", val)}
+              language={language}
+              isRTL={isRTL}
+            />
+            <TextField
+              label={{ en: "Phone", ar: "الهاتف", ur: "فون" }}
+              value={content.contact_info?.phone || ""}
+              onChange={(val) => handleContactInfoUpdate("phone", val)}
+              language={language}
+              isRTL={isRTL}
+            />
+            <MultilingualTextField
+              label={{ en: "Address", ar: "العنوان", ur: "ایڈریس" }}
+              value={content.contact_info?.address}
+              onChange={(lang, val) =>
+                handleContactInfoUpdate("address", { ...(content.contact_info?.address || {}), [lang]: val })
+              }
+              language={language}
+              isRTL={isRTL}
+            />
+          </>
+        )}
+      </FieldGroup>
+
+      <FieldGroup
+        title={T({ en: "Map", ar: "الخريطة", ur: "نقشہ" })}
+        isRTL={isRTL}
+      >
+        <CheckboxField
+          label={{ en: "Show map", ar: "إظهار الخريطة", ur: "نقشہ دکھائیں" }}
+          checked={content.show_map === true}
+          onChange={(val) => onUpdate("show_map", val)}
+          language={language}
+        />
+        {content.show_map && (
+          <TextField
+            label={{ en: "Map embed URL", ar: "رابط الخريطة المضمنة", ur: "میپ ایمبیڈ URL" }}
+            value={content.map_embed || ""}
+            onChange={(val) => onUpdate("map_embed", val)}
+            language={language}
+            isRTL={isRTL}
+          />
+        )}
+      </FieldGroup>
+
+      <FieldGroup
+        title={T({ en: "Custom Request CTA", ar: "زر طلب مخصص", ur: "حسب ضرورت درخواست بٹن" })}
+        isRTL={isRTL}
+      >
+        <CheckboxField
+          label={{ en: "Show \"Need something custom?\" CTA", ar: "إظهار زر طلب خدمة مخصصة", ur: "حسب ضرورت سی ٹی اے دکھائیں" }}
+          checked={content.show_custom_request_cta === true}
+          onChange={(val) => onUpdate("show_custom_request_cta", val)}
+          language={language}
+        />
+        {content.show_custom_request_cta === true && (
+          <>
+            <MultilingualTextField
+              label={{ en: "CTA Text", ar: "نص الزر", ur: "سی ٹی اے ٹیکسٹ" }}
+              value={content.custom_request_cta_text}
+              onChange={(lang, val) => handleMultilingualUpdate("custom_request_cta_text", lang, val)}
+              language={language}
+              isRTL={isRTL}
+            />
+            <DestinationPicker
+              label={{ en: "CTA Destination", ar: "وجهة الزر", ur: "سی ٹی اے کی منزل" }}
+              value={{ destination: content.custom_request_cta_destination, url: content.custom_request_cta_url }}
+              onChange={(patch) => {
+                onUpdate("custom_request_cta_destination", patch.destination);
+                onUpdate("custom_request_cta_url", patch.url);
+              }}
+              language={language}
+              isRTL={isRTL}
+            />
+          </>
+        )}
       </FieldGroup>
     </div>
   );
@@ -2750,6 +3136,14 @@ function FooterContentEditor({ content, onUpdate, language, isRTL }) {
     } else {
       links[linkIndex] = { ...links[linkIndex], [field]: value };
     }
+    columns[colIndex] = { ...columns[colIndex], links };
+    onUpdate("columns", columns);
+  };
+
+  const handleColumnLinkPatch = (colIndex, linkIndex, patch) => {
+    const columns = [...(content.columns || [])];
+    const links = [...(columns[colIndex].links || [])];
+    links[linkIndex] = { ...links[linkIndex], ...patch };
     columns[colIndex] = { ...columns[colIndex], links };
     onUpdate("columns", columns);
   };
@@ -2847,6 +3241,7 @@ function FooterContentEditor({ content, onUpdate, language, isRTL }) {
             colIndex={colIndex}
             onUpdateColumn={(field, lang, val) => handleColumnUpdate(colIndex, field, lang, val)}
             onUpdateLink={(linkIndex, field, lang, val) => handleColumnLinkUpdate(colIndex, linkIndex, field, lang, val)}
+            onUpdateLinkPatch={(linkIndex, patch) => handleColumnLinkPatch(colIndex, linkIndex, patch)}
             onAddLink={() => addLink(colIndex)}
             onRemoveLink={(linkIndex) => removeLink(colIndex, linkIndex)}
             onRemove={() => removeColumn(colIndex)}
@@ -2898,7 +3293,7 @@ function FooterContentEditor({ content, onUpdate, language, isRTL }) {
   );
 }
 
-function FooterColumnEditor({ column, colIndex, onUpdateColumn, onUpdateLink, onAddLink, onRemoveLink, onRemove, language, isRTL }) {
+function FooterColumnEditor({ column, colIndex, onUpdateColumn, onUpdateLink, onUpdateLinkPatch, onAddLink, onRemoveLink, onRemove, language, isRTL }) {
   const [expanded, setExpanded] = useState(false);
   const T = (v) => resolveTranslated(v, language);
 
@@ -2938,11 +3333,9 @@ function FooterColumnEditor({ column, colIndex, onUpdateColumn, onUpdateLink, on
                     language={language}
                     isRTL={isRTL}
                   />
-                  <TextField
-                    label={{ en: "URL", ar: "الرابط", ur: "URL" }}
-                    value={link.url}
-                    onChange={(val) => onUpdateLink(linkIndex, "url", null, val)}
-                    icon={Link2}
+                  <DestinationPicker
+                    value={{ destination: link.destination, url: link.url }}
+                    onChange={(patch) => onUpdateLinkPatch(linkIndex, patch)}
                     language={language}
                     isRTL={isRTL}
                   />
@@ -3776,6 +4169,235 @@ function AddItemButton({ onClick, label, language, isRTL, small = false }) {
       {T(label)}
     </button>
   );
+}
+
+// ============================================================
+// DESTINATION PICKER
+// ============================================================
+// Visual picker for every navigation destination in the Website Builder.
+// All destination types live in /lib/destinationTypes.js — this component
+// is purely a UI driver over that registry.
+//
+// Saves both `destination` (new structured shape) and `url` (legacy
+// fallback) so renderers that haven't been migrated still work.
+
+function inferDestinationFromLegacyUrl(url) {
+  if (!url || typeof url !== "string") return null;
+  if (/^mailto:/i.test(url))
+    return { type: "email", value: url.replace(/^mailto:/i, "") };
+  if (/^tel:/i.test(url))
+    return { type: "phone", value: url.replace(/^tel:/i, "") };
+  if (/^https?:\/\//i.test(url))
+    return { type: "external", url, open_new_tab: true };
+  if (url.startsWith("#"))
+    return { type: "section", section_id: url.slice(1) };
+
+  const KNOWN = {
+    "/": "home",
+    "/services": "services",
+    "/my-bookings": "my_bookings",
+    "/my-orders": "my_orders",
+    "/my-requests": "my_requests",
+    "/request-service": "request_service",
+  };
+  if (KNOWN[url]) return { type: "system_page", page: KNOWN[url] };
+  if (url.startsWith("/") && !url.includes("/", 1))
+    return { type: "custom_page", slug: url.slice(1) };
+  return { type: "external", url, open_new_tab: false };
+}
+
+function sectionDisplayLabel(s, lang) {
+  const title = s.content?.title;
+  const resolved =
+    typeof title === "object"
+      ? title[lang] || title.en || Object.values(title)[0]
+      : title;
+  if (resolved) return resolved;
+  const moduleLabel = s.module_key || s.content?.module_key;
+  return moduleLabel ? `Module: ${moduleLabel}` : s.section_type || "Section";
+}
+
+/**
+ * Build the picker context: the data each destination type's listChoices
+ * needs to populate its dropdown. Sourced from the builder state for now;
+ * services/categories will be plugged in by a later phase via a hook.
+ */
+function useDestinationPickerContext() {
+  const { state } = useBuilder();
+  const searchParams = useSearchParams();
+  const domain = searchParams?.get("domain") || "";
+
+  // Services / categories / availability — fetched once per session per
+  // domain and reused across every DestinationPicker instance.
+  const navData = useNavigationContext(domain);
+
+  // Sections eligible as anchor targets: content sections only, not
+  // header/footer (those don't make sense as nav targets).
+  const sections = (state?.sections || [])
+    .filter((s) => {
+      const t = s.section_type;
+      return t && !["header", "footer"].includes(t);
+    })
+    .map((s) => ({
+      id: s.id || s.section_type,
+      section_type: s.section_type,
+      label: sectionDisplayLabel(s, state?.language || "en"),
+    }));
+
+  return {
+    sections,
+    customPages: state?.pages || [],
+    services: navData.services,
+    categories: navData.categories,
+    availability: navData.availability,
+  };
+}
+
+function DestinationPicker({ value, onChange, language, isRTL, label }) {
+  const T = (v) => resolveTranslated(v, language);
+  const ctx = useDestinationPickerContext();
+
+  const effective =
+    value?.destination ||
+    inferDestinationFromLegacyUrl(value?.url) ||
+    { type: "system_page", page: "" };
+
+  const type = effective.type || "system_page";
+  const def = getDestinationType(type);
+
+  const emit = (next) => {
+    onChange({
+      destination: next,
+      url: computeLegacyUrlFromRegistry(next),
+    });
+  };
+
+  const setType = (newType) => {
+    if (newType === type) return;
+    const reset = { type: newType };
+    if (newType === "external") reset.open_new_tab = true;
+    emit(reset);
+  };
+
+  const types = listDestinationTypes();
+
+  return (
+    <div className="space-y-2">
+      <label
+        className={`block text-xs font-medium text-slate-600 ${
+          isRTL ? "text-right" : ""
+        }`}
+      >
+        {T(label || { en: "Destination", ar: "الوجهة", ur: "منزل" })}
+      </label>
+
+      {/* Type selector — single dropdown to stay legible with many types */}
+      <select
+        value={type}
+        onChange={(e) => setType(e.target.value)}
+        className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+        dir="ltr"
+      >
+        {types.map((t) => (
+          <option key={t.key} value={t.key}>
+            {T(t.labels)}
+          </option>
+        ))}
+      </select>
+
+      {/* Type-specific control rendered from the registry */}
+      {def && <DestinationFieldControl def={def} value={effective} emit={emit} ctx={ctx} language={language} isRTL={isRTL} />}
+    </div>
+  );
+}
+
+function DestinationFieldControl({ def, value, emit, ctx, language, isRTL }) {
+  const T = (v) => resolveTranslated(v, language);
+  const picker = def.picker || {};
+
+  if (picker.type === "dropdown") {
+    const choices = picker.listChoices(ctx, language) || [];
+    const valueField = picker.valueField || "value";
+    const current = value?.[valueField] || "";
+    const emptyHint = T(picker.emptyHint || { en: "— Select —" });
+    return (
+      <SelectField
+        label={def.labels}
+        value={current}
+        onChange={(v) =>
+          emit({ type: def.key, [valueField]: v })
+        }
+        options={[
+          { value: "", label: choices.length ? "— Select —" : emptyHint },
+          ...choices.map((c) => ({
+            value: c.value,
+            label: c.label + (c.auth ? "  🔒" : "") + (c.available === false ? "  (unavailable)" : ""),
+          })),
+        ]}
+        language={language}
+        isRTL={isRTL}
+      />
+    );
+  }
+
+  if (picker.type === "url") {
+    return (
+      <div className="space-y-2">
+        <TextField
+          label={{ en: "URL", ar: "الرابط", ur: "URL" }}
+          value={value?.url || ""}
+          onChange={(url) =>
+            emit({
+              type: def.key,
+              url,
+              open_new_tab: value?.open_new_tab !== false,
+            })
+          }
+          icon={ExternalLink}
+          placeholder={picker.placeholder}
+          language={language}
+          isRTL={isRTL}
+        />
+        {picker.extras?.includes("open_new_tab") && (
+          <CheckboxField
+            label={{ en: "Open in new tab", ar: "افتح في نافذة جديدة", ur: "نئے ٹیب میں کھولیں" }}
+            checked={value?.open_new_tab !== false}
+            onChange={(b) =>
+              emit({
+                type: def.key,
+                url: value?.url || "",
+                open_new_tab: b,
+              })
+            }
+            language={language}
+          />
+        )}
+      </div>
+    );
+  }
+
+  if (picker.type === "text") {
+    const valueField = picker.valueField || "value";
+    return (
+      <div>
+        <label className={`block text-xs font-medium text-slate-600 mb-1 ${isRTL ? "text-right" : ""}`}>
+          {T(def.labels)}
+        </label>
+        <input
+          type={picker.inputType || "text"}
+          value={value?.[valueField] || ""}
+          onChange={(e) =>
+            emit({ type: def.key, [valueField]: e.target.value })
+          }
+          placeholder={picker.placeholder}
+          dir="ltr"
+          className="w-full px-3 py-2 border border-slate-200 rounded-lg text-sm focus:border-blue-500 focus:ring-1 focus:ring-blue-500 outline-none"
+        />
+      </div>
+    );
+  }
+
+  return null;
 }
 
 // ============================================================

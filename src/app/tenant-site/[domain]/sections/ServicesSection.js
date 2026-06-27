@@ -18,6 +18,7 @@ import { useTenantLang } from "../../contexts/TenantLangContext";
 import { useTenantTheme } from "../../contexts/TenantThemeContext";
 import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
 import Link from "next/link";
+import { tenantRoutes } from "@/lib/tenantRoutes";
 
 // ─── Centralized service type logic ─────────────────────────────────────────
 import {
@@ -60,7 +61,7 @@ export default function ServicesSection({ data, lang: propLang, domain }) {
     book_button_url,
     book_button_text,
     card_style = "elevated",
-    show_custom_request_cta = true,
+    show_custom_request_cta = false,
     custom_request_cta_text,
     custom_request_cta_url,
   } = data || {};
@@ -195,6 +196,7 @@ export default function ServicesSection({ data, lang: propLang, domain }) {
             key={service.id || idx}
             service={service}
             mode={mode}
+            domain={domain}
             cardClasses={cardClasses}
             buttonStyle={buttonStyle}
             showPrice={show_price}
@@ -241,7 +243,7 @@ export default function ServicesSection({ data, lang: propLang, domain }) {
               }, lang)}
             </p>
             <Link
-              href={custom_request_cta_url || "#custom-request"}
+              href={custom_request_cta_url || tenantRoutes.requestService()}
               className="inline-flex items-center gap-2 px-8 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-all"
               style={buttonStyle}
             >
@@ -268,6 +270,7 @@ export default function ServicesSection({ data, lang: propLang, domain }) {
 function ServiceCard({
   service,
   mode,
+  domain,
   cardClasses,
   buttonStyle,
   showPrice,
@@ -317,7 +320,7 @@ function ServiceCard({
     if (isCustomQuoteService(service)) {
       return {
         text: getServiceCTA(service, lang),
-        url: "#custom-request",
+        url: tenantRoutes.requestService(),
       };
     }
 

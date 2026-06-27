@@ -3,7 +3,9 @@
 
 import Link from "next/link";
 import { resolveTranslated } from "../../../[domain]/utils/resolveTranslated";
-
+import { useTenantSite } from "../../../[domain]/TenantClientWrapper";
+import { tenantRoutes } from "@/lib/tenantRoutes";
+import { formatCurrency } from "@/lib/currency";
 export default function ConfirmationStep({
   orderId,
   orderNumber,
@@ -16,6 +18,7 @@ export default function ConfirmationStep({
   lang,
   isRTL,
 }) {
+  const { domain } = useTenantSite();
   const title = resolveTranslated(service.title || service.name, lang);
   const color = theme.primary_color || "#3B82F6";
   const displayAmount = totalAmount || selectedPackage?.price || service?.base_price || 0;
@@ -71,7 +74,7 @@ export default function ConfirmationStep({
             {resolveTranslated({ en: "Total Paid", ar: "المبلغ المدفوع", ur: "کل ادائیگی" }, lang)}
           </span>
           <span className="font-bold" style={{ color }}>
-            ${Number(displayAmount).toFixed(2)}
+            {formatCurrency(displayAmount, service?.currency)}
           </span>
         </div>
       </div>
@@ -80,7 +83,7 @@ export default function ConfirmationStep({
       <div className="flex flex-wrap gap-4 justify-center">
         {/* View Order — middleware handles tenant prefix on subdomains */}
         <Link
-          href={`/my-orders/${orderId}`}
+          href={tenantRoutes.myOrder(orderId)}
           className="px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity"
           style={{ backgroundColor: color }}
         >
@@ -91,7 +94,7 @@ export default function ConfirmationStep({
         </Link>
 
         <Link
-          href="/"
+          href={tenantRoutes.home()}
           onClick={() => onReset?.()}
           className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200"
         >

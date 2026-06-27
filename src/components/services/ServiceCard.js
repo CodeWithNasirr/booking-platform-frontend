@@ -23,8 +23,11 @@ import { resolveTranslated } from "@/app/tenant-site/[domain]/utils/resolveTrans
 import {
   getServiceRoute,
   getServiceBadge,
-  isMilestoneService,
+  getServiceCTA,
+  isCustomQuoteService,
 } from "@/lib/serviceTypeHelper";
+
+import { tenantRoutes } from "@/lib/tenantRoutes";
 import { formatCurrency } from "@/lib/currency";
 export default function ServiceCard({
   service,
@@ -68,27 +71,43 @@ export default function ServiceCard({
   const rating = Number(service.average_rating || 0);
   const reviews = service.total_reviews || 0;
   const primaryColor = theme.primary_color || "#3B82F6";
+  
+
 
   // Routing
-  const route =
+  let route =
     mode === "database"
       ? getServiceRoute(service)
       : { url: bookButtonUrl || `/services/${slug}`, flow: "booking" };
+
+  // Custom quote services should go to the request page
+  if (mode === "database" && isCustomQuoteService(service)) {
+    route = {
+      url: tenantRoutes.requestService(),
+      flow: "quote",
+    };
+  }
+
+  // CTA
+  const ctaText =
+    mode === "static" && bookButtonText
+      ? bookButtonText
+      : mode === "database"
+      ? getServiceCTA(service, lang)
+      : resolveTranslated(
+          {
+            en: "Book Now",
+            ar: "احجز الآن",
+            ur: "بک کریں",
+          },
+          lang
+        );
+
 
   // Detail page link (always goes to detail, not directly to checkout)
   const detailUrl = `/services/${slug}/`;
 
   const badge = mode === "database" && showBadge ? getServiceBadge(service) : null;
-
-  // CTA label
-  const ctaText =
-    mode === "static" && bookButtonText
-      ? bookButtonText
-      : route.flow === "order"
-      ? resolveTranslated({ en: "Order Now", ar: "اطلب الآن", ur: "آرڈر کریں" }, lang)
-      : route.flow === "booking"
-      ? resolveTranslated({ en: "Book Now", ar: "احجز الآن", ur: "بک کریں" }, lang)
-      : resolveTranslated({ en: "View Details", ar: "التفاصيل", ur: "تفصیلات" }, lang);
 
   // ─── Horizontal variant ───
   if (variant === "horizontal") {

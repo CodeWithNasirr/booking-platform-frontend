@@ -2,6 +2,7 @@
 
 import { useTenantLang } from "../../contexts/TenantLangContext";
 import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
+import { resolveNavItem } from "@/lib/navigationResolver";
 
 export default function Footer({ data, lang: propLang }) {
   // console.log("Footer data ", data);
@@ -123,16 +124,21 @@ export default function Footer({ data, lang: propLang }) {
                 {col.title}
               </h4>
               <ul className="space-y-3">
-                {col.links.map((link, i) => (
-                  <li key={i}>
-                    <a
-                      href={link.href || "#"}
-                      className={`${mutedClass} hover:text-white transition-colors`}
-                    >
-                      {link.label}
-                    </a>
-                  </li>
-                ))}
+                {col.links.map((link, i) => {
+                  const r = resolveNavItem(link);
+                  return (
+                    <li key={i}>
+                      <a
+                        href={r.href}
+                        target={r.target}
+                        rel={r.rel}
+                        className={`${mutedClass} hover:text-white transition-colors`}
+                      >
+                        {link.label}
+                      </a>
+                    </li>
+                  );
+                })}
               </ul>
             </div>
           ))}
@@ -153,9 +159,13 @@ export default function Footer({ data, lang: propLang }) {
                 {resolveTranslated(cta_banner.text, lang)}
               </p>
             )}
-            {cta_banner.url && (
+            {(cta_banner.destination || cta_banner.url) && (() => {
+              const r = resolveNavItem(cta_banner);
+              return (
               <a
-                href={cta_banner.url}
+                href={r.href}
+                target={r.target}
+                rel={r.rel}
                 className="inline-flex items-center gap-2 px-6 py-2.5 rounded-xl text-sm font-medium text-white transition hover:opacity-90"
                 style={{ backgroundColor: "var(--color-primary, #3B82F6)" }}
               >
@@ -165,7 +175,8 @@ export default function Footer({ data, lang: propLang }) {
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d={isRTL ? "M19 12H5M12 5l-7 7 7 7" : "M5 12h14M12 5l7 7-7 7"} />
                 </svg>
               </a>
-            )}
+              );
+            })()}
           </div>
         )}
 

@@ -7,11 +7,13 @@ import { useTenantTheme } from "../../contexts/TenantThemeContext";
 import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
 import LanguageSwitcher from "../utils/LanguageSwitcher";
 import Link from "next/link";
+import { tenantRoutes } from "@/lib/tenantRoutes";
+import { resolveNavItem } from "@/lib/navigationResolver";
 
 export default function Header({ data, lang: propLang }) {
   const { language, isRTL } = useTenantLang();
- 
   const theme = useTenantTheme();
+  const homeUrl = tenantRoutes.home();
   // Use prop lang or context lang
   const lang = propLang || language;
   const {
@@ -21,6 +23,7 @@ export default function Header({ data, lang: propLang }) {
     navigation = [],
     cta_button,
     cta_url = "#",
+    cta_destination = null,
     show_announcement = false,
     announcement_text,
     announcement_link,
@@ -114,7 +117,7 @@ export default function Header({ data, lang: propLang }) {
           <div className="max-w-7xl mx-auto px-6 lg:px-8 h-20 flex items-center justify-between">
             {/* Logo */}
            <Link
-            href="/"
+            href={homeUrl}
             onClick={(e) => {
               if (window.self !== window.top) {
                 e.preventDefault();
@@ -150,7 +153,7 @@ export default function Header({ data, lang: propLang }) {
                   e.preventDefault();
                 }
               }}
-                href={cta_url}
+                href={resolveNavItem({ url: cta_url, destination: cta_destination }).href}
                 className="hidden md:inline-block px-6 py-3 rounded-xl text-white font-semibold hover:opacity-90 shadow-md transition-all"
                 style={ctaStyle}
               >
@@ -193,7 +196,7 @@ export default function Header({ data, lang: propLang }) {
                       e.preventDefault();
                     }
                   }}
-                    href={cta_url}
+                    href={resolveNavItem({ url: cta_url, destination: cta_destination }).href}
                     className="block w-full px-6 py-3 text-white text-center rounded-xl font-semibold"
                     style={ctaStyle}
                   >
@@ -245,7 +248,9 @@ export default function Header({ data, lang: propLang }) {
           </div>
 
           <nav className="hidden md:flex gap-10">
-            {resolvedNavigation.map((item, idx) => (
+            {resolvedNavigation.map((item, idx) => {
+              const r = resolveNavItem(item);
+              return (
               <Link
                onClick={(e) => {
               if (window.self !== window.top) {
@@ -253,12 +258,15 @@ export default function Header({ data, lang: propLang }) {
               }
             }}
                 key={idx}
-                href={item.url}
+                href={r.href}
+                target={r.target}
+                rel={r.rel}
                 className="text-white text-lg hover:text-white/80 transition-all font-medium"
               >
                 {item.label}
               </Link>
-            ))}
+              );
+            })}
           </nav>
 
           {resolvedCtaButton && (
@@ -284,15 +292,18 @@ export default function Header({ data, lang: propLang }) {
 
         {mobileOpen && (
           <div className="md:hidden bg-white/10 backdrop-blur-xl border-t border-white/20 px-6 py-4 space-y-3 text-white animate-fade-down">
-            {resolvedNavigation.map((item, idx) => (
+            {resolvedNavigation.map((item, idx) => {
+              const r = resolveNavItem(item);
+              return (
               <Link  onClick={(e) => {
               if (window.self !== window.top) {
                 e.preventDefault();
               }
-            }} key={idx} href={item.url} className="block py-2 text-lg">
+            }} key={idx} href={r.href} target={r.target} rel={r.rel} className="block py-2 text-lg">
                 {item.label}
               </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </header>
@@ -339,10 +350,14 @@ function NavItem({ item, lang, isRTL }) {
             onMouseEnter={(e) => (e.currentTarget.style.color = "var(--color-primary)")}
             onMouseLeave={(e) => (e.currentTarget.style.color = "var(--color-text)")}
             >
-            {resolvedSubmenu.map((sub, idx) => (
+            {resolvedSubmenu.map((sub, idx) => {
+              const rs = resolveNavItem(sub);
+              return (
               <Link
                 key={idx}
-                href={sub.url}
+                href={rs.href}
+                target={rs.target}
+                rel={rs.rel}
                 className="block px-4 py-2 rounded-lg transition-all"
                 style={{
                   backgroundColor: "var(--color-background)",
@@ -353,18 +368,21 @@ function NavItem({ item, lang, isRTL }) {
               >
                 {sub.label}
               </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
     );
   }
 
+  const r = resolveNavItem(item);
   return (
     <Link
-      href={item.url}
+      href={r.href}
+      target={r.target}
+      rel={r.rel}
       style={{
-        // backgroundColor: "var(--color-background)",
         color: "var(--color-text)",
       }}
 
@@ -392,10 +410,14 @@ function MobileNavItem({ item, lang }) {
 
         {open && (
           <div className="ml-4 mt-1 space-y-2">
-            {resolvedSubmenu.map((sub, idx) => (
+            {resolvedSubmenu.map((sub, idx) => {
+              const rs = resolveNavItem(sub);
+              return (
               <Link
                 key={idx}
-                href={sub.url}
+                href={rs.href}
+                target={rs.target}
+                rel={rs.rel}
                 style={{
                   backgroundColor: "var(--color-background)",
                   color: "var(--color-text)",
@@ -406,16 +428,20 @@ function MobileNavItem({ item, lang }) {
               >
                 {sub.label}
               </Link>
-            ))}
+              );
+            })}
           </div>
         )}
       </div>
     );
   }
 
+  const r = resolveNavItem(item);
   return (
     <Link
-      href={item.url}
+      href={r.href}
+      target={r.target}
+      rel={r.rel}
       style={{
         backgroundColor: "var(--color-background)",
         color: "var(--color-text)",
