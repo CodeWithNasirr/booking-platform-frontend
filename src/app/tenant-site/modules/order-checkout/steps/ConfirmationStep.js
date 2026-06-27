@@ -5,7 +5,7 @@ import Link from "next/link";
 import { resolveTranslated } from "../../../[domain]/utils/resolveTranslated";
 import { useTenantSite } from "../../../[domain]/TenantClientWrapper";
 import { tenantRoutes } from "@/lib/tenantRoutes";
-
+import { formatCurrency } from "@/lib/currency";
 export default function ConfirmationStep({
   orderId,
   orderNumber,
@@ -74,7 +74,7 @@ export default function ConfirmationStep({
             {resolveTranslated({ en: "Total Paid", ar: "المبلغ المدفوع", ur: "کل ادائیگی" }, lang)}
           </span>
           <span className="font-bold" style={{ color }}>
-            ${Number(displayAmount).toFixed(2)}
+            {formatCurrency(displayAmount, service?.currency)}
           </span>
         </div>
       </div>
