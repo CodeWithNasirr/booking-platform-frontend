@@ -8,7 +8,7 @@
  * verified via email link.
  *
  * Actions: pause / resume / cancel — each hits the matching action on
- * /api/v1/custom-requests/subscriptions/{id}/{action}/
+ * /api/v1/customer-subscriptions/{id}/{action}/
  */
 
 import { useState, useEffect, useCallback } from "react";
@@ -70,7 +70,7 @@ export default function MySubscriptionsClient({ domain, site, header, footer }) 
       setHasToken(true);
 
       const res = await fetch(
-        `${API_BASE}/api/v1/custom-requests/subscriptions/by-email/`,
+        `${API_BASE}/api/v1/customer-subscriptions/by-email/`,
         {
           headers: authHeaders(domain, auth),
           credentials: "include",
@@ -112,7 +112,7 @@ export default function MySubscriptionsClient({ domain, site, header, footer }) 
       try {
         const auth = resolveToken();
         const res = await fetch(
-          `${API_BASE}/api/v1/custom-requests/subscriptions/${id}/${action}/`,
+          `${API_BASE}/api/v1/customer-subscriptions/${id}/${action}/`,
           { method: "POST", headers: authHeaders(domain, auth), credentials: "include" }
         );
         if (!res.ok) throw new Error(String(res.status));
@@ -209,7 +209,7 @@ function SubscriptionCard({ sub, lang, acting, onPause, onResume, onCancel }) {
         <div className="min-w-0">
           <p className="font-semibold text-gray-900 truncate">{sub.service_name}</p>
           <p className="text-sm text-gray-500">
-            {sub.billing_type === "monthly"
+            {sub.billing_interval === "monthly"
               ? t("Monthly", "شهري", "ماہانہ")
               : t("Yearly", "سنوي", "سالانہ")}{" "}
             · {sub.currency} {Number(sub.price).toFixed(2)}

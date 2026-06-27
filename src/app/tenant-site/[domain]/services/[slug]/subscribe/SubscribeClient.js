@@ -7,7 +7,7 @@
  * for guests (logged-in customers skip the field — JWT carries them),
  * confirms the plan, then POSTs to:
  *
- *   /api/v1/custom-requests/public/subscribe/  { service, customer_email, customer_name }
+ *   /api/v1/customer-subscriptions/public/subscribe/  { service, customer_email, customer_name }
  *
  * On success → redirects to /my-subscriptions.
  *
@@ -82,7 +82,7 @@ export default function SubscribeClient({ domain, site, header, footer, service 
       const cancelUrl = window.location.href;
 
       const res = await fetch(
-        `${API_BASE}/api/v1/custom-requests/public/subscribe/`,
+        `${API_BASE}/api/v1/customer-subscriptions/public/subscribe/`,
         {
           method: "POST",
           headers,
