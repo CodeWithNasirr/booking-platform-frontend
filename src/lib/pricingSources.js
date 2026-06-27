@@ -107,8 +107,8 @@ function normalizeSubscriptionPlan(service) {
         : null,
     cta: {
       text: { en: "Subscribe", ar: "اشترك", ur: "سبسکرائب کریں" },
-      destination: { type: "service", slug: service.slug },
-      url: tenantRoutes.service(service.slug),
+      // Goes to the dedicated subscribe flow, not the generic service detail
+      url: tenantRoutes.serviceSubscribe(service.slug),
     },
     meta: {
       source: "subscription",

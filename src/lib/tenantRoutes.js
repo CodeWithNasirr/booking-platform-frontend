@@ -23,6 +23,7 @@ export const tenantRoutes = {
   service: (slug) => `/services/${slug}`,
   serviceBook: (slug) => `/services/${slug}/book`,
   serviceOrder: (slug) => `/services/${slug}/order`,
+  serviceSubscribe: (slug) => `/services/${slug}/subscribe`,
 
   // ── Booking flow ──────────────────────────────────────────────────────────
   bookingByService: (slug) => `/booking/service/${slug}`,
