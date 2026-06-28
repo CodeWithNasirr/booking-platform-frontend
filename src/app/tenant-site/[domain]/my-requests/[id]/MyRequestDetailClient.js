@@ -45,9 +45,11 @@ function readCookieToken() {
   return document.cookie.match(/access_token=([^;]+)/)?.[1] || null;
 }
 
-function tokenHeaders(domain, token, isGuest) {
+function tokenHeaders(tenantRef, token, isGuest) {
   const h = { "Content-Type": "application/json" };
-  if (domain) h["X-Tenant"] = domain;
+  // Prefer tenant UUID (most reliable) and fall back to the slug
+  // from the URL. Backend middleware accepts either.
+  if (tenantRef) h["X-Tenant"] = tenantRef;
   if (token) {
     if (isGuest) h["X-Request-Token"] = token;
     else h["Authorization"] = `Bearer ${token}`;
@@ -107,7 +109,7 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
         try {
           const result = await apiJson(`${API_BASE}/api/v1/custom-requests/access-via-token/`, {
             method: "POST",
-            headers: tokenHeaders(domain),
+            headers: tokenHeaders(tenantId || domain),
             body: JSON.stringify({ token: magic }),
           });
           if (cancelled) return;
@@ -154,7 +156,7 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
     try {
       const data = await apiJson(
         `${API_BASE}/api/v1/custom-requests/${requestId}/`,
-        { headers: tokenHeaders(domain, authToken, isGuestToken) },
+        { headers: tokenHeaders(tenantId || domain, authToken, isGuestToken) },
       );
       setRequest(data);
       setError(null);
@@ -183,7 +185,7 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
         `${API_BASE}/api/v1/custom-requests/${requestId}/accept_quote/`,
         {
           method: "POST",
-          headers: tokenHeaders(domain, authToken, isGuestToken),
+          headers: tokenHeaders(tenantId || domain, authToken, isGuestToken),
           body: JSON.stringify({ quote_id: quoteId }),
         },
       );
@@ -203,7 +205,7 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
         `${API_BASE}/api/v1/custom-requests/${requestId}/reject_quote/`,
         {
           method: "POST",
-          headers: tokenHeaders(domain, authToken, isGuestToken),
+          headers: tokenHeaders(tenantId || domain, authToken, isGuestToken),
           body: JSON.stringify({ quote_id: quoteId }),
         },
       );
@@ -224,7 +226,7 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
         `${API_BASE}/api/v1/custom-requests/${requestId}/messages/`,
         {
           method: "POST",
-          headers: tokenHeaders(domain, authToken, isGuestToken),
+          headers: tokenHeaders(tenantId || domain, authToken, isGuestToken),
           body: JSON.stringify({ body, kind: "message" }),
         },
       );

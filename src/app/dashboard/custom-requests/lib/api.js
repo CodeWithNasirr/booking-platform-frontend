@@ -50,6 +50,23 @@ export async function rejectRequest(tenantId, id) {
   });
 }
 
+export async function listAssignableProviders(tenantId) {
+  // Tenant-scoped list of active providers; backend already filters
+  // by tenant via X-Tenant header in apiFetch.
+  return apiFetch(`/api/v1/providers/?is_active=true`, tenantId);
+}
+
+export async function getRequestMessages(tenantId, id) {
+  return apiFetch(`/api/v1/custom-requests/${id}/messages/`, tenantId);
+}
+
+export async function postRequestMessage(tenantId, id, body, kind = "message") {
+  return apiFetch(`/api/v1/custom-requests/${id}/messages/`, tenantId, {
+    method: "POST",
+    body: JSON.stringify({ body, kind }),
+  });
+}
+
 export async function getSubscriptions(tenantId, params = {}) {
   const query = new URLSearchParams(params).toString();
   return apiFetch(`/api/v1/customer-subscriptions/?${query}`, tenantId);
