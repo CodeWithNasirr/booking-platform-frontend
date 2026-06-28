@@ -258,7 +258,7 @@ export default function SubscriptionsPage() {
                       </td>
                       <td className="px-4 py-3 hidden md:table-cell">
                         <span className="text-sm text-gray-600 capitalize">
-                          {sub.billing_type || sub.billing_cycle || "-"}
+                          {sub.billing_interval || sub.billing_type || sub.billing_cycle || "-"}
                         </span>
                       </td>
                       <td className="px-4 py-3">

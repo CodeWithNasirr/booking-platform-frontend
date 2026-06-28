@@ -52,17 +52,17 @@ export async function rejectRequest(tenantId, id) {
 
 export async function getSubscriptions(tenantId, params = {}) {
   const query = new URLSearchParams(params).toString();
-  return apiFetch(`/api/v1/custom-requests/subscriptions/?${query}`, tenantId);
+  return apiFetch(`/api/v1/customer-subscriptions/?${query}`, tenantId);
 }
 
 export async function cancelSubscription(tenantId, id) {
-  return apiFetch(`/api/v1/custom-requests/subscriptions/${id}/cancel/`, tenantId, {
+  return apiFetch(`/api/v1/customer-subscriptions/${id}/cancel/`, tenantId, {
     method: "POST",
   });
 }
 
 export async function pauseSubscription(tenantId, id) {
-  return apiFetch(`/api/v1/custom-requests/subscriptions/${id}/pause/`, tenantId, {
+  return apiFetch(`/api/v1/customer-subscriptions/${id}/pause/`, tenantId, {
     method: "POST",
   });
 }
