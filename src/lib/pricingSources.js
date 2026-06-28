@@ -57,26 +57,44 @@ function normalizeStaticPlan(rawPlan, idx) {
 
 function normalizeServicePlan(service) {
   if (!service) return null;
+
+  // Custom-quote services don't have a price to show on the card.
+  // Their CTA routes the customer straight to the Request a Service
+  // page (the tenant's intended destination for these), not the
+  // generic service detail page.
+  const isCustomQuote = service.pricing_type === "custom";
+
   return {
     id: service.id || service.slug,
     name: service.name || service.title,
     description: service.short_description || service.description || null,
     featured: !!service.is_featured,
     price: {
-      monthly: service.base_price ?? null,
+      monthly: isCustomQuote ? null : (service.base_price ?? null),
       yearly: null,
       period_monthly: null,
       period_yearly: null,
       currency: service.currency || null,
     },
     features: extractServiceFeatures(service),
-    badge: null,
-    cta: {
-      text: null, // PricingTable renders a default subscribe/order label
-      destination: { type: "service", slug: service.slug },
-      url: tenantRoutes.service(service.slug),
+    badge: isCustomQuote
+      ? { text: { en: "Custom Quote", ar: "عرض سعر مخصص", ur: "حسب ضرورت کوٹ" } }
+      : null,
+    cta: isCustomQuote
+      ? {
+          text: { en: "Request Quote", ar: "اطلب عرض سعر", ur: "کوٹ کی درخواست" },
+          url: tenantRoutes.requestService(),
+        }
+      : {
+          text: null, // PricingTable renders a default subscribe/order label
+          destination: { type: "service", slug: service.slug },
+          url: tenantRoutes.service(service.slug),
+        },
+    meta: {
+      source: isCustomQuote ? "custom_quote" : "service",
+      original_id: service.id || service.slug,
+      pricing_type: service.pricing_type || "fixed",
     },
-    meta: { source: "service", original_id: service.id || service.slug },
   };
 }
 
