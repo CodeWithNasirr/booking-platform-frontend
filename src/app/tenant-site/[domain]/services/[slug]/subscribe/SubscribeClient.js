@@ -7,7 +7,7 @@
  * for guests (logged-in customers skip the field — JWT carries them),
  * confirms the plan, then POSTs to:
  *
- *   /api/v1/custom-requests/public/subscribe/  { service, customer_email, customer_name }
+ *   /api/v1/customer-subscriptions/public/subscribe/  { service, customer_email, customer_name }
  *
  * On success → redirects to /my-subscriptions.
  *
@@ -21,6 +21,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 
 import LayoutRenderer from "../../../LayoutRenderer";
+import HyperPayWidget from "@/components/payment/HyperPayWidget";
 import { useTenantLang } from "../../../../contexts/TenantLangContext";
 import { useTenantTheme } from "../../../../contexts/TenantThemeContext";
 import { resolveTranslated } from "../../../utils/resolveTranslated";
@@ -49,6 +50,10 @@ export default function SubscribeClient({ domain, site, header, footer, service 
   const [agreed, setAgreed] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState(null);
+  // When backend returns a HyperPay checkout, we swap the form for the
+  // widget. The customer enters card details inside the widget; on
+  // submit HyperPay redirects to our callback URL.
+  const [checkout, setCheckout] = useState(null);
 
   const t = (en, ar, ur) => resolveTranslated({ en, ar, ur }, lang);
   const serviceName = resolveTranslated(service.name || service.title, lang);
@@ -82,7 +87,7 @@ export default function SubscribeClient({ domain, site, header, footer, service 
       const cancelUrl = window.location.href;
 
       const res = await fetch(
-        `${API_BASE}/api/v1/custom-requests/public/subscribe/`,
+        `${API_BASE}/api/v1/customer-subscriptions/public/subscribe/`,
         {
           method: "POST",
           headers,
@@ -98,13 +103,21 @@ export default function SubscribeClient({ domain, site, header, footer, service 
 
       const data = await res.json();
 
-      // Gateway path: backend returns { checkout_url }, redirect to hosted checkout.
-      // Direct-create path: backend returns the subscription object.
-      if (data.checkout_url) {
-        window.location.href = data.checkout_url;
+      // HyperPay path: backend returns { checkout_id, widget_url,
+      // brands, callback_url, subscription_id }. Render the widget
+      // below the form so the customer enters card details.
+      if (data.checkout_id && data.widget_url) {
+        setCheckout({
+          checkoutId: data.checkout_id,
+          widgetUrl: data.widget_url,
+          brands: data.brands || ["VISA", "MASTER", "MADA"],
+          callbackUrl: data.callback_url,
+        });
         return;
       }
 
+      // Dev direct-create fallback: backend returns the subscription
+      // object directly. Send the customer straight to the portal.
       router.push(tenantRoutes.mySubscriptions());
     } catch (err) {
       setError(err.message || t("Subscription failed.", "فشل الاشتراك.", "سبسکرپشن ناکام۔"));
@@ -141,6 +154,29 @@ export default function SubscribeClient({ domain, site, header, footer, service 
             lang={lang}
           />
 
+          {checkout ? (
+            <div className="mt-8 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+              <h2 className="text-lg font-semibold text-gray-900">
+                {t("Payment details", "تفاصيل الدفع", "ادائیگی کی تفصیلات")}
+              </h2>
+              <p className="text-sm text-gray-600">
+                {t(
+                  "Enter your card to authorise the first payment. Renewals will be charged automatically until you cancel.",
+                  "أدخل بطاقتك لتفويض الدفعة الأولى. سيتم خصم التجديدات تلقائيًا حتى الإلغاء.",
+                  "پہلی ادائیگی کی توثیق کے لیے کارڈ درج کریں۔ منسوخ کرنے تک تجدید خود بخود ہو گی۔",
+                )}
+              </p>
+              <HyperPayWidget
+                checkoutId={checkout.checkoutId}
+                widgetUrl={checkout.widgetUrl}
+                brands={checkout.brands}
+                callbackUrl={checkout.callbackUrl}
+                lang={lang}
+                isRTL={isRTL}
+                theme={theme}
+              />
+            </div>
+          ) : (
           <form onSubmit={handleSubmit} className="mt-8 bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
             <h2 className="text-lg font-semibold text-gray-900">
               {t("Customer details", "تفاصيل العميل", "صارف کی تفصیلات")}
@@ -212,6 +248,7 @@ export default function SubscribeClient({ domain, site, header, footer, service 
               </Link>
             </p>
           </form>
+          )}
         </div>
       </main>
 
