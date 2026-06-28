@@ -24,6 +24,7 @@ import enWhatsapp from "./en/whatsapp";
 import enCampaigns from "./en/campaigns";
 import enSettings from "./en/settings";
 import enProvider from "./en/provider"
+import encustomRequests from "./en/customRequests"
 
 
 
@@ -54,6 +55,8 @@ import arWhatsapp from "./ar/whatsapp";
 import arCampaigns from "./ar/campaigns";
 import arSettings from "./ar/settings";
 import arProvider from "./ar/provider"
+import arcustomRequests from "./ar/customRequests"
+
 
 
 // import arSupport from "./ar/support";
@@ -89,6 +92,8 @@ import urWhatsapp from "./ur/whatsapp";
 import urCampaigns from "./ur/campaigns";
 import urSettings from "./ur/settings";
 import urProvider from "./ur/provider"
+import urcustomRequests from "./ur/customRequests"
+
 
 
 
@@ -120,6 +125,7 @@ export const translations = {
     ...enCampaigns,
     ...enSettings,
     ...enProvider,
+    ...encustomRequests,
   },
 
   ar: {
@@ -148,6 +154,7 @@ export const translations = {
     ...arCampaigns,
     ...arSettings,
     ...arProvider,
+    ...arcustomRequests,
 
   },
 
@@ -177,6 +184,7 @@ export const translations = {
     ...urCampaigns,
     ...urSettings,
     ...urProvider,
+    ...urcustomRequests,
 
   },
 };

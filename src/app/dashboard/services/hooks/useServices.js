@@ -255,7 +255,7 @@ export function useServices() {
         short_description: { en: form.short_description || form.description },
         category: form.category_id || null,
         base_price: form.pricingType === "custom" ? null : form.price,
-        currency: "USD",
+        currency: form.currency || "SAR",
         duration_minutes: ["booking", "hybrid"].includes(form.orderType) ? form.duration : null,
         default_delivery_days: ["milestone", "hybrid"].includes(form.orderType) ? form.deliveryDays : null,
         default_revisions: form.orderType === "milestone" ? form.revisions : 0,

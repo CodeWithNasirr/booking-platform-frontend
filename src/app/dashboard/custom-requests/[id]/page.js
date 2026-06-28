@@ -3,10 +3,11 @@ import CustomRequestDetailPage from "./CustomRequestDetailPage";
 
 export const metadata = { title: "Request Detail | Dashboard" };
 
-export default function Page({ params }) {
+export default async function Page({ params }) {
+  const {id} = await params
   return (
     <TenantPermissionGate permission="custom_requests.view">
-      <CustomRequestDetailPage id={params.id} />
+      <CustomRequestDetailPage id={id} />
     </TenantPermissionGate>
   );
 }

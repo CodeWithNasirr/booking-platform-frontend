@@ -75,16 +75,31 @@ export default function ServiceCard({
 
 
   // Routing
-  let route =
-    mode === "database"
-      ? getServiceRoute(service)
-      : { url: bookButtonUrl || `/services/${slug}`, flow: "booking" };
+  let route;
 
-  // Custom quote services should go to the request page
-  if (mode === "database" && isCustomQuoteService(service)) {
+  if (mode === "database") {
+    // Subscription services
+    if (["monthly", "yearly"].includes(service.billing_type)) {
+      route = {
+        url: tenantRoutes.serviceSubscribe(service.slug),
+        flow: "subscription",
+      };
+    }
+    // Custom quote services
+    else if (isCustomQuoteService(service)) {
+      route = {
+        url: tenantRoutes.requestService(),
+        flow: "quote",
+      };
+    }
+    // Normal booking/order services
+    else {
+      route = getServiceRoute(service);
+    }
+  } else {
     route = {
-      url: tenantRoutes.requestService(),
-      flow: "quote",
+      url: bookButtonUrl || `/services/${slug}`,
+      flow: "booking",
     };
   }
 
