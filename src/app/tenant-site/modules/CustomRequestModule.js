@@ -507,6 +507,19 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
       }
 
       try { localStorage.removeItem(draftKey); } catch {}
+
+      // Persist the request token + email so the customer can come
+      // back to /my-requests and see this submission without going
+      // through OTP. The backend returns these on success.
+      if (result.access_token && result.tenant_id) {
+        try {
+          localStorage.setItem(`customer_request_token_${result.tenant_id}`, result.access_token);
+          if (result.email) {
+            localStorage.setItem(`customer_request_email_${result.tenant_id}`, result.email);
+          }
+        } catch {}
+      }
+
       setSubmitResult(result);
       setSubmitted(true);
 

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useTenantLang } from "../contexts/TenantLangContext";
 import { useTenantTheme } from "../contexts/TenantThemeContext";
 import { useTenantSite } from "../[domain]/TenantClientWrapper";
+import { tenantRoutes } from "@/lib/tenantRoutes";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -20,7 +21,7 @@ function apiHeaders(domain, token, isGuestToken) {
   const h = { "Content-Type": "application/json" };
   if (domain) h["X-Tenant"] = domain;
   if (token) {
-    h[isGuestToken ? "X-Order-Token" : "Authorization"] = isGuestToken ? token : `Bearer ${token}`;
+    h[isGuestToken ? "X-Request-Token" : "Authorization"] = isGuestToken ? token : `Bearer ${token}`;
   }
   return h;
 }
@@ -39,17 +40,17 @@ async function apiCall(url, opts = {}) {
 function findStoredGuestToken(tenantId) {
   try {
     if (tenantId) {
-      const token = localStorage.getItem(`customer_order_token_${tenantId}`);
-      const email = localStorage.getItem(`customer_order_email_${tenantId}`);
+      const token = localStorage.getItem(`customer_request_token_${tenantId}`);
+      const email = localStorage.getItem(`customer_request_email_${tenantId}`);
       if (token) return { token, email: email || "", tenantId };
     }
     const keys = Object.keys(localStorage);
     for (const key of keys) {
-      if (key.startsWith("customer_order_token_")) {
+      if (key.startsWith("customer_request_token_")) {
         const token = localStorage.getItem(key);
         if (token) {
-          const storedTenantId = key.replace("customer_order_token_", "");
-          const email = localStorage.getItem(`customer_order_email_${storedTenantId}`) || "";
+          const storedTenantId = key.replace("customer_request_token_", "");
+          const email = localStorage.getItem(`customer_request_email_${storedTenantId}`) || "";
           return { token, email, tenantId: storedTenantId };
         }
       }
@@ -132,7 +133,7 @@ export default function CustomerRequestsDashboard({ data, settings, tenantId, do
   const handleSendOtp = async () => {
     setAuthLoading(true);
     try {
-      await apiCall(`${API_BASE}/api/v1/orders/customer-portal/send-otp/`, {
+      await apiCall(`${API_BASE}/api/v1/custom-requests/request-access/`, {
         method: "POST",
         headers: apiHeaders(domain),
         body: JSON.stringify({ email: guestEmail }),
@@ -148,18 +149,18 @@ export default function CustomerRequestsDashboard({ data, settings, tenantId, do
   const handleVerifyOtp = async () => {
     setAuthLoading(true);
     try {
-      const result = await apiCall(`${API_BASE}/api/v1/orders/customer-portal/verify-otp/`, {
+      const result = await apiCall(`${API_BASE}/api/v1/custom-requests/verify-access/`, {
         method: "POST",
         headers: apiHeaders(domain),
-        body: JSON.stringify({ email: guestEmail, otp }),
+        body: JSON.stringify({ email: guestEmail, code: otp }),
       });
-      const token = result.token || result.access;
+      const token = result.token;
       setAuthToken(token);
       setIsGuestToken(true);
       setAuthMode("authenticated");
       try {
-        localStorage.setItem(`customer_order_token_${tenantId}`, token);
-        localStorage.setItem(`customer_order_email_${tenantId}`, guestEmail);
+        localStorage.setItem(`customer_request_token_${tenantId}`, token);
+        localStorage.setItem(`customer_request_email_${tenantId}`, guestEmail);
       } catch {}
     } catch {
       setError("Invalid verification code");
@@ -362,7 +363,7 @@ export default function CustomerRequestsDashboard({ data, settings, tenantId, do
             return (
               <button
                 key={req.id}
-                onClick={() => setSelectedRequest(req)}
+                onClick={() => { window.location.href = tenantRoutes.myRequest(req.id); }}
                 className="w-full bg-white rounded-2xl shadow-sm border hover:shadow-md transition p-5 text-left"
               >
                 <div className={`flex items-start justify-between gap-4 ${isRTL ? "flex-row-reverse text-right" : ""}`}>
