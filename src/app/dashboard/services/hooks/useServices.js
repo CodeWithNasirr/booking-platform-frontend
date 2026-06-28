@@ -41,11 +41,16 @@ export function useServices() {
     serviceType: "online",
     orderType: "booking",
     pricingType: "fixed",
+    // Subscription fields (Phase 2 model). billingType drives whether
+    // this Service shows up in PricingTable's subscription source.
+    billingType: "one_time",
+    priceMonthly: null,
+    priceYearly: null,
+    trialDays: 0,
+    autoRenewDefault: true,
+    planFeatures: [],
     maxCapacity: 1,
     image: "",
-    // hasMilestones: false,
-    // requiresDeposit: false,
-    // depositPercent: 30,
     deliveryDays: 7,
     revisions: 1,
     packages: [],
@@ -136,10 +141,11 @@ export function useServices() {
           serviceType: s.service_type,
           orderType: s.order_type,
           pricingType: s.pricing_type,
+          billingType: s.billing_type || "one_time",
+          priceMonthly: s.price_monthly,
+          priceYearly: s.price_yearly,
           created_at: s.created_at,
           deleted_at: s.deleted_at,
-          // hasMilestones: s.has_milestones,
-          // requiresDeposit: s.requires_deposit,
           deliveryDays: s.default_delivery_days,
           image: s.image || "",
         }));
@@ -192,6 +198,12 @@ export function useServices() {
       serviceType: "online",
       orderType: "booking",
       pricingType: "fixed",
+      billingType: "one_time",
+      priceMonthly: null,
+      priceYearly: null,
+      trialDays: 0,
+      autoRenewDefault: true,
+      planFeatures: [],
       maxCapacity: 1,
       image: "",
       hasMilestones: false,
@@ -230,6 +242,13 @@ export function useServices() {
         return;
       }
 
+      const isSubscription = ["monthly", "yearly"].includes(form.billingType);
+
+      // Strip empty strings off plan_features so the JSON ledger stays clean.
+      const planFeatures = (form.planFeatures || [])
+        .map((f) => (typeof f === "string" ? f.trim() : f))
+        .filter((f) => (typeof f === "string" ? f.length > 0 : !!f));
+
       const payload = {
         name: { en: form.name },
         description: { en: form.description },
@@ -243,11 +262,15 @@ export function useServices() {
         service_type: form.serviceType,
         order_type: form.orderType,
         pricing_type: form.pricingType,
+        // Subscription fields (Phase 2 model)
+        billing_type: form.billingType || "one_time",
+        price_monthly: isSubscription ? form.priceMonthly : null,
+        price_yearly: isSubscription ? form.priceYearly : null,
+        trial_days: isSubscription ? (form.trialDays || 0) : 0,
+        auto_renew_default: isSubscription ? form.autoRenewDefault !== false : true,
+        plan_features: isSubscription ? planFeatures : [],
         is_active: form.isActive,
         image: form.image,
-        // has_milestones: form.orderType === "milestone" || form.serviceType === "digital",
-        // requires_deposit: form.orderType === "milestone" ? form.requiresDeposit : false,
-        // deposit_percent: form.requiresDeposit ? form.depositPercent : 0,
         packages: form.pricingType === "package" ? form.packages : [],
         addons: form.addons,
         availability: ["booking", "hybrid"].includes(form.orderType) ? form.availability : [],
@@ -346,9 +369,14 @@ export function useServices() {
         serviceType: fullService.service_type || "online",
         orderType: fullService.order_type || "booking",
         pricingType: fullService.pricing_type || "fixed",
-        // hasMilestones: fullService.has_milestones || false,
-        // requiresDeposit: fullService.requires_deposit || false,
-        // depositPercent: fullService.deposit_percent || 30,
+        billingType: fullService.billing_type || "one_time",
+        priceMonthly: fullService.price_monthly ?? null,
+        priceYearly: fullService.price_yearly ?? null,
+        trialDays: fullService.trial_days ?? 0,
+        autoRenewDefault: fullService.auto_renew_default !== false,
+        planFeatures: Array.isArray(fullService.plan_features)
+          ? fullService.plan_features
+          : [],
         deliveryDays: fullService.default_delivery_days || 7,
         revisions: fullService.default_revisions || 1,
         image: fullService.image || "",

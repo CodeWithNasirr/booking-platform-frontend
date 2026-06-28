@@ -359,9 +359,9 @@ function defaultCtaLabel(plan, lang) {
       lang
     );
   }
-  if (plan.meta?.source === "service") {
+  if (plan.meta?.source === "custom_quote") {
     return resolveTranslated(
-      { en: "Get Started", ar: "ابدأ الآن", ur: "شروع کریں" },
+      { en: "Request Quote", ar: "اطلب عرض سعر", ur: "کوٹ کی درخواست" },
       lang
     );
   }
