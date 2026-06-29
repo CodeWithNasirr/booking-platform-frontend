@@ -19,6 +19,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { useTenantPermission } from "@/lib/useTenantPermission";
 import { useRealtime } from "@/lib/realtime";
+import { applyRequestEnvelope, applyTenantRequestSummary } from "@/lib/realtimePatches";
 import toast from "react-hot-toast";
 import {
   Search,
@@ -183,10 +184,17 @@ export default function CustomRequestsPage() {
   useRealtime({
     topics: realtimeTopics,
     auth: { jwt: cookieToken },
-    onEvent: (msg) => {
-      if (!msg?.event) return;
-      if (msg.topic?.startsWith("tenant:")) fetchList();
-      if (msg.topic?.startsWith("custom_request:")) fetchDetail();
+    onEvent: (envelope) => {
+      if (!envelope?.entity_type) return;
+      // List rows update from the summary envelope; detail
+      // updates from typed entity envelopes.
+      if (envelope.entity_type === "custom_request.summary") {
+        setRequests((prev) => applyTenantRequestSummary(prev, envelope));
+        return;
+      }
+      if (envelope.topic?.startsWith("custom_request:")) {
+        setDetail((prev) => (prev ? applyRequestEnvelope(prev, envelope) : prev));
+      }
     },
   });
 

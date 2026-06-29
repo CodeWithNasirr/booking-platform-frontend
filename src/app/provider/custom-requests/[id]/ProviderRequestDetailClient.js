@@ -6,6 +6,7 @@ import toast from "react-hot-toast";
 import { ArrowLeft, Send } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { useRealtime } from "@/lib/realtime";
+import { applyRequestEnvelope } from "@/lib/realtimePatches";
 import DashboardLayout from "@/components/provider/DashboardLayout";
 import MessageThread from "@/components/shared/CustomRequestMessageThread";
 import {
@@ -65,11 +66,9 @@ export default function ProviderRequestDetailClient({ id }) {
   useRealtime({
     topics: id ? [`custom_request:${id}`] : [],
     auth: { jwt: cookieToken },
-    onEvent: (msg) => {
-      if (!msg?.event) return;
-      if (msg.event.startsWith("message.") || msg.event.startsWith("timeline.")) {
-        load();
-      }
+    onEvent: (envelope) => {
+      if (!envelope?.entity_type) return;
+      setRequest((prev) => (prev ? applyRequestEnvelope(prev, envelope) : prev));
     },
   });
 

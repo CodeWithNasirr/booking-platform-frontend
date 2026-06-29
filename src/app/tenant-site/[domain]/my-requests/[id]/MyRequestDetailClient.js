@@ -25,6 +25,7 @@ import { useTenantLang } from "../../../contexts/TenantLangContext";
 import { useTenantTheme } from "../../../contexts/TenantThemeContext";
 import { tenantRoutes } from "@/lib/tenantRoutes";
 import { useRealtime } from "@/lib/realtime";
+import { applyRequestEnvelope } from "@/lib/realtimePatches";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -201,20 +202,18 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
 
   useEffect(() => { fetchRequest(); }, [fetchRequest]);
 
-  // Live updates: subscribe to this request's topic and refetch
-  // when the server tells us something landed. JWT or guest token
-  // is enough — backend authorises per topic.
+  // Live updates: subscribe to this request's topic and patch
+  // local state from the full payload. Refetch is the fallback
+  // path for unknown envelope shapes only.
   useRealtime({
     topics: requestId ? [`custom_request:${requestId}`] : [],
     auth: {
       jwt: !isGuestToken ? authToken : null,
       requestToken: isGuestToken ? authToken : null,
     },
-    onEvent: (msg) => {
-      if (!msg?.event) return;
-      if (msg.event.startsWith("message.") || msg.event.startsWith("timeline.")) {
-        fetchRequest();
-      }
+    onEvent: (envelope) => {
+      if (!envelope?.entity_type) return;
+      setRequest((prev) => (prev ? applyRequestEnvelope(prev, envelope) : prev));
     },
   });
 
