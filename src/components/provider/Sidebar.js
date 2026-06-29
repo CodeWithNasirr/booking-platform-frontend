@@ -15,6 +15,7 @@ import {
   X,
   AlertCircle,
   Wrench,
+  MessageSquare,
 } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { useProviderStatus } from "./useProviderStatus";
@@ -67,6 +68,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       badge: "3",
       disabled: isDeactivated,
       integrationFeature: "online_booking",
+    },
+    {
+      key: "/provider/custom-requests",
+      label: t("sidebar_custom_requests") || "Custom Requests",
+      icon: MessageSquare,
+      disabled: isDeactivated,
     },
     {
       key: "/provider/availability",
