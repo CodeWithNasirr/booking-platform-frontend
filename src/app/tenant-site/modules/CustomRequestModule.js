@@ -5,7 +5,7 @@ import { useTenantLang } from "../contexts/TenantLangContext";
 import { useTenantTheme } from "../contexts/TenantThemeContext";
 import { useTenantSite } from "../[domain]/TenantClientWrapper";
 import { tenantRoutes } from "@/lib/tenantRoutes";
-
+import { resolveTranslatedContent } from "../[domain]/utils/resolveTranslated";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const TRANSLATIONS = {
@@ -724,6 +724,18 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
     </div>
   );
 
+
+  const getTranslated = (value) => {
+    if (!value) return "";
+
+    if (typeof value === "string") return value;
+
+    if (typeof value === "object") {
+      return value[language] || value.en || Object.values(value)[0] || "";
+    }
+
+    return "";
+  };
   const renderStep1 = () => (
     <div className="space-y-5 animate-[fadeIn_0.3s_ease-out]">
       <div>
@@ -754,7 +766,7 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
                 className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm"
               >
                 <span className="text-blue-800">
-                  {t.weOffer} <strong>{svc.name || svc.title}</strong> - {t.instead}
+                  {t.weOffer} <strong>{getTranslated(svc.name || svc.title)}</strong> - {t.instead}
                 </span>
                 <a
                   href={tenantRoutes.service(svc.slug)}
