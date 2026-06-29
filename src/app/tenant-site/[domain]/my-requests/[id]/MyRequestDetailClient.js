@@ -76,7 +76,7 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
   const theme = useTenantTheme();
   const searchParams = useSearchParams();
   // const tenantId = site?.tenant?.id;
-  const tenantId = site?.id;
+  const tenantId = site.tenant_id;
   const primary = theme?.primary_color || "#3B82F6";
 
   const [request, setRequest] = useState(null);

@@ -32,6 +32,7 @@ import {
   ShoppingBag,
 } from "lucide-react";
 import MessageThread from "@/components/shared/CustomRequestMessageThread";
+import provider from "@/translations/en/provider";
 
 const STATUS_CONFIG = {
   pending: { label: "Pending", color: "bg-yellow-100 text-yellow-800" },
@@ -51,8 +52,8 @@ export default function CustomRequestDetailPage({ id }) {
   const router = useRouter();
   const { t, activeTenant, isRTL } = useApp();
   const { allowed: canManage } = useTenantPermission("custom_requests.manage");
-
-  const tenantId = activeTenant?.id || activeTenant;
+ 
+  const tenantId = activeTenant || activeTenant?.id;
 
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -70,7 +71,7 @@ export default function CustomRequestDetailPage({ id }) {
   const [providerId, setProviderId] = useState("");
   const [providers, setProviders] = useState([]);
   const [providersLoading, setProvidersLoading] = useState(false);
-
+  console.log(providers,"DADDDadaA")
   const [replyBody, setReplyBody] = useState("");
   const [replyKind, setReplyKind] = useState("message");
   const [sendingReply, setSendingReply] = useState(false);
@@ -102,22 +103,35 @@ export default function CustomRequestDetailPage({ id }) {
   // assign panel. Avoids a wasteful fetch on every page load and
   // keeps the dropdown fresh after invites.
   useEffect(() => {
-    if (!showAssignForm || !tenantId || providers.length > 0 || providersLoading) return;
+    if (!showAssignForm || !tenantId || providersLoading) return;
+
     let cancelled = false;
-    (async () => {
+
+    const loadProviders = async () => {
       setProvidersLoading(true);
+
       try {
         const result = await listAssignableProviders(tenantId);
-        if (cancelled) return;
-        setProviders(result.results || result || []);
+
+        if (!cancelled) {
+          console.log("API Result:", result);
+          setProviders([...result]); // create a new array reference
+        }
       } catch (err) {
         toast.error(err.message || "Failed to load providers");
       } finally {
-        if (!cancelled) setProvidersLoading(false);
+        if (!cancelled) {
+          setProvidersLoading(false);
+        }
       }
-    })();
-    return () => { cancelled = true; };
-  }, [showAssignForm, tenantId, providers.length, providersLoading]);
+    };
+
+    loadProviders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showAssignForm, tenantId]);
 
   const handleAssignProvider = async () => {
     if (!providerId) return;

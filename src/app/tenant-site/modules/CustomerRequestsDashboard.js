@@ -65,6 +65,7 @@ export default function CustomerRequestsDashboard({ data, settings, tenantId, do
   const { theme } = useTenantTheme();
   const { currency } = useTenantSite();
   const primaryColor = theme?.primary_color || "#3B82F6";
+  console.log(tenantId,"tenantId")
 
   const t = (obj) => obj?.[language] || obj?.en || "";
 

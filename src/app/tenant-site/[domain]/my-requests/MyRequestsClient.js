@@ -16,7 +16,7 @@ export default function MyRequestsClient({
 }) {
   const headerSection = header ? [header] : [];
   const footerSection = footer ? [footer] : [];
-
+  console.log(site,"SITE...")
   return (
     <>
       {headerSection.length > 0 && (
@@ -29,7 +29,7 @@ export default function MyRequestsClient({
       <main className="min-h-screen bg-gray-50">
         <CustomerRequestsDashboard
           domain={domain}
-          tenantId={site?.id}
+          tenantId={site.tenant_id}
         />
       </main>
 
