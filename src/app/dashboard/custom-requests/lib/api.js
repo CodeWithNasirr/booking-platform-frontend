@@ -67,6 +67,19 @@ export async function postRequestMessage(tenantId, id, body, kind = "message") {
   });
 }
 
+export async function counterRequestQuote(tenantId, id, quoteId, note) {
+  return apiFetch(`/api/v1/custom-requests/${id}/counter_request/`, tenantId, {
+    method: "POST",
+    body: JSON.stringify({ quote_id: quoteId, note }),
+  });
+}
+
+export async function reopenRequest(tenantId, id) {
+  return apiFetch(`/api/v1/custom-requests/${id}/reopen/`, tenantId, {
+    method: "POST",
+  });
+}
+
 export async function getSubscriptions(tenantId, params = {}) {
   const query = new URLSearchParams(params).toString();
   return apiFetch(`/api/v1/customer-subscriptions/?${query}`, tenantId);
