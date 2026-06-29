@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
 import { ArrowLeft, Send } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
+import { useRealtime } from "@/lib/realtime";
 import DashboardLayout from "@/components/provider/DashboardLayout";
 import MessageThread from "@/components/shared/CustomRequestMessageThread";
 import {
@@ -54,6 +55,23 @@ export default function ProviderRequestDetailClient({ id }) {
   }, [tenantId, id]);
 
   useEffect(() => { load(); }, [load]);
+
+  // Realtime: provider gets pinged when the customer/admin replies
+  // or anything lands on the timeline.
+  const cookieToken = (() => {
+    if (typeof document === "undefined") return null;
+    return document.cookie.match(/access_token=([^;]+)/)?.[1] || null;
+  })();
+  useRealtime({
+    topics: id ? [`custom_request:${id}`] : [],
+    auth: { jwt: cookieToken },
+    onEvent: (msg) => {
+      if (!msg?.event) return;
+      if (msg.event.startsWith("message.") || msg.event.startsWith("timeline.")) {
+        load();
+      }
+    },
+  });
 
   async function handleSubmitQuote(e) {
     e.preventDefault();

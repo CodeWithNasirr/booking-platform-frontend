@@ -18,6 +18,7 @@ import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { useTenantPermission } from "@/lib/useTenantPermission";
+import { useRealtime } from "@/lib/realtime";
 import toast from "react-hot-toast";
 import {
   Search,
@@ -165,6 +166,29 @@ export default function CustomRequestsPage() {
   useEffect(() => {
     if (detail) feedEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
   }, [detail?.messages?.length, detail?.timeline?.length]);
+
+  // Realtime: subscribe to the selected request AND the tenant
+  // requests topic so the list refreshes when activity lands on a
+  // row that isn't currently selected.
+  const cookieToken = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    return document.cookie.match(/access_token=([^;]+)/)?.[1] || null;
+  }, []);
+  const realtimeTopics = useMemo(() => {
+    const t = [];
+    if (tenantId) t.push(`tenant:${tenantId}:requests`);
+    if (selectedId) t.push(`custom_request:${selectedId}`);
+    return t;
+  }, [tenantId, selectedId]);
+  useRealtime({
+    topics: realtimeTopics,
+    auth: { jwt: cookieToken },
+    onEvent: (msg) => {
+      if (!msg?.event) return;
+      if (msg.topic?.startsWith("tenant:")) fetchList();
+      if (msg.topic?.startsWith("custom_request:")) fetchDetail();
+    },
+  });
 
   // ── Status counts ───────────────────────────────────────────────
   const counts = useMemo(() => {

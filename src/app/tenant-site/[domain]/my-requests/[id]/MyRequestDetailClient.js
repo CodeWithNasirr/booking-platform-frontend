@@ -24,6 +24,7 @@ import LayoutRenderer from "../../LayoutRenderer";
 import { useTenantLang } from "../../../contexts/TenantLangContext";
 import { useTenantTheme } from "../../../contexts/TenantThemeContext";
 import { tenantRoutes } from "@/lib/tenantRoutes";
+import { useRealtime } from "@/lib/realtime";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -199,6 +200,23 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
   }, [authToken, isGuestToken, tenantId, domain, requestId]);
 
   useEffect(() => { fetchRequest(); }, [fetchRequest]);
+
+  // Live updates: subscribe to this request's topic and refetch
+  // when the server tells us something landed. JWT or guest token
+  // is enough — backend authorises per topic.
+  useRealtime({
+    topics: requestId ? [`custom_request:${requestId}`] : [],
+    auth: {
+      jwt: !isGuestToken ? authToken : null,
+      requestToken: isGuestToken ? authToken : null,
+    },
+    onEvent: (msg) => {
+      if (!msg?.event) return;
+      if (msg.event.startsWith("message.") || msg.event.startsWith("timeline.")) {
+        fetchRequest();
+      }
+    },
+  });
 
   // Auto-scroll feed when new content lands.
   useEffect(() => {
