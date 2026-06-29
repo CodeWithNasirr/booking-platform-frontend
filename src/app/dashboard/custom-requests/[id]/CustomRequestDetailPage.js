@@ -12,6 +12,8 @@ import {
   acceptQuote,
   rejectQuote,
   rejectRequest,
+  listAssignableProviders,
+  postRequestMessage,
 } from "../lib/api";
 import {
   ArrowLeft,
@@ -29,6 +31,7 @@ import {
   Send,
   ShoppingBag,
 } from "lucide-react";
+import MessageThread from "@/components/shared/CustomRequestMessageThread";
 
 const STATUS_CONFIG = {
   pending: { label: "Pending", color: "bg-yellow-100 text-yellow-800" },
@@ -65,6 +68,12 @@ export default function CustomRequestDetailPage({ id }) {
 
   const [showAssignForm, setShowAssignForm] = useState(false);
   const [providerId, setProviderId] = useState("");
+  const [providers, setProviders] = useState([]);
+  const [providersLoading, setProvidersLoading] = useState(false);
+
+  const [replyBody, setReplyBody] = useState("");
+  const [replyKind, setReplyKind] = useState("message");
+  const [sendingReply, setSendingReply] = useState(false);
 
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
@@ -88,6 +97,27 @@ export default function CustomRequestDetailPage({ id }) {
   useEffect(() => {
     if (tenantId && id) fetchRequest();
   }, [fetchRequest, tenantId, id]);
+
+  // Load the provider list lazily — only when the admin opens the
+  // assign panel. Avoids a wasteful fetch on every page load and
+  // keeps the dropdown fresh after invites.
+  useEffect(() => {
+    if (!showAssignForm || !tenantId || providers.length > 0 || providersLoading) return;
+    let cancelled = false;
+    (async () => {
+      setProvidersLoading(true);
+      try {
+        const result = await listAssignableProviders(tenantId);
+        if (cancelled) return;
+        setProviders(result.results || result || []);
+      } catch (err) {
+        toast.error(err.message || "Failed to load providers");
+      } finally {
+        if (!cancelled) setProvidersLoading(false);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [showAssignForm, tenantId, providers.length, providersLoading]);
 
   const handleAssignProvider = async () => {
     if (!providerId) return;
@@ -163,6 +193,22 @@ export default function CustomRequestDetailPage({ id }) {
       toast.error(err.message || "Failed to reject request");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleSendReply = async () => {
+    const body = replyBody.trim();
+    if (!body || sendingReply) return;
+    try {
+      setSendingReply(true);
+      await postRequestMessage(tenantId, id, body, replyKind);
+      setReplyBody("");
+      setReplyKind("message");
+      fetchRequest();
+    } catch (err) {
+      toast.error(err.message || "Failed to send message");
+    } finally {
+      setSendingReply(false);
     }
   };
 
@@ -375,7 +421,7 @@ export default function CustomRequestDetailPage({ id }) {
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
                       <div>
                         <span className="text-lg font-semibold">
-                          {quote.currency || request.currency || "SAR"} {parseFloat(quote.price).toFixed(2)}
+                          {quote.currency || "SAR"} {parseFloat(quote.price).toFixed(2)}
                         </span>
                         {quote.delivery_days && (
                           <span className="text-sm text-gray-500 ml-3">
@@ -420,6 +466,20 @@ export default function CustomRequestDetailPage({ id }) {
               })}
             </div>
           </div>
+
+          <MessageThread
+            messages={request.messages || []}
+            canPost={canManage && !["rejected", "converted", "cancelled"].includes(request.status)}
+            allowInfoRequest
+            replyBody={replyBody}
+            setReplyBody={setReplyBody}
+            replyKind={replyKind}
+            setReplyKind={setReplyKind}
+            onSend={handleSendReply}
+            sending={sendingReply}
+            isRTL={isRTL}
+            t={t}
+          />
         </div>
 
         <div className="space-y-6">
@@ -464,13 +524,34 @@ export default function CustomRequestDetailPage({ id }) {
 
                 {showAssignForm && (
                   <div className="p-3 bg-gray-50 rounded-lg space-y-2">
-                    <input
-                      type="text"
+                    <select
                       value={providerId}
                       onChange={(e) => setProviderId(e.target.value)}
-                      placeholder={t("customRequests.providerIdPlaceholder") || "Provider ID"}
-                      className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
-                    />
+                      disabled={providersLoading}
+                      className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
+                    >
+                      <option value="">
+                        {providersLoading
+                          ? (t("common.loading") || "Loading providers…")
+                          : (t("customRequests.selectProvider") || "Select a provider…")}
+                      </option>
+                      {providers.map((p) => {
+                        const label = p.name || p.full_name
+                          || [p.first_name, p.last_name].filter(Boolean).join(" ")
+                          || p.email || p.id;
+                        return (
+                          <option key={p.id} value={p.id}>
+                            {label}{p.email ? ` — ${p.email}` : ""}
+                          </option>
+                        );
+                      })}
+                    </select>
+                    {!providersLoading && providers.length === 0 && (
+                      <p className="text-xs text-gray-500">
+                        {t("customRequests.noProviders")
+                          || "No active providers yet. Invite one from the Providers page."}
+                      </p>
+                    )}
                     <div className={`flex gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
                       <button
                         onClick={handleAssignProvider}

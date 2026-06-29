@@ -17,9 +17,10 @@ const STATUS_CONFIG = {
   cancelled: { label: { en: "Cancelled", ar: "ملغي", ur: "منسوخ" }, color: "bg-gray-100 text-gray-800" },
 };
 
-function apiHeaders(domain, token, isGuestToken) {
+function apiHeaders(tenantRef, token, isGuestToken) {
   const h = { "Content-Type": "application/json" };
-  if (domain) h["X-Tenant"] = domain;
+  // tenantRef: UUID when known (most reliable), slug otherwise.
+  if (tenantRef) h["X-Tenant"] = tenantRef;
   if (token) {
     h[isGuestToken ? "X-Request-Token" : "Authorization"] = isGuestToken ? token : `Bearer ${token}`;
   }
@@ -110,7 +111,7 @@ export default function CustomerRequestsDashboard({ data, settings, tenantId, do
       if (filter !== "all") params.append("status", filter);
       const result = await apiCall(
         `${API_BASE}/api/v1/custom-requests/?${params}`,
-        { headers: apiHeaders(domain, authToken, isGuestToken) }
+        { headers: apiHeaders(tenantId || domain, authToken, isGuestToken) }
       );
       setRequests(result.results || result || []);
       setError(null);
@@ -135,7 +136,7 @@ export default function CustomerRequestsDashboard({ data, settings, tenantId, do
     try {
       await apiCall(`${API_BASE}/api/v1/custom-requests/request-access/`, {
         method: "POST",
-        headers: apiHeaders(domain),
+        headers: apiHeaders(tenantId || domain),
         body: JSON.stringify({ email: guestEmail }),
       });
       setOtpSent(true);
@@ -151,7 +152,7 @@ export default function CustomerRequestsDashboard({ data, settings, tenantId, do
     try {
       const result = await apiCall(`${API_BASE}/api/v1/custom-requests/verify-access/`, {
         method: "POST",
-        headers: apiHeaders(domain),
+        headers: apiHeaders(tenantId || domain),
         body: JSON.stringify({ email: guestEmail, code: otp }),
       });
       const token = result.token;
