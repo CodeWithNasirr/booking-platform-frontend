@@ -109,6 +109,10 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   const [sending, setSending] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
+  // Optimistic outbound queue — bubbles render immediately as
+  // "Sending…" and clear when realtime patches the persisted
+  // message into request.messages.
+  const [pendingMessages, setPendingMessages] = useState([]);
 
   // ── Auth resolution ─────────────────────────────────────────────
   useEffect(() => {
@@ -220,6 +224,15 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   async function handleSend() {
     const body = reply.trim();
     if (!body || sending) return;
+    const optimistic = {
+      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      body,
+      at: new Date().toISOString(),
+      author_role: "customer",
+      author_name: "You",
+    };
+    setPendingMessages((q) => [...q, optimistic]);
+    setReply("");
     setSending(true);
     try {
       await apiJson(
@@ -230,13 +243,35 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
           body: JSON.stringify({ body, kind: "message" }),
         },
       );
-      setReply("");
+      // Realtime echoes the persisted row; reconciliation effect
+      // below drops the pending entry once that lands.
     } catch (err) {
+      setPendingMessages((q) => q.filter((m) => m.id !== optimistic.id));
+      setReply(body);
       alert(err.message || "Failed to send message");
     } finally {
       setSending(false);
     }
   }
+
+  // Reconcile: when the realtime feed grows to include a message
+  // matching a pending entry's body within the last minute, drop
+  // the optimistic placeholder. Cheap O(n*m) over very small n,m.
+  useEffect(() => {
+    if (pendingMessages.length === 0 || !request?.messages?.length) return;
+    const now = Date.now();
+    const stillPending = pendingMessages.filter((p) => {
+      const match = request.messages.find((m) =>
+        (m.author_role === "customer" || !m.author_role)
+        && (m.body || "").trim() === p.body.trim()
+        && now - new Date(m.created_at).getTime() < 5 * 60 * 1000,
+      );
+      return !match;
+    });
+    if (stillPending.length !== pendingMessages.length) {
+      setPendingMessages(stillPending);
+    }
+  }, [pendingMessages, request?.messages]);
 
   async function quoteAction(actionPath, quoteId, extra = {}) {
     if (actionBusy) return;
@@ -439,7 +474,7 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
             <MessageCircle className="w-3.5 h-3.5" />
             Conversation
           </h2>
-          {(request.messages?.length === 0 && request.timeline?.length <= 1)
+          {(request.messages?.length === 0 && request.timeline?.length <= 1 && pendingMessages.length === 0)
             ? (
               <EmptyState
                 icon={MessageCircle}
@@ -448,7 +483,13 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
                 className="py-6"
               />
             )
-            : <ConversationFeed request={request} viewer="customer" />}
+            : (
+              <ConversationFeed
+                request={request}
+                viewer="customer"
+                pendingMessages={pendingMessages}
+              />
+            )}
         </Card>
       </div>
 
