@@ -38,6 +38,7 @@ import {
   StickyComposer,
   StatusTimeline,
   RequestDetailSkeleton,
+  PostAcceptanceCard,
   TERMINAL_STATUSES,
 } from "@/components/custom-requests";
 import {
@@ -49,6 +50,12 @@ import {
 } from "@/components/ui";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+
+// Once a request leaves the negotiation phase the QuoteCard
+// stops being the relevant CTA — PostAcceptanceCard takes over.
+const POST_ACCEPTANCE_STATUSES = new Set([
+  "converted", "completed", "rejected", "cancelled",
+]);
 
 function readCookieToken() {
   if (typeof document === "undefined") return null;
@@ -113,6 +120,11 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   // "Sending…" and clear when realtime patches the persisted
   // message into request.messages.
   const [pendingMessages, setPendingMessages] = useState([]);
+  // Order summary fetched once when the request enters a
+  // post-acceptance state. Guests may not have the order-portal
+  // auth set up — failures are swallowed and we degrade to the
+  // simple "open in order portal" CTA.
+  const [order, setOrder] = useState(null);
 
   // ── Auth resolution ─────────────────────────────────────────────
   useEffect(() => {
@@ -193,6 +205,34 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   }, [authToken, isGuestToken, tenantId, domain, requestId]);
 
   useEffect(() => { fetchRequest(); }, [fetchRequest]);
+
+  // ── Order summary (post-acceptance) ─────────────────────────────
+  useEffect(() => {
+    const orderId = request?.converted_order;
+    const inScope = ["converted", "completed"].includes(request?.status);
+    if (!orderId || !inScope || !authToken) {
+      setOrder(null);
+      return;
+    }
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await apiJson(
+          `${API_BASE}/api/v1/orders/${orderId}/`,
+          { headers: tokenHeaders(tenantId || domain, authToken, isGuestToken) },
+        );
+        if (!cancelled) setOrder(data);
+      } catch {
+        // Soft fail — most commonly a guest who hasn't done the
+        // order-portal OTP yet. The PostAcceptanceCard renders
+        // the simpler "open order" CTA without the inline status
+        // pill and price; the customer continues their flow in
+        // /my-orders/<id>.
+        if (!cancelled) setOrder(null);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [request?.converted_order, request?.status, authToken, isGuestToken, tenantId, domain]);
 
   // ── Realtime ────────────────────────────────────────────────────
   useRealtime({
@@ -428,8 +468,12 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
           )}
         </Card>
 
-        {/* Quote hero — the customer's call-to-action moment */}
-        {activeQuote && (
+        {/* Quote hero — the customer's call-to-action moment
+            while a quote is on the table. Once the request leaves
+            the negotiation phase we swap to PostAcceptanceCard
+            instead, which keeps the page focused on a single
+            next step. */}
+        {!POST_ACCEPTANCE_STATUSES.has(request.status) && activeQuote && (
           <QuoteCard
             quote={activeQuote}
             canAccept canReject canCounter
@@ -440,23 +484,15 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
           />
         )}
 
-        {/* Conversion success card */}
-        {request.status === "converted" && request.converted_order && (
-          <Card padding="lg" className="!bg-[color:var(--brand-primary,#3B82F6)]/5 !border-[color:var(--brand-primary,#3B82F6)]/20">
-            <p className="text-sm font-semibold text-gray-900 mb-1">
-              Your request is now an order
-            </p>
-            <p className="text-sm text-gray-600 mb-3">
-              Track delivery, files, and messages on the order page.
-            </p>
-            <Link
-              href={tenantRoutes.myOrder(request.converted_order)}
-              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-medium bg-[color:var(--brand-primary,#3B82F6)] text-[color:var(--brand-primary-fg,#fff)] hover:brightness-110"
-            >
-              Open order →
-            </Link>
-          </Card>
-        )}
+        {/* Post-acceptance hero — replaces the active-quote card
+            once the request is converted / completed / rejected /
+            cancelled. Status-aware: pay, track, review, wrap up. */}
+        <PostAcceptanceCard
+          request={request}
+          order={order}
+          orderHref={request.converted_order ? tenantRoutes.myOrder(request.converted_order) : null}
+          providerName={request.provider_name || businessName}
+        />
 
         {/* Attachments */}
         {request.files?.length > 0 && (
