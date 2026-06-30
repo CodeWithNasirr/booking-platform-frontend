@@ -539,22 +539,37 @@ function ProviderAssigner({ tenantId, requestId, onAssigned, disabled }) {
   const [selected, setSelected] = useState("");
   const [busy, setBusy] = useState(false);
 
+
   useEffect(() => {
     if (!open || providers.length > 0 || loading) return;
+
     let cancelled = false;
-    (async () => {
+
+    const loadProviders = async () => {
       setLoading(true);
+
       try {
         const result = await listAssignableProviders(tenantId);
-        if (!cancelled) setProviders(result?.results || result || []);
+    
+
+        if (!cancelled) {
+          setProviders([...result]); // or simply setProviders(result)
+        }
       } catch (err) {
         toast.error(err.message || "Failed to load providers");
       } finally {
-        if (!cancelled) setLoading(false);
+        if (!cancelled) {
+          setLoading(false);
+        }
       }
-    })();
-    return () => { cancelled = true; };
-  }, [open, tenantId, providers.length, loading]);
+    };
+
+    loadProviders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, tenantId]);
 
   async function handleAssign() {
     if (!selected) return;

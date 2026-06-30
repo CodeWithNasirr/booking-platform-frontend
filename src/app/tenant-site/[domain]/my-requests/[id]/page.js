@@ -15,7 +15,6 @@ export async function generateMetadata({ params }) {
 export default async function MyRequestDetailPage({ params }) {
   const { domain, id } = await params;
   const { site, sections, error } = await fetchSite(domain);
-  console.log(site,"DADA")
   if (error || !site?.is_published) notFound();
 
   const header = sections?.find((s) => s.section_type === "header");

@@ -71,7 +71,6 @@ export default function CustomRequestDetailPage({ id }) {
   const [providerId, setProviderId] = useState("");
   const [providers, setProviders] = useState([]);
   const [providersLoading, setProvidersLoading] = useState(false);
-  console.log(providers,"DADDDadaA")
   const [replyBody, setReplyBody] = useState("");
   const [replyKind, setReplyKind] = useState("message");
   const [sendingReply, setSendingReply] = useState(false);
