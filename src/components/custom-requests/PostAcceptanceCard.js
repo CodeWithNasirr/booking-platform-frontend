@@ -1,29 +1,30 @@
 "use client";
 
 /**
- * PostAcceptanceCard (V3.F.9)
+ * PostAcceptanceCard (V3.F.11)
  *
- * The "what happens next?" card that floats above the
- * conversation once a request leaves the negotiation phase.
- * The CTA changes based on (request.status, order.status):
+ * Shared next-step card used by all three roles. The visual
+ * shape, brand-tinted card, icon block, and CTA button are
+ * identical — only the title / body / CTA copy changes per
+ * viewer so the customer, tenant admin, and provider each
+ * see the right message for their role at every status.
  *
- *   converted + pending_payment   → "Complete payment"
- *   converted + paid              → "{provider} is working on this"
- *   converted + in_progress       → "Work in progress"
- *   converted + delivered         → "Review your delivery"
- *   completed                     → "All wrapped up"
- *   rejected                      → tonal info banner
- *   cancelled                     → tonal info banner
- *
- * Order data is optional: when the host can't fetch it (guests,
- * other-tenant requests, network failure) the card falls back
- * to a simple "continue to your order" CTA. The card is also
- * brand-tinted via the platform CSS variables so the CTA reads
- * as the tenant's primary action.
+ * Props:
+ *   request       — full request payload
+ *   order         — optional order summary (silent fallback)
+ *   orderHref     — host-computed CTA destination
+ *   providerName  — copy substitution (used by customer view)
+ *   customerName  — copy substitution (used by admin + provider)
+ *   viewer        — "customer" | "admin" | "provider"
+ *                   defaults to "customer" for backward compat
+ *   className     — host-level layout overrides
  */
 
 import Link from "next/link";
-import { ArrowRight, CheckCircle2, CreditCard, Hourglass, PackageCheck, ShieldX, XOctagon } from "lucide-react";
+import {
+  ArrowRight, CheckCircle2, CreditCard, Hourglass, PackageCheck,
+  PlayCircle, ShieldX, XOctagon,
+} from "lucide-react";
 
 import { Card, Button } from "@/components/ui";
 
@@ -54,10 +55,56 @@ function pickVariant(requestStatus, orderStatus) {
   if (requestStatus !== "converted") return null;
   if (!orderStatus) return "generic";
   if (orderStatus === "pending_payment") return "pay";
-  if (orderStatus === "paid" || orderStatus === "in_progress") return "working";
+  if (orderStatus === "paid") return "start";
+  if (orderStatus === "in_progress") return "working";
   if (orderStatus === "delivered") return "review";
   if (orderStatus === "completed") return "wrapped";
   return "generic";
+}
+
+const ICON_BY_VARIANT = {
+  pay:     CreditCard,
+  start:   PlayCircle,
+  working: Hourglass,
+  review:  PackageCheck,
+  wrapped: CheckCircle2,
+  generic: ArrowRight,
+};
+
+// Per-viewer copy. Each row is { title, body, cta }. Strings can
+// include {provider} / {customer} tokens that resolve from props.
+const COPY = {
+  customer: {
+    pay:     { title: "Complete your payment", body: "Your order is ready. Pay to start work — you'll get an email confirmation right after.", cta: "Pay now" },
+    start:   { title: "{provider} is starting your work", body: "We'll let you know the moment the delivery is ready for your review.", cta: "Track order" },
+    working: { title: "{provider} is working on this", body: "We'll let you know the moment the delivery is ready for your review.", cta: "Track order" },
+    review:  { title: "Your delivery is ready", body: "Check the files on your order page and either accept or request a revision.", cta: "Review delivery" },
+    wrapped: { title: "All wrapped up", body: "Your order is complete. Thanks for working with the team.", cta: "View order" },
+    generic: { title: "Your request is now an order", body: "Continue on the order page to pay, track, or review your delivery.", cta: "Open order" },
+  },
+  admin: {
+    pay:     { title: "Awaiting customer payment", body: "{customer} has accepted the quote — work starts as soon as payment lands.", cta: "View order" },
+    start:   { title: "{customer} paid — work can begin", body: "{provider} is ready to start. The order shows the timeline and files.", cta: "Open order" },
+    working: { title: "Order in progress with {provider}", body: "Work is underway. Track delivery and provider messages on the order page.", cta: "Open order" },
+    review:  { title: "Delivery sent — awaiting customer review", body: "{provider} marked the order delivered. The customer is reviewing now.", cta: "Open order" },
+    wrapped: { title: "All wrapped up", body: "The order is complete. Conversation stays available for reference.", cta: "View order" },
+    generic: { title: "Order created", body: "This request has been converted to an order. Manage it from the order page.", cta: "Open order" },
+  },
+  provider: {
+    pay:     { title: "Waiting for customer payment", body: "{customer} hasn't paid yet. You'll see this update the moment the order is paid.", cta: "View order" },
+    start:   { title: "{customer} paid — start work", body: "Open the order to begin. Mark it in progress when you start.", cta: "Open order" },
+    working: { title: "Work in progress", body: "Keep the order updated as you progress so {customer} sees live status.", cta: "Open order" },
+    review:  { title: "Delivery sent — awaiting review", body: "{customer} is reviewing your delivery. You'll be notified if they request changes.", cta: "Open order" },
+    wrapped: { title: "Order completed", body: "Nice work — this order is done.", cta: "View order" },
+    generic: { title: "Order assigned", body: "An order has been created from this request. Track it on the order page.", cta: "Open order" },
+  },
+};
+
+function fillCopy(template, { providerName, customerName }) {
+  if (!template) return "";
+  return template
+    .replace(/\{provider\}/g, providerName || "the team")
+    .replace(/\{customer\}/g, customerName || "the customer");
 }
 
 export default function PostAcceptanceCard({
@@ -65,12 +112,15 @@ export default function PostAcceptanceCard({
   order,
   orderHref,
   providerName,
+  customerName,
+  viewer = "customer",
   className = "",
 }) {
   const variant = pickVariant(request?.status, order?.status);
   if (!variant) return null;
 
-  // Rejected — tonal banner, no order CTA at all.
+  // Rejected / cancelled — tonal banners read the same across
+  // every role; nothing role-specific to surface.
   if (variant === "rejected") {
     return (
       <Card padding="lg" className={`!bg-rose-50 !border-rose-200 ${className}`}>
@@ -79,8 +129,9 @@ export default function PostAcceptanceCard({
           <div>
             <p className="text-sm font-semibold text-rose-900">This request was declined</p>
             <p className="text-sm text-rose-800/80 mt-1">
-              The team couldn&apos;t move ahead with this one. Feel free to start a new
-              request if your needs have changed.
+              {viewer === "customer"
+                ? "The team couldn't move ahead with this one. Feel free to start a new request if your needs have changed."
+                : "This request has been declined. The conversation stays available for reference."}
             </p>
           </div>
         </div>
@@ -104,51 +155,13 @@ export default function PostAcceptanceCard({
     );
   }
 
-  // Everything else carries an order CTA. Compose copy by variant.
-  const config = (() => {
-    switch (variant) {
-      case "pay":
-        return {
-          icon: CreditCard,
-          title: "Complete your payment",
-          body: "Your order is ready. Pay to start work — you'll get an email confirmation right after.",
-          cta: "Pay now",
-        };
-      case "working":
-        return {
-          icon: Hourglass,
-          title: providerName ? `${providerName} is working on this` : "Work in progress",
-          body: "We'll let you know the moment the delivery is ready for your review.",
-          cta: "Track order",
-        };
-      case "review":
-        return {
-          icon: PackageCheck,
-          title: "Your delivery is ready",
-          body: "Check the files on your order page and either accept or request a revision.",
-          cta: "Review delivery",
-        };
-      case "wrapped":
-        return {
-          icon: CheckCircle2,
-          title: "All wrapped up",
-          body: "Your order is complete. Thanks for working with the team.",
-          cta: "View order",
-        };
-      case "generic":
-      default:
-        return {
-          icon: ArrowRight,
-          title: "Your request is now an order",
-          body: "Continue on the order page to pay, track, or review your delivery.",
-          cta: "Open order",
-        };
-    }
-  })();
-
-  const Icon = config.icon;
+  const copy = (COPY[viewer] || COPY.customer)[variant];
+  const Icon = ICON_BY_VARIANT[variant] || ArrowRight;
   const orderStatusLabel = order ? ORDER_LABEL[order.status] : null;
   const orderStatusTone = order ? ORDER_TONE[order.status] : null;
+
+  const title = fillCopy(copy.title, { providerName, customerName });
+  const body = fillCopy(copy.body, { providerName, customerName });
 
   return (
     <Card
@@ -164,18 +177,21 @@ export default function PostAcceptanceCard({
         </div>
         <div className="min-w-0 flex-1">
           <div className="flex items-center gap-2 flex-wrap">
-            <p className="text-sm font-semibold text-gray-900">{config.title}</p>
+            <p className="text-sm font-semibold text-gray-900">{title}</p>
             {orderStatusLabel && (
               <span className={`text-[10px] font-semibold uppercase tracking-wide px-2 py-0.5 rounded-full border ${orderStatusTone}`}>
                 {orderStatusLabel}
               </span>
             )}
           </div>
-          <p className="text-sm text-gray-600 mt-1">{config.body}</p>
+          <p className="text-sm text-gray-600 mt-1">{body}</p>
 
           {order?.total_amount && (
             <p className="text-xs text-gray-500 mt-2 font-mono">
               {order.currency || ""} {order.total_amount}
+              {order.order_number && (
+                <span className="ml-2 text-gray-400">· #{order.order_number}</span>
+              )}
             </p>
           )}
 
@@ -187,7 +203,7 @@ export default function PostAcceptanceCard({
                 variant="primary"
                 rightIcon={<ArrowRight className="w-4 h-4" />}
               >
-                {config.cta}
+                {copy.cta}
               </Button>
             </div>
           )}

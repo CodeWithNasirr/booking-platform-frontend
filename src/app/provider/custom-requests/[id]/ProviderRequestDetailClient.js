@@ -24,7 +24,7 @@ import { ArrowLeft, RefreshCw, MessageCircle, User, Calendar, Wallet } from "luc
 
 import { useApp } from "@/contexts/AppContext";
 import { useRealtime } from "@/lib/realtime";
-import { applyRequestEnvelope } from "@/lib/realtimePatches";
+import { applyRequestEnvelope, applyOrderEnvelope } from "@/lib/realtimePatches";
 import DashboardLayout from "@/components/provider/DashboardLayout";
 
 import {
@@ -34,6 +34,7 @@ import {
   AttachmentGrid,
   StickyComposer,
   StatusTimeline,
+  PostAcceptanceCard,
   RequestDetailSkeleton,
   TERMINAL_STATUSES,
 } from "@/components/custom-requests";
@@ -45,7 +46,11 @@ import {
   BrandRoot,
 } from "@/components/ui";
 
-import { fetchProviderRequest, postProviderMessage } from "../api";
+import {
+  fetchProviderRequest,
+  postProviderMessage,
+  fetchProviderOrderSummary,
+} from "../api";
 
 export default function ProviderRequestDetailClient({ id }) {
   return (
@@ -72,6 +77,9 @@ function Inner({ id }) {
   // Optimistic outbound queue — local placeholders rendered as
   // "Sending…" until realtime echoes the persisted row.
   const [pendingMessages, setPendingMessages] = useState([]);
+  // Order summary fetched once the request enters a
+  // post-acceptance state; nullable, fall through silently.
+  const [order, setOrder] = useState(null);
 
   const load = useCallback(async () => {
     if (!tenantId) return;
@@ -89,22 +97,57 @@ function Inner({ id }) {
 
   useEffect(() => { load(); }, [load]);
 
+  // Soft order fetch. Provider has access to any order they're
+  // assigned to; failures degrade the PostAcceptanceCard to the
+  // generic shape.
+  const fetchOrder = useCallback(async () => {
+    const orderId = request?.converted_order;
+    const inScope = ["converted", "completed"].includes(request?.status);
+    if (!orderId || !inScope || !tenantId) {
+      setOrder(null);
+      return;
+    }
+    try {
+      const data = await fetchProviderOrderSummary(tenantId, orderId);
+      setOrder(data);
+    } catch {
+      setOrder(null);
+    }
+  }, [request?.converted_order, request?.status, tenantId]);
+
+  useEffect(() => { fetchOrder(); }, [fetchOrder]);
+
   const cookieToken = useMemo(() => {
     if (typeof document === "undefined") return null;
     return document.cookie.match(/access_token=([^;]+)/)?.[1] || null;
   }, []);
 
+  const orderTopicId = request?.converted_order;
+  const realtimeTopics = useMemo(() => {
+    const t = id ? [`custom_request:${id}`] : [];
+    if (orderTopicId) t.push(`order:${orderTopicId}`);
+    return t;
+  }, [id, orderTopicId]);
+
   useRealtime({
-    topics: id ? [`custom_request:${id}`] : [],
+    topics: realtimeTopics,
     auth: { jwt: cookieToken },
     onEvent: (envelope) => {
       if (!envelope?.entity_type) return;
-      setRequest((prev) => (prev ? applyRequestEnvelope(prev, envelope) : prev));
+      if (envelope.entity_type.startsWith("custom_request.")) {
+        setRequest((prev) => (prev ? applyRequestEnvelope(prev, envelope) : prev));
+        return;
+      }
+      if (envelope.entity_type.startsWith("order.")) {
+        setOrder((prev) => applyOrderEnvelope(prev, envelope));
+      }
     },
-    onReconnect: () => { load(); },
+    onReconnect: () => { load(); fetchOrder(); },
   });
 
   const isLocked = TERMINAL_STATUSES.has(request?.status);
+  const isPostAcceptance =
+    ["converted", "completed", "rejected", "cancelled"].includes(request?.status);
   const activeQuote = useMemo(() => {
     if (!request?.quotes) return null;
     return request.quotes.find((q) => q.status === "pending" || q.status === "countered")
@@ -215,7 +258,24 @@ function Inner({ id }) {
             </p>
           </Card>
 
-          {activeQuote && <QuoteCard quote={activeQuote} />}
+          {/* Quote is read-only on the provider side and only
+              shown while the request is still being negotiated.
+              Once it converts the PostAcceptanceCard takes over
+              as the single call to action. */}
+          {!isPostAcceptance && activeQuote && <QuoteCard quote={activeQuote} />}
+
+          {isPostAcceptance && (
+            <PostAcceptanceCard
+              request={request}
+              order={order}
+              viewer="provider"
+              customerName={request.customer_name || request.customer_email}
+              providerName={request.provider_name}
+              orderHref={request.converted_order
+                ? `/provider/orders/${request.converted_order}`
+                : null}
+            />
+          )}
 
           {request.files?.length > 0 && (
             <Card padding="lg">

@@ -25,3 +25,10 @@ export async function postProviderMessage(tenantId, id, body, kind = "message") 
     body: JSON.stringify({ body, kind }),
   });
 }
+
+// Soft order summary fetch for the PostAcceptanceCard. The
+// provider has access to any order they're assigned to via the
+// existing orders API.
+export async function fetchProviderOrderSummary(tenantId, orderId) {
+  return apiFetch(`/api/v1/orders/${orderId}/`, tenantId);
+}

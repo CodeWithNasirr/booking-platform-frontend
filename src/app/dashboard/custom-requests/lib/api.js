@@ -80,6 +80,13 @@ export async function reopenRequest(tenantId, id) {
   });
 }
 
+// Soft order summary fetch for the PostAcceptanceCard. Caller
+// must guard on request.status — admins can read any order in
+// the tenant via apiFetch.
+export async function fetchOrderSummary(tenantId, orderId) {
+  return apiFetch(`/api/v1/orders/${orderId}/`, tenantId);
+}
+
 export async function getSubscriptions(tenantId, params = {}) {
   const query = new URLSearchParams(params).toString();
   return apiFetch(`/api/v1/customer-subscriptions/?${query}`, tenantId);

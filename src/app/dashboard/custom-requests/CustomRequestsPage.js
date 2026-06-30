@@ -24,7 +24,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { useTenantPermission } from "@/lib/useTenantPermission";
 import { useRealtime } from "@/lib/realtime";
-import { applyRequestEnvelope, applyTenantRequestSummary } from "@/lib/realtimePatches";
+import {
+  applyRequestEnvelope, applyTenantRequestSummary, applyOrderEnvelope,
+} from "@/lib/realtimePatches";
 import toast from "react-hot-toast";
 import {
   ArrowLeft,
@@ -46,12 +48,14 @@ import {
   postRequestMessage,
   reopenRequest,
   submitQuote,
+  fetchOrderSummary,
 } from "./lib/api";
 import {
   StatusBadge,
   ConversationFeed,
   QuoteCard,
   StickyComposer,
+  PostAcceptanceCard,
   ListRowSkeleton,
   RequestDetailSkeleton,
   STATUS_TONE,
@@ -179,21 +183,45 @@ function Workspace() {
 
   useEffect(() => { fetchDetail(); }, [fetchDetail]);
 
+  // Order summary for the selected detail. Soft fetch — admins
+  // can read any order in the tenant; failures degrade the
+  // PostAcceptanceCard to the generic shape without inline
+  // status pill or price.
+  const [detailOrder, setDetailOrder] = useState(null);
+  const fetchDetailOrder = useCallback(async () => {
+    const orderId = detail?.converted_order;
+    const inScope = ["converted", "completed"].includes(detail?.status);
+    if (!orderId || !inScope || !tenantId) {
+      setDetailOrder(null);
+      return;
+    }
+    try {
+      const data = await fetchOrderSummary(tenantId, orderId);
+      setDetailOrder(data);
+    } catch {
+      setDetailOrder(null);
+    }
+  }, [detail?.converted_order, detail?.status, tenantId]);
+
+  useEffect(() => { fetchDetailOrder(); }, [fetchDetailOrder]);
+
   const refreshBoth = useCallback(async () => {
-    await Promise.all([fetchList(), fetchDetail()]);
-  }, [fetchList, fetchDetail]);
+    await Promise.all([fetchList(), fetchDetail(), fetchDetailOrder()]);
+  }, [fetchList, fetchDetail, fetchDetailOrder]);
 
   // ── Realtime ────────────────────────────────────────────────────
   const cookieToken = useMemo(() => {
     if (typeof document === "undefined") return null;
     return document.cookie.match(/access_token=([^;]+)/)?.[1] || null;
   }, []);
+  const orderTopicId = detail?.converted_order;
   const realtimeTopics = useMemo(() => {
     const t = [];
     if (tenantId) t.push(`tenant:${tenantId}:requests`);
     if (selectedId) t.push(`custom_request:${selectedId}`);
+    if (orderTopicId) t.push(`order:${orderTopicId}`);
     return t;
-  }, [tenantId, selectedId]);
+  }, [tenantId, selectedId, orderTopicId]);
 
   useRealtime({
     topics: realtimeTopics,
@@ -202,6 +230,10 @@ function Workspace() {
       if (!envelope?.entity_type) return;
       if (envelope.entity_type === "custom_request.summary") {
         setRequests((prev) => applyTenantRequestSummary(prev, envelope));
+        return;
+      }
+      if (envelope.entity_type.startsWith("order.")) {
+        setDetailOrder((prev) => applyOrderEnvelope(prev, envelope));
         return;
       }
       if (envelope.topic?.startsWith("custom_request:")) {
@@ -547,6 +579,7 @@ function Workspace() {
           ) : (
             <DetailPane
               request={detail}
+              order={detailOrder}
               tenantId={tenantId}
               canManage={canManage}
               actionBusy={actionBusy}
@@ -574,7 +607,7 @@ function Workspace() {
 // ── DetailPane ─────────────────────────────────────────────────────
 
 function DetailPane({
-  request, tenantId, canManage, actionBusy,
+  request, order, tenantId, canManage, actionBusy,
   reply, setReply, replyKind, setReplyKind, sending,
   pendingMessages = [],
   onSend, onClose, onRefresh, onReject, onReopen,
@@ -582,6 +615,8 @@ function DetailPane({
 }) {
   const isLocked = TERMINAL_STATUSES.has(request.status);
   const isReopenable = ["rejected", "cancelled", "completed"].includes(request.status);
+  const isPostAcceptance =
+    ["converted", "completed", "rejected", "cancelled"].includes(request.status);
 
   const activeQuote = useMemo(() => {
     return (request.quotes || []).find((q) => q.status === "pending" || q.status === "countered")
@@ -640,7 +675,11 @@ function DetailPane({
               </div>
             </Card>
 
-            {activeQuote && (
+            {/* Quote stays the hero while the request is being
+                negotiated. Once it leaves negotiation
+                PostAcceptanceCard takes the slot — one CTA,
+                not two competing for the same eye line. */}
+            {!isPostAcceptance && activeQuote && (
               <QuoteCard
                 quote={activeQuote}
                 canAccept={canManage && !isLocked}
@@ -652,11 +691,25 @@ function DetailPane({
             )}
 
             {/* V3.E business rule — tenant-only quote composer */}
-            {canManage && !isLocked && (
+            {!isPostAcceptance && canManage && !isLocked && (
               <QuoteComposer
                 tenantId={tenantId}
                 request={request}
                 isRevision={Boolean(activeQuote)}
+              />
+            )}
+
+            {/* Post-acceptance hero — V3.F.11 admin variant */}
+            {isPostAcceptance && (
+              <PostAcceptanceCard
+                request={request}
+                order={order}
+                viewer="admin"
+                providerName={request.provider_name}
+                customerName={request.customer_name || request.customer_email}
+                orderHref={request.converted_order
+                  ? `/dashboard/orders/${request.converted_order}`
+                  : null}
               />
             )}
 
@@ -753,12 +806,16 @@ function DetailPane({
               </div>
             )}
 
+            {/* PostAcceptanceCard in the main column is the
+                canonical order CTA now. Sidebar still carries a
+                tiny fallback link for when the right pane is
+                scrolled past the hero. */}
             {request.converted_order && (
               <a
                 href={`/dashboard/orders/${request.converted_order}`}
-                className="block px-3 py-2 text-sm bg-[color:var(--brand-primary,#3B82F6)] text-[color:var(--brand-primary-fg,#fff)] rounded-xl text-center hover:brightness-110"
+                className="block px-3 py-2 text-xs text-[color:var(--brand-primary,#3B82F6)] hover:underline text-center"
               >
-                View order →
+                Open order page →
               </a>
             )}
           </div>
