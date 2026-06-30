@@ -1,22 +1,20 @@
 "use client";
 
 /**
- * MyRequestDetailClient — V2 customer portal.
+ * MyRequestDetailClient — V3 customer portal.
  *
- * One page, one timeline. The timeline + message thread are merged
- * into a single chronological feed, with system blocks rendered
- * differently from chat bubbles. Customer messages float right,
- * provider messages left, admin messages center. A sticky composer
- * pinned to the bottom accepts text + drag-drop attachments.
+ * Composed entirely from shared components in
+ * src/components/custom-requests so the tenant CRM, provider
+ * panel, and customer portal all render the same widgets with
+ * the same spacing / tone / interaction rules.
  *
- * Auth resolution cascade (unchanged from V1):
+ * Auth cascade:
  *   1. cookie access_token (registered user)
- *   2. ?t= magic-link → POST /access-via-token/ (notification email)
+ *   2. ?t= magic-link → POST /access-via-token/
  *   3. stored customer_request_token_{tenantId}
- *   4. else → bounce to /my-requests with auth UI
  */
 
-import { useEffect, useMemo, useRef, useState, useCallback } from "react";
+import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
 
@@ -26,37 +24,17 @@ import { useTenantTheme } from "../../../contexts/TenantThemeContext";
 import { tenantRoutes } from "@/lib/tenantRoutes";
 import { useRealtime } from "@/lib/realtime";
 import { applyRequestEnvelope } from "@/lib/realtimePatches";
+import {
+  StatusBadge,
+  ConversationFeed,
+  QuoteCard,
+  AttachmentGrid,
+  StickyComposer,
+  RequestDetailSkeleton,
+  TERMINAL_STATUSES,
+} from "@/components/custom-requests";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
-
-const STATUS_TONE = {
-  pending: { bg: "bg-yellow-100", fg: "text-yellow-800" },
-  negotiating: { bg: "bg-blue-100", fg: "text-blue-800" },
-  quoted: { bg: "bg-indigo-100", fg: "text-indigo-800" },
-  accepted: { bg: "bg-emerald-100", fg: "text-emerald-800" },
-  converted: { bg: "bg-purple-100", fg: "text-purple-800" },
-  completed: { bg: "bg-slate-100", fg: "text-slate-800" },
-  rejected: { bg: "bg-rose-100", fg: "text-rose-800" },
-  cancelled: { bg: "bg-gray-100", fg: "text-gray-700" },
-};
-
-const TIMELINE_LABELS = {
-  request_created: "Request created",
-  provider_assigned: "Provider assigned",
-  provider_unassigned: "Provider unassigned",
-  quote_submitted: "Quote submitted",
-  quote_updated: "Quote updated",
-  quote_accepted: "Quote accepted",
-  quote_rejected: "Quote declined",
-  quote_countered: "Revision requested",
-  message_posted: null,        // rendered as a bubble, not a system row
-  info_requested: null,        // same
-  file_uploaded: "File uploaded",
-  status_changed: "Status changed",
-  order_created: "Order created",
-  request_rejected: "Request declined",
-  request_cancelled: "Request cancelled",
-};
 
 function readCookieToken() {
   if (typeof document === "undefined") return null;
@@ -86,22 +64,8 @@ async function apiJson(url, opts = {}) {
   return data;
 }
 
-function fileExt(name = "") {
-  const dot = name.lastIndexOf(".");
-  return dot >= 0 ? name.slice(dot + 1).toLowerCase() : "";
-}
-
-function isImageName(name) {
-  return ["png", "jpg", "jpeg", "gif", "webp", "svg"].includes(fileExt(name));
-}
-
-function fmtTime(iso) {
-  const d = new Date(iso);
-  return d.toLocaleString(undefined, { dateStyle: "medium", timeStyle: "short" });
-}
-
 export default function MyRequestDetailClient({ domain, requestId, site, header, footer }) {
-  const { language: lang, isRTL } = useTenantLang();
+  const { isRTL } = useTenantLang();
   const theme = useTenantTheme();
   const searchParams = useSearchParams();
   const tenantId = site?.tenant?.id;
@@ -116,11 +80,8 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
 
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
-  const [dragging, setDragging] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
-  const fileInputRef = useRef(null);
-  const feedEndRef = useRef(null);
 
   // ── Auth resolution ─────────────────────────────────────────────
   useEffect(() => {
@@ -175,7 +136,7 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
     return () => { cancelled = true; };
   }, [domain, tenantId, searchParams]);
 
-  // ── Data fetch ──────────────────────────────────────────────────
+  // ── Data fetch (initial + reconnect fallback) ───────────────────
   const fetchRequest = useCallback(async () => {
     if (!authToken) return;
     setLoading(true);
@@ -202,9 +163,7 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
 
   useEffect(() => { fetchRequest(); }, [fetchRequest]);
 
-  // Live updates: subscribe to this request's topic and patch
-  // local state from the full payload. Refetch is the fallback
-  // path for unknown envelope shapes only.
+  // ── Realtime — patch in-place; refetch only on (re)connect ───────
   useRealtime({
     topics: requestId ? [`custom_request:${requestId}`] : [],
     auth: {
@@ -215,45 +174,34 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
       if (!envelope?.entity_type) return;
       setRequest((prev) => (prev ? applyRequestEnvelope(prev, envelope) : prev));
     },
+    onReconnect: () => { fetchRequest(); },
   });
 
-  // Auto-scroll feed when new content lands.
-  useEffect(() => {
-    if (!request) return;
-    feedEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [request?.messages?.length, request?.timeline?.length]);
-
   // ── Derived ─────────────────────────────────────────────────────
-  const feed = useMemo(() => buildFeed(request), [request]);
   const activeQuote = useMemo(() => {
     if (!request?.quotes) return null;
-    const pending = request.quotes.find((q) => q.status === "pending" || q.status === "countered");
-    return pending || request.quotes[0] || null;
+    return request.quotes.find((q) => q.status === "pending" || q.status === "countered")
+      || request.quotes[0] || null;
   }, [request]);
-  const isLocked = useMemo(() => {
-    return ["accepted", "converted", "completed", "rejected", "cancelled"].includes(request?.status);
-  }, [request?.status]);
+
+  const isLocked = TERMINAL_STATUSES.has(request?.status);
 
   // ── Actions ─────────────────────────────────────────────────────
-  async function send(payload) {
-    return apiJson(
-      `${API_BASE}/api/v1/custom-requests/${requestId}/messages/`,
-      {
-        method: "POST",
-        headers: tokenHeaders(tenantId || domain, authToken, isGuestToken),
-        body: JSON.stringify(payload),
-      },
-    );
-  }
-
   async function handleSend() {
     const body = reply.trim();
     if (!body || sending) return;
     setSending(true);
     try {
-      await send({ body, kind: "message" });
+      await apiJson(
+        `${API_BASE}/api/v1/custom-requests/${requestId}/messages/`,
+        {
+          method: "POST",
+          headers: tokenHeaders(tenantId || domain, authToken, isGuestToken),
+          body: JSON.stringify({ body, kind: "message" }),
+        },
+      );
       setReply("");
-      await fetchRequest();
+      // Realtime will push the message; no refetch needed.
     } catch (err) {
       alert(err.message || "Failed to send message");
     } finally {
@@ -261,41 +209,20 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
     }
   }
 
-  async function handleAcceptQuote(quoteId) {
+  async function quoteAction(actionPath, quoteId, extra = {}) {
     if (actionBusy) return;
     setActionBusy(true);
     try {
       await apiJson(
-        `${API_BASE}/api/v1/custom-requests/${requestId}/accept_quote/`,
+        `${API_BASE}/api/v1/custom-requests/${requestId}/${actionPath}/`,
         {
           method: "POST",
           headers: tokenHeaders(tenantId || domain, authToken, isGuestToken),
-          body: JSON.stringify({ quote_id: quoteId }),
+          body: JSON.stringify({ quote_id: quoteId, ...extra }),
         },
       );
-      await fetchRequest();
     } catch (err) {
-      alert(err.message || "Failed to accept quote");
-    } finally {
-      setActionBusy(false);
-    }
-  }
-
-  async function handleRejectQuote(quoteId) {
-    if (actionBusy) return;
-    setActionBusy(true);
-    try {
-      await apiJson(
-        `${API_BASE}/api/v1/custom-requests/${requestId}/reject_quote/`,
-        {
-          method: "POST",
-          headers: tokenHeaders(tenantId || domain, authToken, isGuestToken),
-          body: JSON.stringify({ quote_id: quoteId }),
-        },
-      );
-      await fetchRequest();
-    } catch (err) {
-      alert(err.message || "Failed to decline quote");
+      alert(err.message || "Action failed");
     } finally {
       setActionBusy(false);
     }
@@ -304,19 +231,7 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
   async function handleCounter(quoteId) {
     const note = window.prompt("What change are you asking for?");
     if (note === null) return;
-    try {
-      await apiJson(
-        `${API_BASE}/api/v1/custom-requests/${requestId}/counter_request/`,
-        {
-          method: "POST",
-          headers: tokenHeaders(tenantId || domain, authToken, isGuestToken),
-          body: JSON.stringify({ quote_id: quoteId, note }),
-        },
-      );
-      await fetchRequest();
-    } catch (err) {
-      alert(err.message || "Failed to send revision request");
-    }
+    await quoteAction("counter_request", quoteId, { note });
   }
 
   async function uploadFiles(files) {
@@ -328,7 +243,6 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
         form.append("file", file);
         form.append("file_type", "attachment");
         const headers = tokenHeaders(tenantId || domain, authToken, isGuestToken);
-        // FormData sets its own Content-Type with boundary.
         delete headers["Content-Type"];
         const res = await fetch(
           `${API_BASE}/api/v1/custom-requests/${requestId}/upload_file/`,
@@ -336,7 +250,6 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
         );
         if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
       }
-      await fetchRequest();
     } catch (err) {
       alert(err.message || "Upload failed");
     } finally {
@@ -374,13 +287,11 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
         {error ? (
           <p className="text-center text-red-600">{error}</p>
         ) : (
-          <Skeletons />
+          <div className="max-w-3xl mx-auto"><RequestDetailSkeleton /></div>
         )}
       </Shell>
     );
   }
-
-  const tone = STATUS_TONE[request.status] || STATUS_TONE.pending;
 
   return (
     <Shell header={headerSection} footer={footerSection} site={site} isRTL={isRTL}>
@@ -396,92 +307,33 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
               <h1 className="text-xl font-bold text-gray-900 truncate">{request.title}</h1>
               <p className="text-xs text-gray-500 mt-0.5">#{request.request_number}</p>
             </div>
-            <span className={`px-3 py-1 rounded-full text-xs font-semibold ${tone.bg} ${tone.fg}`}>
-              {request.status}
-            </span>
+            <StatusBadge status={request.status} />
           </div>
-
           <p className="text-gray-700 mt-4 whitespace-pre-line">{request.description}</p>
-
-          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-5 text-sm">
-            {(request.budget_min || request.budget_max) && (
-              <Cell label="Budget">
-                {request.budget_min || ""}
-                {request.budget_min && request.budget_max && " – "}
-                {request.budget_max || ""}
-              </Cell>
-            )}
-            {request.deadline && <Cell label="Deadline">{request.deadline}</Cell>}
-            {request.provider_name && <Cell label="Provider">{request.provider_name}</Cell>}
-          </dl>
         </div>
 
-        {/* Active quote card */}
         {activeQuote && (
           <QuoteCard
             quote={activeQuote}
             primary={primary}
+            canAccept canReject canCounter
             disabled={isLocked || actionBusy}
-            onAccept={() => handleAcceptQuote(activeQuote.id)}
-            onReject={() => handleRejectQuote(activeQuote.id)}
+            onAccept={() => quoteAction("accept_quote", activeQuote.id)}
+            onReject={() => quoteAction("reject_quote", activeQuote.id)}
             onCounter={() => handleCounter(activeQuote.id)}
           />
         )}
 
-        {/* Attachments grid */}
         {request.files?.length > 0 && (
           <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
             <h2 className="text-sm font-semibold text-gray-700 mb-3">Attachments</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
-              {request.files.map((f) => (
-                <a
-                  key={f.id}
-                  href={f.file}
-                  target="_blank"
-                  rel="noreferrer"
-                  className="block rounded-xl overflow-hidden border border-gray-200 hover:border-gray-300 transition"
-                >
-                  {isImageName(f.file_name) ? (
-                    <img src={f.file} alt={f.file_name} className="w-full h-24 object-cover" />
-                  ) : (
-                    <div className="h-24 flex items-center justify-center bg-gray-50 text-xs uppercase font-bold text-gray-400">
-                      {fileExt(f.file_name) || "file"}
-                    </div>
-                  )}
-                  <p className="text-xs text-gray-600 px-2 py-1 truncate">{f.file_name}</p>
-                </a>
-              ))}
-            </div>
+            <AttachmentGrid files={request.files} />
           </div>
         )}
 
-        {/* Conversation feed */}
-        <div
-          className={`bg-white rounded-2xl border shadow-sm p-4 sm:p-6 transition ${
-            dragging ? "border-blue-400 ring-2 ring-blue-200" : "border-gray-100"
-          }`}
-          onDragOver={(e) => { e.preventDefault(); if (!isLocked) setDragging(true); }}
-          onDragLeave={() => setDragging(false)}
-          onDrop={(e) => {
-            e.preventDefault();
-            setDragging(false);
-            if (isLocked) return;
-            uploadFiles(e.dataTransfer.files);
-          }}
-        >
+        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
           <h2 className="text-sm font-semibold text-gray-700 mb-3">Conversation</h2>
-          {feed.length === 0 ? (
-            <p className="text-sm text-gray-500 text-center py-6">No activity yet.</p>
-          ) : (
-            <div className="space-y-3">
-              {feed.map((item) =>
-                item.kind === "system"
-                  ? <SystemRow key={item.key} item={item} />
-                  : <MessageBubble key={item.key} item={item} primary={primary} />
-              )}
-              <div ref={feedEndRef} />
-            </div>
-          )}
+          <ConversationFeed request={request} viewer="customer" />
         </div>
 
         {request.status === "converted" && request.converted_order && (
@@ -494,229 +346,18 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
         )}
       </div>
 
-      {/* Sticky composer */}
-      <div
-        className={`fixed inset-x-0 bottom-0 border-t bg-white/95 backdrop-blur ${isRTL ? "rtl" : ""}`}
-        style={{ paddingBottom: "env(safe-area-inset-bottom)" }}
-      >
-        <div className="max-w-3xl mx-auto p-3 sm:p-4 flex items-end gap-2">
-          {isLocked ? (
-            <p className="text-sm text-gray-500 py-3">
-              This request is locked. Contact the team if you need changes.
-            </p>
-          ) : (
-            <>
-              <input
-                ref={fileInputRef}
-                type="file"
-                multiple
-                hidden
-                onChange={(e) => uploadFiles(e.target.files)}
-              />
-              <button
-                onClick={() => fileInputRef.current?.click()}
-                disabled={uploading}
-                className="px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
-                title="Attach file"
-              >
-                📎
-              </button>
-              <textarea
-                value={reply}
-                onChange={(e) => setReply(e.target.value)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && !e.shiftKey && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                    handleSend();
-                  }
-                }}
-                rows={1}
-                placeholder="Write a reply…"
-                className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 max-h-32"
-              />
-              <button
-                onClick={handleSend}
-                disabled={sending || !reply.trim()}
-                className="px-4 py-2 rounded-xl text-white font-medium disabled:opacity-50"
-                style={{ backgroundColor: primary }}
-              >
-                {sending ? "…" : "Send"}
-              </button>
-            </>
-          )}
-        </div>
-      </div>
+      <StickyComposer
+        value={reply}
+        onChange={setReply}
+        onSend={handleSend}
+        onAttach={uploadFiles}
+        sending={sending}
+        uploading={uploading}
+        locked={isLocked}
+        primary={primary}
+        sticky
+      />
     </Shell>
-  );
-}
-
-// ── Building the merged feed ───────────────────────────────────────
-
-function buildFeed(request) {
-  if (!request) return [];
-  const items = [];
-  for (const m of request.messages || []) {
-    items.push({
-      kind: "message",
-      key: `m-${m.id}`,
-      at: m.created_at,
-      author_role: m.author_role || "customer",
-      author_name: m.author_name || m.author_email || "—",
-      msg_kind: m.kind,
-      body: m.body,
-    });
-  }
-  for (const ev of request.timeline || []) {
-    if (TIMELINE_LABELS[ev.event] === null) continue; // bubble already
-    items.push({
-      kind: "system",
-      key: `t-${ev.id}`,
-      at: ev.created_at,
-      event: ev.event,
-      actor_role: ev.actor_role,
-      actor_name: ev.actor_name || ev.actor_email || "",
-      metadata: ev.metadata || {},
-    });
-  }
-  items.sort((a, b) => new Date(a.at) - new Date(b.at));
-  return items;
-}
-
-// ── Components ─────────────────────────────────────────────────────
-
-function MessageBubble({ item, primary }) {
-  const role = item.author_role;
-  const isCustomer = role === "customer";
-  const isAdmin = role === "admin";
-  const isInfo = item.msg_kind === "info_request";
-
-  const align = isCustomer ? "justify-end" : isAdmin ? "justify-center" : "justify-start";
-  const bg = isCustomer
-    ? "bg-blue-50 border-blue-100"
-    : isAdmin
-      ? "bg-gray-100 border-gray-200"
-      : isInfo
-        ? "bg-amber-50 border-amber-200"
-        : "bg-white border-gray-200";
-
-  return (
-    <div className={`flex ${align}`}>
-      <div className={`max-w-[80%] rounded-2xl border ${bg} px-4 py-2.5 shadow-sm`}>
-        <div className="flex items-baseline gap-2 mb-0.5">
-          <span className="text-[11px] font-semibold text-gray-700 uppercase tracking-wide">
-            {item.author_name}
-            {isInfo && <span className="ml-1 text-amber-700 normal-case">· needs info</span>}
-          </span>
-          <span className="text-[10px] text-gray-400">{fmtTime(item.at)}</span>
-        </div>
-        <p className="text-sm text-gray-800 whitespace-pre-line">{item.body}</p>
-      </div>
-    </div>
-  );
-}
-
-function SystemRow({ item }) {
-  const label = TIMELINE_LABELS[item.event] || item.event;
-  return (
-    <div className="flex items-center gap-2 my-2 text-[11px] text-gray-500">
-      <span className="h-px flex-1 bg-gray-200" />
-      <span className="px-2 py-0.5 rounded-full bg-gray-50 border border-gray-200">
-        {label}
-        {item.metadata?.from && item.metadata?.to && (
-          <> · {item.metadata.from} → {item.metadata.to}</>
-        )}
-      </span>
-      <span className="h-px flex-1 bg-gray-200" />
-    </div>
-  );
-}
-
-function QuoteCard({ quote, primary, disabled, onAccept, onReject, onCounter }) {
-  const versions = quote.revisions_history || [];
-  const latest = versions[versions.length - 1];
-  return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
-      <div className="flex items-baseline justify-between">
-        <h2 className="text-sm font-semibold text-gray-700">Current quote</h2>
-        <span className="text-xs text-gray-400">
-          {versions.length > 0 ? `Version ${versions.length}` : ""}
-        </span>
-      </div>
-      <div className="flex items-baseline gap-4">
-        <span className="text-2xl font-extrabold" style={{ color: primary }}>
-          {quote.currency} {quote.price}
-        </span>
-        <span className="text-sm text-gray-500">{quote.delivery_days} days delivery</span>
-        {quote.revisions > 0 && (
-          <span className="text-sm text-gray-500">· {quote.revisions} revisions</span>
-        )}
-      </div>
-      {quote.message && (
-        <p className="text-sm text-gray-700 whitespace-pre-line">{quote.message}</p>
-      )}
-
-      {versions.length > 1 && (
-        <details className="text-xs text-gray-600">
-          <summary className="cursor-pointer hover:text-gray-800">Show version history</summary>
-          <ol className="mt-2 space-y-2">
-            {versions.map((r) => (
-              <li key={r.id} className="border-l-2 border-gray-200 pl-3">
-                <div className="font-medium">v{r.version} — {r.currency} {r.price} · {r.delivery_days}d</div>
-                <p className="text-gray-500 whitespace-pre-line">{r.message}</p>
-              </li>
-            ))}
-          </ol>
-        </details>
-      )}
-
-      {quote.status === "pending" || quote.status === "countered" ? (
-        <div className="flex flex-wrap gap-2 pt-1">
-          <button
-            onClick={onAccept}
-            disabled={disabled}
-            className="px-4 py-2 rounded-xl text-white text-sm font-medium disabled:opacity-50"
-            style={{ backgroundColor: primary }}
-          >
-            Accept
-          </button>
-          <button
-            onClick={onCounter}
-            disabled={disabled}
-            className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 disabled:opacity-50"
-          >
-            Ask for revision
-          </button>
-          <button
-            onClick={onReject}
-            disabled={disabled}
-            className="px-4 py-2 rounded-xl border border-rose-200 text-rose-700 text-sm font-medium hover:bg-rose-50 disabled:opacity-50"
-          >
-            Decline
-          </button>
-        </div>
-      ) : (
-        <p className="text-xs text-gray-500 capitalize">Quote {quote.status}</p>
-      )}
-    </div>
-  );
-}
-
-function Cell({ label, children }) {
-  return (
-    <div>
-      <dt className="text-[11px] uppercase tracking-wide text-gray-500">{label}</dt>
-      <dd className="text-gray-800 mt-0.5">{children}</dd>
-    </div>
-  );
-}
-
-function Skeletons() {
-  return (
-    <div className="max-w-3xl mx-auto space-y-4">
-      <div className="h-24 rounded-2xl bg-gray-100 animate-pulse" />
-      <div className="h-36 rounded-2xl bg-gray-100 animate-pulse" />
-      <div className="h-64 rounded-2xl bg-gray-100 animate-pulse" />
-    </div>
   );
 }
 

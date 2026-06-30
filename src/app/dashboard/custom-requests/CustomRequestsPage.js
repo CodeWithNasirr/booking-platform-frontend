@@ -1,20 +1,19 @@
 "use client";
 
 /**
- * Custom Requests — CRM workspace (V2.E)
+ * Custom Requests — CRM workspace.
  *
  * Three-pane layout:
- *   left   — status filters + counts (Pending / Negotiating / Quoted / …)
+ *   left   — status filters with live counts
  *   center — request list with search + last-message preview
- *   right  — conversation pane: header, quote panel, timeline-merged
- *            feed, sticky composer, quick-action sidebar
+ *   right  — conversation pane composed from shared components
  *
- * The detail page /dashboard/custom-requests/[id] still works as a
- * deep link — when no ?selected= param is set we route the click
- * here, when one IS set we drive the right pane.
+ * Detail page /dashboard/custom-requests/[id] remains as a deep
+ * link — when no ?selected= param is set we route clicks there,
+ * when it IS set we drive the right pane in-place.
  */
 
-import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { useTenantPermission } from "@/lib/useTenantPermission";
@@ -24,10 +23,6 @@ import toast from "react-hot-toast";
 import {
   Search,
   RefreshCw,
-  Send,
-  Paperclip,
-  CheckCircle,
-  XCircle,
   RotateCcw,
   UserPlus,
   Inbox,
@@ -38,58 +33,28 @@ import {
   getCustomRequests,
   getCustomRequest,
   assignProvider,
-  submitQuote,
   acceptQuote,
   rejectQuote,
   rejectRequest,
   listAssignableProviders,
   postRequestMessage,
-  counterRequestQuote,
   reopenRequest,
 } from "./lib/api";
-
-const STATUS_TONE = {
-  pending: { dot: "bg-yellow-400", chip: "bg-yellow-100 text-yellow-800" },
-  negotiating: { dot: "bg-blue-400", chip: "bg-blue-100 text-blue-800" },
-  quoted: { dot: "bg-indigo-400", chip: "bg-indigo-100 text-indigo-800" },
-  accepted: { dot: "bg-emerald-400", chip: "bg-emerald-100 text-emerald-800" },
-  converted: { dot: "bg-purple-400", chip: "bg-purple-100 text-purple-800" },
-  completed: { dot: "bg-slate-400", chip: "bg-slate-100 text-slate-800" },
-  rejected: { dot: "bg-rose-400", chip: "bg-rose-100 text-rose-800" },
-  cancelled: { dot: "bg-gray-400", chip: "bg-gray-100 text-gray-700" },
-};
+import {
+  StatusBadge,
+  ConversationFeed,
+  QuoteCard,
+  StickyComposer,
+  ListRowSkeleton,
+  RequestDetailSkeleton,
+  STATUS_TONE,
+  TERMINAL_STATUSES,
+} from "@/components/custom-requests";
 
 const FILTERS = [
-  "all",
-  "pending",
-  "negotiating",
-  "quoted",
-  "accepted",
-  "converted",
-  "completed",
-  "rejected",
-  "cancelled",
+  "all", "pending", "negotiating", "quoted",
+  "accepted", "converted", "completed", "rejected", "cancelled",
 ];
-
-const TIMELINE_LABELS = {
-  request_created: "Request created",
-  provider_assigned: "Provider assigned",
-  provider_unassigned: "Provider unassigned",
-  quote_submitted: "Quote submitted",
-  quote_updated: "Quote updated",
-  quote_accepted: "Quote accepted",
-  quote_rejected: "Quote declined",
-  quote_countered: "Revision requested",
-  message_posted: null,
-  info_requested: null,
-  file_uploaded: "File uploaded",
-  status_changed: "Status changed",
-  order_created: "Order created",
-  request_rejected: "Request declined",
-  request_cancelled: "Request cancelled",
-};
-
-const TERMINAL = new Set(["accepted", "converted", "completed", "rejected", "cancelled"]);
 
 export default function CustomRequestsPage() {
   const router = useRouter();
@@ -100,7 +65,7 @@ export default function CustomRequestsPage() {
   const tenantId = activeTenant?.id || activeTenant;
   const selectedId = searchParams.get("selected");
 
-  // ── List state ──────────────────────────────────────────────────
+  // List state
   const [requests, setRequests] = useState([]);
   const [listLoading, setListLoading] = useState(true);
   const [listError, setListError] = useState(null);
@@ -108,22 +73,19 @@ export default function CustomRequestsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-  // ── Detail state ────────────────────────────────────────────────
+  // Detail state
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
   const [reply, setReply] = useState("");
   const [replyKind, setReplyKind] = useState("message");
   const [sending, setSending] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
-  const feedEndRef = useRef(null);
 
-  // ── Search debounce ─────────────────────────────────────────────
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
     return () => clearTimeout(t);
   }, [searchQuery]);
 
-  // ── Fetch list ──────────────────────────────────────────────────
   const fetchList = useCallback(async () => {
     if (!tenantId) return;
     setListLoading(true);
@@ -144,7 +106,6 @@ export default function CustomRequestsPage() {
 
   useEffect(() => { fetchList(); }, [fetchList]);
 
-  // ── Fetch detail ────────────────────────────────────────────────
   const fetchDetail = useCallback(async () => {
     if (!tenantId || !selectedId) {
       setDetail(null);
@@ -164,13 +125,8 @@ export default function CustomRequestsPage() {
 
   useEffect(() => { fetchDetail(); }, [fetchDetail]);
 
-  useEffect(() => {
-    if (detail) feedEndRef.current?.scrollIntoView({ behavior: "smooth", block: "end" });
-  }, [detail?.messages?.length, detail?.timeline?.length]);
-
-  // Realtime: subscribe to the selected request AND the tenant
-  // requests topic so the list refreshes when activity lands on a
-  // row that isn't currently selected.
+  // Realtime: list + detail update in-place; reconnect runs one
+  // REST resync.
   const cookieToken = useMemo(() => {
     if (typeof document === "undefined") return null;
     return document.cookie.match(/access_token=([^;]+)/)?.[1] || null;
@@ -181,13 +137,16 @@ export default function CustomRequestsPage() {
     if (selectedId) t.push(`custom_request:${selectedId}`);
     return t;
   }, [tenantId, selectedId]);
+
+  const refreshBoth = useCallback(async () => {
+    await Promise.all([fetchList(), fetchDetail()]);
+  }, [fetchList, fetchDetail]);
+
   useRealtime({
     topics: realtimeTopics,
     auth: { jwt: cookieToken },
     onEvent: (envelope) => {
       if (!envelope?.entity_type) return;
-      // List rows update from the summary envelope; detail
-      // updates from typed entity envelopes.
       if (envelope.entity_type === "custom_request.summary") {
         setRequests((prev) => applyTenantRequestSummary(prev, envelope));
         return;
@@ -196,16 +155,15 @@ export default function CustomRequestsPage() {
         setDetail((prev) => (prev ? applyRequestEnvelope(prev, envelope) : prev));
       }
     },
+    onReconnect: () => { refreshBoth(); },
   });
 
-  // ── Status counts ───────────────────────────────────────────────
   const counts = useMemo(() => {
     const c = { all: requests.length };
     for (const r of requests) c[r.status] = (c[r.status] || 0) + 1;
     return c;
   }, [requests]);
 
-  // ── Selection helpers ───────────────────────────────────────────
   function selectRequest(id) {
     const params = new URLSearchParams(searchParams.toString());
     params.set("selected", id);
@@ -215,11 +173,6 @@ export default function CustomRequestsPage() {
     router.push("/dashboard/custom-requests");
   }
 
-  async function refreshBoth() {
-    await Promise.all([fetchList(), fetchDetail()]);
-  }
-
-  // ── Actions ─────────────────────────────────────────────────────
   async function handleSend() {
     const body = reply.trim();
     if (!body || sending || !detail) return;
@@ -228,7 +181,7 @@ export default function CustomRequestsPage() {
       await postRequestMessage(tenantId, detail.id, body, replyKind);
       setReply("");
       setReplyKind("message");
-      await fetchDetail();
+      // Realtime pushes the message — no refetch needed.
     } catch (err) {
       toast.error(err.message || "Failed to send");
     } finally {
@@ -243,7 +196,6 @@ export default function CustomRequestsPage() {
     try {
       await rejectRequest(tenantId, detail.id);
       toast.success("Request rejected");
-      await refreshBoth();
     } catch (err) {
       toast.error(err.message || "Failed");
     } finally {
@@ -257,7 +209,6 @@ export default function CustomRequestsPage() {
     try {
       await reopenRequest(tenantId, detail.id);
       toast.success("Reopened");
-      await refreshBoth();
     } catch (err) {
       toast.error(err.message || "Failed");
     } finally {
@@ -271,7 +222,6 @@ export default function CustomRequestsPage() {
     try {
       await acceptQuote(tenantId, detail.id, quoteId);
       toast.success("Quote accepted — order created");
-      await refreshBoth();
     } catch (err) {
       toast.error(err.message || "Failed");
     } finally {
@@ -285,7 +235,6 @@ export default function CustomRequestsPage() {
     try {
       await rejectQuote(tenantId, detail.id, quoteId);
       toast.success("Quote rejected");
-      await refreshBoth();
     } catch (err) {
       toast.error(err.message || "Failed");
     } finally {
@@ -296,7 +245,10 @@ export default function CustomRequestsPage() {
   return (
     <div className="h-[calc(100vh-4rem)] flex bg-gray-50">
       {/* LEFT — filters */}
-      <aside className="w-56 border-r bg-white p-4 overflow-y-auto hidden lg:block">
+      <aside
+        className="w-56 border-r bg-white p-4 overflow-y-auto hidden lg:block"
+        aria-label="Status filters"
+      >
         <h2 className="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-3">
           Filter
         </h2>
@@ -309,7 +261,8 @@ export default function CustomRequestsPage() {
               <li key={status}>
                 <button
                   onClick={() => setStatusFilter(status)}
-                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition ${
+                  aria-pressed={isActive}
+                  className={`w-full flex items-center justify-between px-3 py-2 rounded-lg text-sm transition focus:outline-none focus:ring-2 focus:ring-blue-500 ${
                     isActive ? "bg-gray-900 text-white" : "hover:bg-gray-100 text-gray-700"
                   }`}
                 >
@@ -328,15 +281,19 @@ export default function CustomRequestsPage() {
       </aside>
 
       {/* CENTER — list */}
-      <section className={`${selectedId ? "hidden xl:flex" : "flex"} flex-col w-full xl:w-96 border-r bg-white`}>
+      <section
+        className={`${selectedId ? "hidden xl:flex" : "flex"} flex-col w-full xl:w-96 border-r bg-white`}
+        aria-label="Request list"
+      >
         <div className="p-3 border-b">
           <div className="relative">
             <Search className="absolute top-1/2 -translate-y-1/2 left-3 w-4 h-4 text-gray-400" />
             <input
-              type="text"
+              type="search"
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               placeholder="Search by title, customer, request #"
+              aria-label="Search requests"
               className="w-full border rounded-lg py-2 pl-9 pr-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
           </div>
@@ -351,10 +308,8 @@ export default function CustomRequestsPage() {
 
         <div className="flex-1 overflow-y-auto">
           {listLoading ? (
-            <div className="p-4 space-y-2">
-              {[1, 2, 3, 4].map((i) => (
-                <div key={i} className="h-16 rounded-lg bg-gray-100 animate-pulse" />
-              ))}
+            <div className="p-4">
+              <ListRowSkeleton count={4} />
             </div>
           ) : listError ? (
             <p className="p-6 text-red-600 text-sm text-center">{listError}</p>
@@ -367,13 +322,13 @@ export default function CustomRequestsPage() {
           ) : (
             <ul className="divide-y">
               {requests.map((r) => {
-                const tone = STATUS_TONE[r.status] || STATUS_TONE.pending;
                 const isSelected = r.id === selectedId;
                 return (
                   <li key={r.id}>
                     <button
                       onClick={() => selectRequest(r.id)}
-                      className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition ${
+                      aria-current={isSelected ? "true" : undefined}
+                      className={`w-full text-left px-4 py-3 hover:bg-gray-50 transition focus:outline-none focus:ring-2 focus:ring-inset focus:ring-blue-500 ${
                         isSelected ? "bg-blue-50" : ""
                       }`}
                     >
@@ -381,9 +336,7 @@ export default function CustomRequestsPage() {
                         <p className="text-sm font-medium text-gray-900 truncate flex-1">
                           {r.title}
                         </p>
-                        <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-semibold ${tone.chip}`}>
-                          {r.status}
-                        </span>
+                        <StatusBadge status={r.status} size="sm" />
                       </div>
                       <p className="text-xs text-gray-500 mt-0.5">
                         #{r.request_number} · {r.customer_name || r.customer_email || "—"}
@@ -401,7 +354,7 @@ export default function CustomRequestsPage() {
       </section>
 
       {/* RIGHT — conversation */}
-      <main className="flex-1 flex flex-col bg-gray-50">
+      <main className="flex-1 flex flex-col bg-gray-50" aria-label="Conversation">
         {!selectedId ? (
           <EmptyState
             icon={MessageSquareDashed}
@@ -409,11 +362,7 @@ export default function CustomRequestsPage() {
             hint="Pick a request on the left to see its conversation, timeline, and quotes."
           />
         ) : detailLoading || !detail ? (
-          <div className="p-6 space-y-3">
-            <div className="h-12 rounded-lg bg-gray-100 animate-pulse" />
-            <div className="h-32 rounded-lg bg-gray-100 animate-pulse" />
-            <div className="h-64 rounded-lg bg-gray-100 animate-pulse" />
-          </div>
+          <div className="p-6"><RequestDetailSkeleton /></div>
         ) : (
           <DetailPane
             request={detail}
@@ -432,7 +381,6 @@ export default function CustomRequestsPage() {
             onReopen={handleReopen}
             onAcceptQuote={handleAcceptQuote}
             onRejectQuote={handleRejectQuote}
-            feedEndRef={feedEndRef}
           />
         )}
       </main>
@@ -440,42 +388,38 @@ export default function CustomRequestsPage() {
   );
 }
 
-// ── DetailPane ─────────────────────────────────────────────────────
-
 function DetailPane({
   request, tenantId, canManage, actionBusy,
   reply, setReply, replyKind, setReplyKind, sending,
   onSend, onClose, onRefresh, onReject, onReopen,
-  onAcceptQuote, onRejectQuote, feedEndRef,
+  onAcceptQuote, onRejectQuote,
 }) {
-  const tone = STATUS_TONE[request.status] || STATUS_TONE.pending;
-  const isLocked = TERMINAL.has(request.status);
+  const isLocked = TERMINAL_STATUSES.has(request.status);
   const isReopenable = ["rejected", "cancelled", "completed"].includes(request.status);
 
-  const feed = useMemo(() => buildFeed(request), [request]);
   const activeQuote = useMemo(() => {
-    return (request.quotes || []).find((q) =>
-      q.status === "pending" || q.status === "countered"
-    ) || (request.quotes || [])[0];
+    return (request.quotes || []).find((q) => q.status === "pending" || q.status === "countered")
+      || (request.quotes || [])[0];
   }, [request]);
 
   return (
     <>
-      {/* Header */}
       <header className="bg-white border-b px-6 py-4 flex items-center justify-between gap-4">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <h1 className="text-lg font-bold truncate">{request.title}</h1>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] uppercase font-semibold ${tone.chip}`}>
-              {request.status}
-            </span>
+            <StatusBadge status={request.status} size="sm" />
           </div>
           <p className="text-xs text-gray-500 mt-0.5">
             #{request.request_number} · {request.customer_name || request.customer_email}
           </p>
         </div>
         <div className="flex items-center gap-2 shrink-0">
-          <button onClick={onRefresh} className="p-2 rounded-lg hover:bg-gray-100 text-gray-500" title="Refresh">
+          <button
+            onClick={onRefresh}
+            aria-label="Refresh request"
+            className="p-2 rounded-lg hover:bg-gray-100 text-gray-500"
+          >
             <RefreshCw className="w-4 h-4" />
           </button>
           <button onClick={onClose} className="text-sm text-gray-500 hover:text-gray-700 xl:hidden">
@@ -488,7 +432,6 @@ function DetailPane({
         {/* Conversation column */}
         <div className="flex-1 flex flex-col">
           <div className="flex-1 overflow-y-auto px-6 py-4 space-y-3">
-            {/* Description */}
             <div className="bg-white rounded-xl border p-4">
               <p className="text-sm text-gray-700 whitespace-pre-line">{request.description}</p>
               <div className="grid grid-cols-3 gap-3 mt-3 text-xs">
@@ -504,86 +447,40 @@ function DetailPane({
               </div>
             </div>
 
-            {/* Active quote */}
             {activeQuote && (
-              <QuoteBox
+              <QuoteCard
                 quote={activeQuote}
-                canAct={canManage && !isLocked}
+                canAccept={canManage && !isLocked}
+                canReject={canManage && !isLocked}
+                disabled={actionBusy}
                 onAccept={() => onAcceptQuote(activeQuote.id)}
                 onReject={() => onRejectQuote(activeQuote.id)}
               />
             )}
 
-            {/* Feed */}
-            {feed.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-6">No activity yet.</p>
-            ) : (
-              <div className="space-y-2">
-                {feed.map((item) =>
-                  item.kind === "system"
-                    ? <SystemRow key={item.key} item={item} />
-                    : <Bubble key={item.key} item={item} />
-                )}
-                <div ref={feedEndRef} />
-              </div>
-            )}
+            <ConversationFeed request={request} viewer="admin" />
           </div>
 
-          {/* Sticky composer */}
-          <div className="border-t bg-white px-4 py-3">
-            {isLocked ? (
-              <div className="text-sm text-gray-500 text-center py-2">
-                This request is locked.
-                {canManage && isReopenable && (
-                  <button onClick={onReopen} disabled={actionBusy}
-                    className="ml-3 text-blue-600 hover:underline inline-flex items-center gap-1">
-                    <RotateCcw className="w-3.5 h-3.5" /> Reopen
-                  </button>
-                )}
-              </div>
-            ) : (
-              <>
-                <div className="flex items-center gap-3 text-xs mb-2">
-                  <label className="flex items-center gap-1">
-                    <input type="radio" name="kind" checked={replyKind === "message"}
-                      onChange={() => setReplyKind("message")} />
-                    Message
-                  </label>
-                  <label className="flex items-center gap-1">
-                    <input type="radio" name="kind" checked={replyKind === "info_request"}
-                      onChange={() => setReplyKind("info_request")} />
-                    Request info
-                  </label>
-                </div>
-                <div className="flex items-end gap-2">
-                  <textarea
-                    value={reply}
-                    onChange={(e) => setReply(e.target.value)}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter" && !e.shiftKey && (e.metaKey || e.ctrlKey)) {
-                        e.preventDefault();
-                        onSend();
-                      }
-                    }}
-                    rows={2}
-                    placeholder="Write a reply…"
-                    className="flex-1 border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  />
-                  <button
-                    onClick={onSend}
-                    disabled={sending || !reply.trim()}
-                    className="px-4 py-2 bg-blue-600 text-white text-sm font-medium rounded-lg disabled:opacity-50"
-                  >
-                    {sending ? "…" : <Send className="w-4 h-4 inline" />}
-                  </button>
-                </div>
-              </>
-            )}
-          </div>
+          <StickyComposer
+            value={reply}
+            onChange={setReply}
+            onSend={onSend}
+            sending={sending}
+            disabled={isLocked}
+            locked={isLocked}
+            lockedMessage="This request is locked."
+            onReopen={canManage && isReopenable ? onReopen : undefined}
+            allowKind
+            kind={replyKind}
+            onKindChange={setReplyKind}
+          />
         </div>
 
         {/* Quick-actions sidebar */}
-        <aside className="w-64 border-l bg-white p-4 overflow-y-auto hidden xl:block">
+        <aside
+          className="w-64 border-l bg-white p-4 overflow-y-auto hidden xl:block"
+          aria-label="Quick actions"
+        >
           <h3 className="text-xs font-semibold uppercase text-gray-500 tracking-wide mb-3">Customer</h3>
           <div className="text-sm space-y-1 mb-5">
             <div>{request.customer_name || "—"}</div>
@@ -687,7 +584,8 @@ function ProviderAssigner({ tenantId, requestId, onAssigned, disabled }) {
 
   return (
     <div className="border rounded-lg p-3 space-y-2 bg-gray-50">
-      <select value={selected} onChange={(e) => setSelected(e.target.value)}
+      <label className="sr-only" htmlFor="provider-select">Provider</label>
+      <select id="provider-select" value={selected} onChange={(e) => setSelected(e.target.value)}
         disabled={loading}
         className="w-full border rounded-lg px-2 py-1.5 text-sm bg-white">
         <option value="">{loading ? "Loading…" : "Select a provider"}</option>
@@ -709,134 +607,6 @@ function ProviderAssigner({ tenantId, requestId, onAssigned, disabled }) {
       </div>
     </div>
   );
-}
-
-// ── Pieces ─────────────────────────────────────────────────────────
-
-function QuoteBox({ quote, canAct, onAccept, onReject }) {
-  const versions = quote.revisions_history || [];
-  return (
-    <div className="bg-white rounded-xl border p-4">
-      <div className="flex items-baseline justify-between">
-        <h3 className="text-xs font-semibold uppercase text-gray-500 tracking-wide">
-          Current quote
-        </h3>
-        <span className="text-[10px] text-gray-400">
-          {versions.length > 0 && `v${versions.length}`}
-        </span>
-      </div>
-      <div className="mt-2 flex items-baseline gap-3">
-        <span className="text-xl font-extrabold text-gray-900">
-          {quote.currency} {quote.price}
-        </span>
-        <span className="text-sm text-gray-500">{quote.delivery_days} days</span>
-        {quote.revisions > 0 && <span className="text-sm text-gray-500">· {quote.revisions} revisions</span>}
-        <span className="text-xs text-gray-400 capitalize ml-auto">{quote.status}</span>
-      </div>
-      {quote.message && (
-        <p className="text-sm text-gray-600 mt-2 whitespace-pre-line">{quote.message}</p>
-      )}
-      {versions.length > 1 && (
-        <details className="text-xs text-gray-600 mt-2">
-          <summary className="cursor-pointer hover:text-gray-800">History</summary>
-          <ol className="mt-2 space-y-1.5">
-            {versions.map((r) => (
-              <li key={r.id} className="border-l-2 border-gray-200 pl-2">
-                v{r.version} — {r.currency} {r.price} · {r.delivery_days}d
-              </li>
-            ))}
-          </ol>
-        </details>
-      )}
-      {canAct && (quote.status === "pending" || quote.status === "countered") && (
-        <div className="flex gap-2 mt-3">
-          <button onClick={onAccept}
-            className="px-3 py-1.5 text-xs bg-emerald-600 text-white rounded-lg hover:bg-emerald-700 inline-flex items-center gap-1">
-            <CheckCircle className="w-3.5 h-3.5" /> Accept
-          </button>
-          <button onClick={onReject}
-            className="px-3 py-1.5 text-xs border border-rose-200 text-rose-700 rounded-lg hover:bg-rose-50 inline-flex items-center gap-1">
-            <XCircle className="w-3.5 h-3.5" /> Reject
-          </button>
-        </div>
-      )}
-    </div>
-  );
-}
-
-function Bubble({ item }) {
-  const isAdmin = item.author_role === "admin";
-  const isCustomer = item.author_role === "customer";
-  const isInfo = item.msg_kind === "info_request";
-
-  const align = isAdmin ? "justify-center" : isCustomer ? "justify-start" : "justify-end";
-  const bg = isAdmin
-    ? "bg-gray-100 border-gray-200"
-    : isCustomer
-      ? "bg-blue-50 border-blue-100"
-      : isInfo
-        ? "bg-amber-50 border-amber-200"
-        : "bg-emerald-50 border-emerald-100";
-
-  return (
-    <div className={`flex ${align}`}>
-      <div className={`max-w-[80%] rounded-2xl border ${bg} px-4 py-2 shadow-sm`}>
-        <div className="flex items-baseline gap-2 mb-0.5">
-          <span className="text-[11px] font-semibold text-gray-700">
-            {item.author_name}
-            {isInfo && <span className="ml-1 text-amber-700">· needs info</span>}
-          </span>
-          <span className="text-[10px] text-gray-400">{new Date(item.at).toLocaleString()}</span>
-        </div>
-        <p className="text-sm text-gray-800 whitespace-pre-line">{item.body}</p>
-      </div>
-    </div>
-  );
-}
-
-function SystemRow({ item }) {
-  const label = TIMELINE_LABELS[item.event] || item.event;
-  return (
-    <div className="flex items-center gap-2 my-1 text-[11px] text-gray-500">
-      <span className="h-px flex-1 bg-gray-200" />
-      <span className="px-2 py-0.5 rounded-full bg-white border border-gray-200">
-        {label}
-        {item.metadata?.from && item.metadata?.to && (
-          <> · {item.metadata.from} → {item.metadata.to}</>
-        )}
-      </span>
-      <span className="h-px flex-1 bg-gray-200" />
-    </div>
-  );
-}
-
-function buildFeed(request) {
-  if (!request) return [];
-  const items = [];
-  for (const m of request.messages || []) {
-    items.push({
-      kind: "message",
-      key: `m-${m.id}`,
-      at: m.created_at,
-      author_role: m.author_role || "customer",
-      author_name: m.author_name || m.author_email || "—",
-      msg_kind: m.kind,
-      body: m.body,
-    });
-  }
-  for (const ev of request.timeline || []) {
-    if (TIMELINE_LABELS[ev.event] === null) continue;
-    items.push({
-      kind: "system",
-      key: `t-${ev.id}`,
-      at: ev.created_at,
-      event: ev.event,
-      actor_role: ev.actor_role,
-      metadata: ev.metadata || {},
-    });
-  }
-  items.sort((a, b) => new Date(a.at) - new Date(b.at));
-  return items;
 }
 
 function Cell({ label, children }) {
