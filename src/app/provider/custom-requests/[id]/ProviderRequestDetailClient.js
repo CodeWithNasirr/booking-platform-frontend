@@ -3,16 +3,21 @@
 /**
  * ProviderRequestDetailClient
  *
+ * Business rule (V3.E): the provider does NOT issue quotes.
+ * Quotes belong to the tenant. The provider participates in the
+ * conversation, can share context with the tenant (including
+ * info_request style notes), uploads files, and watches quote
+ * status. Pricing decisions are the tenant's.
+ *
  * Composed from the shared @/components/custom-requests primitives
- * so the provider view matches the customer and tenant CRM
- * presentation. Provider-specific bits are quote submission +
- * info_request kind on the composer.
+ * so the provider view stays visually consistent with the
+ * customer portal and tenant CRM.
  */
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { ArrowLeft, Send } from "lucide-react";
+import { ArrowLeft } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { useRealtime } from "@/lib/realtime";
 import { applyRequestEnvelope } from "@/lib/realtimePatches";
@@ -29,7 +34,6 @@ import {
 
 import {
   fetchProviderRequest,
-  submitQuote,
   postProviderMessage,
 } from "../api";
 
@@ -41,10 +45,6 @@ export default function ProviderRequestDetailClient({ id }) {
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
-
-  const [showQuoteForm, setShowQuoteForm] = useState(false);
-  const [quote, setQuote] = useState({ price: "", delivery_days: "", message: "", revisions: 1 });
-  const [submitting, setSubmitting] = useState(false);
 
   const [replyBody, setReplyBody] = useState("");
   const [replyKind, setReplyKind] = useState("message");
@@ -87,29 +87,6 @@ export default function ProviderRequestDetailClient({ id }) {
     return request.quotes.find((q) => q.status === "pending" || q.status === "countered")
       || request.quotes[0] || null;
   }, [request]);
-  const hasOwnActive = (request?.quotes || []).some((q) => q.status === "pending" || q.status === "countered");
-
-  async function handleSubmitQuote(e) {
-    e.preventDefault();
-    if (!quote.price || !quote.message || !quote.delivery_days || submitting) return;
-    setSubmitting(true);
-    try {
-      await submitQuote(tenantId, id, {
-        price: parseFloat(quote.price),
-        delivery_days: parseInt(quote.delivery_days, 10),
-        revisions: parseInt(quote.revisions || 1, 10),
-        message: quote.message,
-      });
-      toast.success("Quote sent");
-      setShowQuoteForm(false);
-      setQuote({ price: "", delivery_days: "", message: "", revisions: 1 });
-    } catch (err) {
-      toast.error(err.message || "Failed to submit quote");
-    } finally {
-      setSubmitting(false);
-    }
-  }
-
   async function handleSendReply() {
     const body = replyBody.trim();
     if (!body || sendingReply) return;
@@ -173,62 +150,11 @@ export default function ProviderRequestDetailClient({ id }) {
           </dl>
         </div>
 
-        {/* Active quote (read-only for provider; provider sends new revisions via form) */}
+        {/* Quote is read-only here. Providers can see status and
+            history but cannot create or revise quotes — the
+            tenant owns the customer-facing pricing decision. */}
         {activeQuote && (
           <QuoteCard quote={activeQuote} />
-        )}
-
-        {/* Submit-quote form */}
-        {!isLocked && !hasOwnActive && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <div className="flex items-center justify-between mb-3">
-              <h2 className="text-sm font-semibold uppercase text-gray-500 tracking-wide">
-                Your quote
-              </h2>
-              <button
-                onClick={() => setShowQuoteForm((v) => !v)}
-                className="flex items-center gap-1.5 px-3 py-1.5 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700"
-              >
-                <Send className="w-4 h-4" /> {showQuoteForm ? "Cancel" : "Submit quote"}
-              </button>
-            </div>
-            {showQuoteForm && (
-              <form onSubmit={handleSubmitQuote} className="space-y-3">
-                <div className="grid grid-cols-2 gap-3">
-                  <input
-                    type="number" step="0.01" required
-                    value={quote.price}
-                    onChange={(e) => setQuote({ ...quote, price: e.target.value })}
-                    placeholder="Price"
-                    aria-label="Price"
-                    className="border rounded-lg px-3 py-2 text-sm"
-                  />
-                  <input
-                    type="number" required
-                    value={quote.delivery_days}
-                    onChange={(e) => setQuote({ ...quote, delivery_days: e.target.value })}
-                    placeholder="Delivery days"
-                    aria-label="Delivery days"
-                    className="border rounded-lg px-3 py-2 text-sm"
-                  />
-                </div>
-                <textarea
-                  required rows={3}
-                  value={quote.message}
-                  onChange={(e) => setQuote({ ...quote, message: e.target.value })}
-                  placeholder="What's included"
-                  aria-label="Quote message"
-                  className="w-full border rounded-lg px-3 py-2 text-sm"
-                />
-                <button
-                  type="submit" disabled={submitting}
-                  className="px-4 py-2 text-sm bg-blue-600 text-white rounded-lg disabled:opacity-50"
-                >
-                  {submitting ? "Sending…" : "Send quote"}
-                </button>
-              </form>
-            )}
-          </div>
         )}
 
         {request.files?.length > 0 && (

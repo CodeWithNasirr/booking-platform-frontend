@@ -39,6 +39,7 @@ import {
   listAssignableProviders,
   postRequestMessage,
   reopenRequest,
+  submitQuote,
 } from "./lib/api";
 import {
   StatusBadge,
@@ -458,6 +459,19 @@ function DetailPane({
               />
             )}
 
+            {/* The tenant is the only role that issues quotes
+                (V3.E business rule). Surfaced inline above the
+                conversation so admins can react to provider
+                input while reading the thread. */}
+            {canManage && !isLocked && (
+              <QuoteComposer
+                tenantId={tenantId}
+                request={request}
+                onSent={() => {/* realtime patches the quote in */}}
+                isRevision={Boolean(activeQuote)}
+              />
+            )}
+
             <ConversationFeed request={request} viewer="admin" />
           </div>
 
@@ -529,6 +543,130 @@ function DetailPane({
         </aside>
       </div>
     </>
+  );
+}
+
+function QuoteComposer({ tenantId, request, onSent, isRevision }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    price: "", currency: "SAR", delivery_days: "", revisions: 1, message: "",
+  });
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (busy) return;
+    if (!request.provider_id && !request.provider) {
+      toast.error("Assign a provider first — the quote is pinned to them.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await submitQuote(tenantId, request.id, {
+        price: parseFloat(form.price),
+        currency: form.currency || "SAR",
+        delivery_days: parseInt(form.delivery_days, 10),
+        revisions: parseInt(form.revisions || 1, 10),
+        message: form.message,
+      });
+      toast.success(isRevision ? "Revision sent" : "Quote sent");
+      setOpen(false);
+      setForm({ price: "", currency: "SAR", delivery_days: "", revisions: 1, message: "" });
+      onSent?.();
+    } catch (err) {
+      toast.error(err.message || "Failed to send quote");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full text-left px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 text-sm font-medium text-gray-600 hover:text-gray-900 hover:border-gray-300 transition"
+      >
+        + {isRevision ? "Send a revised quote" : "Issue a quote to the customer"}
+      </button>
+    );
+  }
+
+  return (
+    <form
+      onSubmit={handleSubmit}
+      className="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3"
+    >
+      <div className="flex items-center justify-between">
+        <h3 className="text-sm font-semibold text-gray-700">
+          {isRevision ? "Send a revised quote" : "Issue a quote"}
+        </h3>
+        <button
+          type="button"
+          onClick={() => setOpen(false)}
+          className="text-xs text-gray-500 hover:text-gray-700"
+        >
+          Cancel
+        </button>
+      </div>
+
+      <div className="grid grid-cols-3 gap-2">
+        <input
+          type="number" step="0.01" required min="0"
+          value={form.price}
+          onChange={(e) => setForm({ ...form, price: e.target.value })}
+          placeholder="Price"
+          aria-label="Price"
+          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <input
+          type="text"
+          value={form.currency}
+          onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })}
+          placeholder="SAR"
+          aria-label="Currency"
+          maxLength={3}
+          className="border rounded-lg px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+        <input
+          type="number" required min="1"
+          value={form.delivery_days}
+          onChange={(e) => setForm({ ...form, delivery_days: e.target.value })}
+          placeholder="Days"
+          aria-label="Delivery days"
+          className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <div className="flex items-center gap-2">
+        <label className="text-xs text-gray-600" htmlFor="quote-revisions">
+          Revisions
+        </label>
+        <input
+          id="quote-revisions"
+          type="number" min="0"
+          value={form.revisions}
+          onChange={(e) => setForm({ ...form, revisions: e.target.value })}
+          className="w-20 border rounded-lg px-2 py-1 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+        />
+      </div>
+
+      <textarea
+        required rows={3}
+        value={form.message}
+        onChange={(e) => setForm({ ...form, message: e.target.value })}
+        placeholder="What's included, scope, deliverables…"
+        aria-label="Quote message"
+        className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500"
+      />
+
+      <button
+        type="submit"
+        disabled={busy}
+        className="w-full px-4 py-2 text-sm bg-blue-600 text-white rounded-lg hover:bg-blue-700 disabled:opacity-50"
+      >
+        {busy ? "Sending…" : isRevision ? "Send revision" : "Send quote"}
+      </button>
+    </form>
   );
 }
 

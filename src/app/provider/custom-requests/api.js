@@ -13,12 +13,11 @@ export async function fetchProviderRequest(tenantId, id) {
   return apiFetch(`/api/v1/custom-requests/${id}/`, tenantId);
 }
 
-export async function submitQuote(tenantId, id, payload) {
-  return apiFetch(`/api/v1/custom-requests/${id}/submit_quote/`, tenantId, {
-    method: "POST",
-    body: JSON.stringify(payload),
-  });
-}
+// Quote creation is intentionally absent from the provider API —
+// V3.E business rule: only the tenant issues quotes. The
+// provider participates in the conversation and can flag the
+// quote shape internally but the customer-facing pricing
+// decision is the tenant's.
 
 export async function postProviderMessage(tenantId, id, body, kind = "message") {
   return apiFetch(`/api/v1/custom-requests/${id}/messages/`, tenantId, {
