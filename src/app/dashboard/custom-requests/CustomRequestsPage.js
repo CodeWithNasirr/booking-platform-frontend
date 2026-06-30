@@ -73,8 +73,6 @@ export default function CustomRequestsPage() {
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
 
-<<<<<<< HEAD
-=======
   // Detail state
   const [detail, setDetail] = useState(null);
   const [detailLoading, setDetailLoading] = useState(false);
@@ -83,7 +81,6 @@ export default function CustomRequestsPage() {
   const [sending, setSending] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
 
->>>>>>> 1309309d81fd4b0c4f62efd7b0d1e1fdcab7d26b
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
     return () => clearTimeout(t);

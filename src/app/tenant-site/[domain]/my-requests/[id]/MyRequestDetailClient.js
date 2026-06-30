@@ -65,12 +65,7 @@ async function apiJson(url, opts = {}) {
 }
 
 export default function MyRequestDetailClient({ domain, requestId, site, header, footer }) {
-<<<<<<< HEAD
-  const { language: lang, isRTL } = useTenantLang();
-  
-=======
   const { isRTL } = useTenantLang();
->>>>>>> 1309309d81fd4b0c4f62efd7b0d1e1fdcab7d26b
   const theme = useTenantTheme();
   const searchParams = useSearchParams();
   // const tenantId = site?.tenant?.id;
