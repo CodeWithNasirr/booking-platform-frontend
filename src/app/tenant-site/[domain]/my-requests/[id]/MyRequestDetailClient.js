@@ -30,7 +30,7 @@ import LayoutRenderer from "../../LayoutRenderer";
 import { useTenantLang } from "../../../contexts/TenantLangContext";
 import { tenantRoutes } from "@/lib/tenantRoutes";
 import { useRealtime } from "@/lib/realtime";
-import { applyRequestEnvelope } from "@/lib/realtimePatches";
+import { applyRequestEnvelope, applyOrderEnvelope } from "@/lib/realtimePatches";
 import {
   ConversationFeed,
   QuoteCard,
@@ -207,45 +207,64 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   useEffect(() => { fetchRequest(); }, [fetchRequest]);
 
   // ── Order summary (post-acceptance) ─────────────────────────────
-  useEffect(() => {
+  // Soft fetch — most commonly a guest who hasn't done the
+  // order-portal OTP yet will 401; the PostAcceptanceCard falls
+  // back to the generic "open order" CTA without an inline pill.
+  const fetchOrderSummary = useCallback(async () => {
     const orderId = request?.converted_order;
     const inScope = ["converted", "completed"].includes(request?.status);
     if (!orderId || !inScope || !authToken) {
       setOrder(null);
       return;
     }
-    let cancelled = false;
-    (async () => {
-      try {
-        const data = await apiJson(
-          `${API_BASE}/api/v1/orders/${orderId}/`,
-          { headers: tokenHeaders(tenantId || domain, authToken, isGuestToken) },
-        );
-        if (!cancelled) setOrder(data);
-      } catch {
-        // Soft fail — most commonly a guest who hasn't done the
-        // order-portal OTP yet. The PostAcceptanceCard renders
-        // the simpler "open order" CTA without the inline status
-        // pill and price; the customer continues their flow in
-        // /my-orders/<id>.
-        if (!cancelled) setOrder(null);
-      }
-    })();
-    return () => { cancelled = true; };
+    try {
+      const data = await apiJson(
+        `${API_BASE}/api/v1/orders/${orderId}/`,
+        { headers: tokenHeaders(tenantId || domain, authToken, isGuestToken) },
+      );
+      setOrder(data);
+    } catch {
+      setOrder(null);
+    }
   }, [request?.converted_order, request?.status, authToken, isGuestToken, tenantId, domain]);
 
+  useEffect(() => { fetchOrderSummary(); }, [fetchOrderSummary]);
+
   // ── Realtime ────────────────────────────────────────────────────
+  // Subscribe to BOTH the request topic and (once the request
+  // converts) the linked order topic, so the PostAcceptanceCard
+  // flips from "Complete payment" → "Working on this" → … the
+  // moment the order status changes — even if the customer is
+  // paying in another tab.
+  const orderTopicId = request?.converted_order;
+  const realtimeTopics = useMemo(() => {
+    const t = requestId ? [`custom_request:${requestId}`] : [];
+    if (orderTopicId) t.push(`order:${orderTopicId}`);
+    return t;
+  }, [requestId, orderTopicId]);
+
   useRealtime({
-    topics: requestId ? [`custom_request:${requestId}`] : [],
+    topics: realtimeTopics,
     auth: {
       jwt: !isGuestToken ? authToken : null,
       requestToken: isGuestToken ? authToken : null,
     },
     onEvent: (envelope) => {
       if (!envelope?.entity_type) return;
-      setRequest((prev) => (prev ? applyRequestEnvelope(prev, envelope) : prev));
+      if (envelope.entity_type.startsWith("custom_request.")) {
+        setRequest((prev) => (prev ? applyRequestEnvelope(prev, envelope) : prev));
+        return;
+      }
+      if (envelope.entity_type.startsWith("order.")) {
+        setOrder((prev) => applyOrderEnvelope(prev, envelope));
+      }
     },
-    onReconnect: () => { fetchRequest(); },
+    onReconnect: () => {
+      // One REST resync each — anything missed while offline
+      // recovers, then realtime takes over again.
+      fetchRequest();
+      if (orderTopicId) fetchOrderSummary();
+    },
   });
 
   // ── Derived ─────────────────────────────────────────────────────

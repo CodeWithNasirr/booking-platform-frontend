@@ -92,6 +92,34 @@ function pickSummaryFields(summary) {
   return out;
 }
 
+/**
+ * applyOrderEnvelope — patch a single Order object in-place from
+ * an `order.*` realtime envelope. Mirrors applyRequestEnvelope:
+ * subscribers update local state without round-tripping the REST
+ * detail endpoint.
+ *
+ * Backend entity types (see apps.realtime.service.RealtimeService):
+ *   order.status   → patch status + total_amount + currency +
+ *                    order_number + updated_at
+ *   order.summary  → same shape (used on tenant feed)
+ *
+ * Unknown entity types pass through unchanged so future
+ * envelopes never silently drop the existing order state.
+ */
+export function applyOrderEnvelope(order, envelope) {
+  if (!envelope?.entity_type) return order;
+  if (envelope.entity_type !== "order.status"
+      && envelope.entity_type !== "order.summary") {
+    return order;
+  }
+  const p = envelope.payload || {};
+  const next = order ? { ...order } : { id: envelope.entity_id };
+  for (const key of ["status", "total_amount", "currency", "order_number", "updated_at"]) {
+    if (key in p) next[key] = p[key];
+  }
+  return next;
+}
+
 export function applyTenantRequestSummary(list, envelope) {
   if (!Array.isArray(list) || envelope?.entity_type !== "custom_request.summary") {
     return list;
