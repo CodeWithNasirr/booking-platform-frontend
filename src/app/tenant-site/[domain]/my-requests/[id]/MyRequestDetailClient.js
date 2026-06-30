@@ -1,38 +1,52 @@
 "use client";
 
 /**
- * MyRequestDetailClient — V3 customer portal.
+ * MyRequestDetailClient — V3.F.2 customer portal.
  *
- * Composed entirely from shared components in
- * src/components/custom-requests so the tenant CRM, provider
- * panel, and customer portal all render the same widgets with
- * the same spacing / tone / interaction rules.
+ * Apple-Support / Stripe-Customer-Portal feel:
  *
- * Auth cascade:
- *   1. cookie access_token (registered user)
- *   2. ?t= magic-link → POST /access-via-token/
- *   3. stored customer_request_token_{tenantId}
+ *   - Brand-led header strip carrying the tenant logo + business
+ *     name so the customer reads this as the business's product,
+ *     not ours.
+ *   - StatusTimeline rail above the fold — the customer's first
+ *     question ("where is my request?") gets answered before
+ *     anything scrolls.
+ *   - Quote becomes the hero whenever one is active.
+ *   - Single-column, generous spacing, 44 px touch targets.
+ *   - Sticky composer pinned over the iOS home indicator via
+ *     env(safe-area-inset-bottom).
+ *
+ * Everything composes from the design system + shared
+ * custom-request primitives. Brand colours flow from
+ * <BrandRoot> via CSS variables.
  */
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
+import { ArrowLeft, RefreshCw, MessageCircle, Inbox } from "lucide-react";
 
 import LayoutRenderer from "../../LayoutRenderer";
 import { useTenantLang } from "../../../contexts/TenantLangContext";
-import { useTenantTheme } from "../../../contexts/TenantThemeContext";
 import { tenantRoutes } from "@/lib/tenantRoutes";
 import { useRealtime } from "@/lib/realtime";
 import { applyRequestEnvelope } from "@/lib/realtimePatches";
 import {
-  StatusBadge,
   ConversationFeed,
   QuoteCard,
   AttachmentGrid,
   StickyComposer,
+  StatusTimeline,
   RequestDetailSkeleton,
   TERMINAL_STATUSES,
 } from "@/components/custom-requests";
+import {
+  Card,
+  Button,
+  EmptyState,
+  BrandRoot,
+  useBrand,
+} from "@/components/ui";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -65,11 +79,24 @@ async function apiJson(url, opts = {}) {
 }
 
 export default function MyRequestDetailClient({ domain, requestId, site, header, footer }) {
+  return (
+    <BrandRoot className="contents">
+      <CustomerPortalDetail
+        domain={domain}
+        requestId={requestId}
+        site={site}
+        header={header}
+        footer={footer}
+      />
+    </BrandRoot>
+  );
+}
+
+function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   const { isRTL } = useTenantLang();
-  const theme = useTenantTheme();
+  const brand = useBrand();
   const searchParams = useSearchParams();
   const tenantId = site?.tenant?.id;
-  const primary = theme?.primary_color || "#3B82F6";
 
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -136,7 +163,7 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
     return () => { cancelled = true; };
   }, [domain, tenantId, searchParams]);
 
-  // ── Data fetch (initial + reconnect fallback) ───────────────────
+  // ── Data fetch ──────────────────────────────────────────────────
   const fetchRequest = useCallback(async () => {
     if (!authToken) return;
     setLoading(true);
@@ -152,9 +179,9 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
         setNeedsAuth(true);
         setAuthToken(null);
       } else if (err.status === 404) {
-        setError("Request not found.");
+        setError("We couldn't find this request.");
       } else {
-        setError("Failed to load this request.");
+        setError("Something went wrong loading your request.");
       }
     } finally {
       setLoading(false);
@@ -163,7 +190,7 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
 
   useEffect(() => { fetchRequest(); }, [fetchRequest]);
 
-  // ── Realtime — patch in-place; refetch only on (re)connect ───────
+  // ── Realtime ────────────────────────────────────────────────────
   useRealtime({
     topics: requestId ? [`custom_request:${requestId}`] : [],
     auth: {
@@ -181,10 +208,13 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
   const activeQuote = useMemo(() => {
     if (!request?.quotes) return null;
     return request.quotes.find((q) => q.status === "pending" || q.status === "countered")
-      || request.quotes[0] || null;
+      || request.quotes[0]
+      || null;
   }, [request]);
 
   const isLocked = TERMINAL_STATUSES.has(request?.status);
+  const businessName = brand.businessName || site?.tenant?.name || "";
+  const tenantLogo = brand.logo || site?.tenant?.logo;
 
   // ── Actions ─────────────────────────────────────────────────────
   async function handleSend() {
@@ -201,7 +231,6 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
         },
       );
       setReply("");
-      // Realtime will push the message; no refetch needed.
     } catch (err) {
       alert(err.message || "Failed to send message");
     } finally {
@@ -264,58 +293,110 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
   if (needsAuth) {
     return (
       <Shell header={headerSection} footer={footerSection} site={site} isRTL={isRTL}>
-        <div className="max-w-md mx-auto bg-white rounded-2xl p-8 text-center shadow-sm">
+        <Card className="max-w-md mx-auto text-center">
           <h2 className="text-lg font-semibold mb-2">Sign in to view this request</h2>
           <p className="text-sm text-gray-600 mb-5">
             Use the verification link in your email, or go to your dashboard to enter a code.
           </p>
           <Link
             href={tenantRoutes.myRequests()}
-            className="inline-block px-5 py-2.5 rounded-xl text-white font-medium"
-            style={{ backgroundColor: primary }}
+            className="inline-flex items-center justify-center h-11 px-6 rounded-xl font-medium bg-[color:var(--brand-primary,#3B82F6)] text-[color:var(--brand-primary-fg,#fff)] hover:brightness-110"
           >
             Go to My Requests
           </Link>
-        </div>
+        </Card>
       </Shell>
     );
   }
 
-  if (loading || !request) {
+  if (loading && !request) {
     return (
       <Shell header={headerSection} footer={footerSection} site={site} isRTL={isRTL}>
-        {error ? (
-          <p className="text-center text-red-600">{error}</p>
-        ) : (
-          <div className="max-w-3xl mx-auto"><RequestDetailSkeleton /></div>
-        )}
+        <div className="max-w-3xl mx-auto"><RequestDetailSkeleton /></div>
+      </Shell>
+    );
+  }
+
+  if (error && !request) {
+    return (
+      <Shell header={headerSection} footer={footerSection} site={site} isRTL={isRTL}>
+        <EmptyState
+          icon={Inbox}
+          title="We couldn't load this request"
+          hint={error}
+          action={(
+            <Button variant="primary" onClick={fetchRequest} leftIcon={<RefreshCw className="w-4 h-4" />}>
+              Try again
+            </Button>
+          )}
+          className="max-w-md mx-auto bg-white rounded-2xl border border-gray-100 shadow-sm"
+        />
       </Shell>
     );
   }
 
   return (
     <Shell header={headerSection} footer={footerSection} site={site} isRTL={isRTL}>
-      <div className="max-w-3xl mx-auto pb-32 space-y-6">
-        <Link href={tenantRoutes.myRequests()} className="text-sm text-gray-500 hover:text-gray-700">
-          ← Back to my requests
-        </Link>
-
-        {/* Header card */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <div className="flex flex-wrap items-center justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-xl font-bold text-gray-900 truncate">{request.title}</h1>
-              <p className="text-xs text-gray-500 mt-0.5">#{request.request_number}</p>
+      <div className="max-w-3xl mx-auto pb-32 space-y-5">
+        {/* Brand strip — frames the page as the tenant's product */}
+        <div className="flex items-center justify-between gap-3">
+          <Link
+            href={tenantRoutes.myRequests()}
+            className="inline-flex items-center gap-1.5 h-10 px-3 -ml-3 rounded-xl text-sm text-gray-600 hover:bg-gray-100 transition"
+          >
+            <ArrowLeft className="w-4 h-4" />
+            <span className="hidden sm:inline">My requests</span>
+          </Link>
+          {(tenantLogo || businessName) && (
+            <div className="flex items-center gap-2 text-sm text-gray-700">
+              {tenantLogo && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={tenantLogo} alt="" className="w-7 h-7 rounded-lg object-contain" />
+              )}
+              {businessName && <span className="font-semibold">{businessName}</span>}
             </div>
-            <StatusBadge status={request.status} />
-          </div>
-          <p className="text-gray-700 mt-4 whitespace-pre-line">{request.description}</p>
+          )}
         </div>
 
+        {/* Hero card */}
+        <Card padding="lg" className="space-y-4">
+          <div>
+            <p className="text-xs text-gray-500 font-mono">#{request.request_number}</p>
+            <h1 className="text-2xl font-bold text-gray-900 mt-0.5">{request.title}</h1>
+          </div>
+
+          <StatusTimeline status={request.status} />
+
+          <p className="text-gray-700 whitespace-pre-line text-[15px] leading-relaxed">
+            {request.description}
+          </p>
+
+          {(request.budget_min || request.budget_max || request.deadline) && (
+            <dl className="grid grid-cols-2 gap-3 pt-2 text-sm">
+              {(request.budget_min || request.budget_max) && (
+                <div>
+                  <dt className="text-[11px] uppercase tracking-wide text-gray-500">Budget</dt>
+                  <dd className="text-gray-800 mt-0.5">
+                    {request.budget_min || ""}
+                    {request.budget_min && request.budget_max && " – "}
+                    {request.budget_max || ""}
+                  </dd>
+                </div>
+              )}
+              {request.deadline && (
+                <div>
+                  <dt className="text-[11px] uppercase tracking-wide text-gray-500">Deadline</dt>
+                  <dd className="text-gray-800 mt-0.5">{request.deadline}</dd>
+                </div>
+              )}
+            </dl>
+          )}
+        </Card>
+
+        {/* Quote hero — the customer's call-to-action moment */}
         {activeQuote && (
           <QuoteCard
             quote={activeQuote}
-            primary={primary}
             canAccept canReject canCounter
             disabled={isLocked || actionBusy}
             onAccept={() => quoteAction("accept_quote", activeQuote.id)}
@@ -324,28 +405,54 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
           />
         )}
 
-        {request.files?.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Attachments</h2>
-            <AttachmentGrid files={request.files} />
-          </div>
-        )}
-
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Conversation</h2>
-          <ConversationFeed request={request} viewer="customer" />
-        </div>
-
+        {/* Conversion success card */}
         {request.status === "converted" && request.converted_order && (
-          <Link
-            href={tenantRoutes.myOrder(request.converted_order)}
-            className="block bg-purple-50 border border-purple-200 rounded-2xl p-5 text-sm text-purple-900 hover:bg-purple-100"
-          >
-            This request became an order — view the order →
-          </Link>
+          <Card padding="lg" className="!bg-[color:var(--brand-primary,#3B82F6)]/5 !border-[color:var(--brand-primary,#3B82F6)]/20">
+            <p className="text-sm font-semibold text-gray-900 mb-1">
+              Your request is now an order
+            </p>
+            <p className="text-sm text-gray-600 mb-3">
+              Track delivery, files, and messages on the order page.
+            </p>
+            <Link
+              href={tenantRoutes.myOrder(request.converted_order)}
+              className="inline-flex items-center gap-1.5 h-10 px-4 rounded-xl text-sm font-medium bg-[color:var(--brand-primary,#3B82F6)] text-[color:var(--brand-primary-fg,#fff)] hover:brightness-110"
+            >
+              Open order →
+            </Link>
+          </Card>
         )}
+
+        {/* Attachments */}
+        {request.files?.length > 0 && (
+          <Card padding="lg">
+            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
+              Attachments
+            </h2>
+            <AttachmentGrid files={request.files} />
+          </Card>
+        )}
+
+        {/* Conversation */}
+        <Card padding="lg">
+          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3 flex items-center gap-2">
+            <MessageCircle className="w-3.5 h-3.5" />
+            Conversation
+          </h2>
+          {(request.messages?.length === 0 && request.timeline?.length <= 1)
+            ? (
+              <EmptyState
+                icon={MessageCircle}
+                title="Thanks for sending this in"
+                hint={`The ${businessName || "team"} is reviewing your request. You'll get an email when there's an update.`}
+                className="py-6"
+              />
+            )
+            : <ConversationFeed request={request} viewer="customer" />}
+        </Card>
       </div>
 
+      {/* Sticky composer — always above the iOS home indicator */}
       <StickyComposer
         value={reply}
         onChange={setReply}
@@ -354,7 +461,6 @@ export default function MyRequestDetailClient({ domain, requestId, site, header,
         sending={sending}
         uploading={uploading}
         locked={isLocked}
-        primary={primary}
         sticky
       />
     </Shell>
@@ -365,8 +471,8 @@ function Shell({ header, footer, site, isRTL, children }) {
   return (
     <>
       {header.length > 0 && <LayoutRenderer sections={header} site={site} />}
-      <main className={`min-h-screen bg-gray-50 py-10 ${isRTL ? "rtl" : ""}`}>
-        <div className="px-4">{children}</div>
+      <main className={`min-h-screen bg-gray-50 ${isRTL ? "rtl" : ""}`} dir={isRTL ? "rtl" : undefined}>
+        <div className="px-4 sm:px-6 py-6 sm:py-10">{children}</div>
       </main>
       {footer.length > 0 && <LayoutRenderer sections={footer} site={site} />}
     </>

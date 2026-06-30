@@ -1,4 +1,5 @@
 export { default as StatusBadge } from "./StatusBadge";
+export { default as StatusTimeline } from "./StatusTimeline";
 export { default as ConversationBubble } from "./ConversationBubble";
 export { default as ConversationFeed } from "./ConversationFeed";
 export { default as TimelineEvent } from "./TimelineEvent";
