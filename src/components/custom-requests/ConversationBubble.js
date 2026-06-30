@@ -1,22 +1,20 @@
 "use client";
 
 /**
- * ConversationBubble — one chat row in the request feed.
+ * ConversationBubble — one chat row.
  *
- * V3.E polish:
- *   - Avatar circle (initials) on the side opposite the bubble.
- *   - When `grouped` is true (consecutive message from the same
- *     author), the header (author + timestamp) is suppressed
- *     and the avatar is hidden, so a thread of replies reads
- *     like a single chat group rather than N stamped cards.
+ * Composed onto the design-system Avatar primitive so the
+ * conversation feed shares its avatar language with every
+ * other list / detail surface across the platform.
  *
- * Alignment is viewer-relative:
- *   viewer="customer" — customer messages right
- *   viewer="provider" — provider messages right
- *   admin always centers regardless of viewer
+ * Grouping: when `grouped=true`, the second-and-later messages
+ * from the same author within the grouping window hide the
+ * header (name + timestamp) and the avatar slot becomes a
+ * spacer. The thread reads like Intercom / iMessage.
  */
 
 import { useMemo } from "react";
+import { Avatar } from "@/components/ui";
 
 function formatTime(iso) {
   return new Date(iso).toLocaleString(undefined, {
@@ -24,26 +22,11 @@ function formatTime(iso) {
   });
 }
 
-function initialsFor(name) {
-  if (!name) return "·";
-  const parts = name.trim().split(/\s+/).slice(0, 2);
-  return parts.map((p) => p[0]?.toUpperCase() || "").join("") || "·";
-}
-
-function avatarTone(role) {
-  switch (role) {
-    case "customer": return "bg-blue-100 text-blue-700";
-    case "provider": return "bg-emerald-100 text-emerald-700";
-    case "admin":    return "bg-gray-200 text-gray-700";
-    default:         return "bg-amber-100 text-amber-700";
-  }
-}
-
 export default function ConversationBubble({ item, viewer = "customer", grouped = false }) {
   const role = item.author_role;
-  const isCustomer = role === "customer";
   const isAdmin = role === "admin";
   const isProvider = role === "provider";
+  const isCustomer = role === "customer";
   const isInfo = item.msg_kind === "info_request";
 
   const isViewerMessage =
@@ -63,33 +46,19 @@ export default function ConversationBubble({ item, viewer = "customer", grouped 
     return {
       align: isViewerMessage ? "justify-end" : "justify-start",
       bg: isViewerMessage
-        ? "bg-blue-50 border-blue-100"
+        ? "bg-[color:var(--brand-primary,#3B82F6)]/10 border-[color:var(--brand-primary,#3B82F6)]/20"
         : isProvider
           ? "bg-emerald-50 border-emerald-100"
           : "bg-white border-gray-200",
     };
   }, [isViewerMessage, isProvider, isAdmin, isInfo]);
 
-  const initials = initialsFor(item.author_name);
-  const avatarBg = avatarTone(role);
-
-  // Avatar sits on the opposite side of the bubble (customer
-  // bubble right → avatar left edge of the row; provider bubble
-  // left → avatar right of the bubble, etc).
-  const avatarEl = (
-    <div
-      aria-hidden="true"
-      className={`hidden sm:flex shrink-0 w-8 h-8 rounded-full items-center justify-center text-[10px] font-bold ${avatarBg}`}
-    >
-      {initials}
-    </div>
-  );
-
   return (
     <div className={`flex items-end gap-2 ${align} ${grouped ? "mt-0.5" : "mt-2"}`}>
-      {!isViewerMessage && !isAdmin && !grouped && avatarEl}
-      {!isViewerMessage && !isAdmin && grouped && (
-        <div className="hidden sm:block w-8 shrink-0" />
+      {!isViewerMessage && !isAdmin && (
+        grouped
+          ? <div className="hidden sm:block w-9 shrink-0" />
+          : <Avatar name={item.author_name} role={role} size="md" className="hidden sm:flex" />
       )}
 
       <div className={`max-w-[80%] rounded-2xl border ${bg} px-4 py-2 shadow-sm`}>
@@ -107,9 +76,10 @@ export default function ConversationBubble({ item, viewer = "customer", grouped 
         <p className="text-sm text-gray-800 whitespace-pre-line">{item.body}</p>
       </div>
 
-      {isViewerMessage && !grouped && avatarEl}
-      {isViewerMessage && grouped && (
-        <div className="hidden sm:block w-8 shrink-0" />
+      {isViewerMessage && (
+        grouped
+          ? <div className="hidden sm:block w-9 shrink-0" />
+          : <Avatar name={item.author_name} role={role} size="md" className="hidden sm:flex" />
       )}
     </div>
   );
