@@ -35,9 +35,14 @@ import {
   StickyComposer,
   StatusTimeline,
   PostAcceptanceCard,
+  UploadQueueTray,
+  useUploadQueue,
   RequestDetailSkeleton,
   TERMINAL_STATUSES,
 } from "@/components/custom-requests";
+import { uploadWithProgress } from "@/lib/uploadWithProgress";
+
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 import {
   Card,
   Button,
@@ -144,6 +149,34 @@ function Inner({ id }) {
     },
     onReconnect: () => { load(); fetchOrder(); },
   });
+
+  // Upload queue — provider can attach screenshots / mockups to
+  // share context with the tenant. The persisted file lands in
+  // request.files via the realtime attachment envelope.
+  const uploadOne = useCallback(async (file, { onProgress, signal }) => {
+    if (!tenantId) throw new Error("Sign in to upload");
+    const form = new FormData();
+    form.append("file", file);
+    form.append("file_type", "attachment");
+    return uploadWithProgress(
+      `${API_BASE}/api/v1/custom-requests/${id}/upload_file/`,
+      form,
+      {
+        headers: {
+          "X-Tenant": tenantId,
+          Authorization: cookieToken ? `Bearer ${cookieToken}` : undefined,
+        },
+        onProgress, signal,
+      },
+    );
+  }, [tenantId, id, cookieToken]);
+
+  const {
+    queue: uploadQueue, busy: uploadingFiles,
+    enqueue: enqueueUploads,
+    cancel: cancelUpload, retry: retryUpload,
+    dismiss: dismissUpload, clearDone: clearDoneUploads,
+  } = useUploadQueue({ upload: uploadOne });
 
   const isLocked = TERMINAL_STATUSES.has(request?.status);
   const isPostAcceptance =
@@ -277,12 +310,22 @@ function Inner({ id }) {
             />
           )}
 
-          {request.files?.length > 0 && (
+          {(request.files?.length > 0 || uploadQueue.length > 0) && (
             <Card padding="lg">
               <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
                 Attachments
               </h2>
-              <AttachmentGrid files={request.files} />
+              {request.files?.length > 0 && <AttachmentGrid files={request.files} />}
+              {uploadQueue.length > 0 && (
+                <UploadQueueTray
+                  queue={uploadQueue}
+                  onCancel={cancelUpload}
+                  onRetry={retryUpload}
+                  onDismiss={dismissUpload}
+                  onClearDone={clearDoneUploads}
+                  className={request.files?.length > 0 ? "mt-3" : ""}
+                />
+              )}
             </Card>
           )}
 
@@ -392,7 +435,9 @@ function Inner({ id }) {
         value={replyBody}
         onChange={setReplyBody}
         onSend={handleSendReply}
+        onAttach={isLocked ? undefined : enqueueUploads}
         sending={sendingReply}
+        uploading={uploadingFiles}
         disabled={isLocked}
         locked={isLocked}
         lockedMessage="This request is locked."

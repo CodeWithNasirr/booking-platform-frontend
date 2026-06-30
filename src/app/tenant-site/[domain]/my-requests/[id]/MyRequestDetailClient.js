@@ -39,8 +39,11 @@ import {
   StatusTimeline,
   RequestDetailSkeleton,
   PostAcceptanceCard,
+  UploadQueueTray,
+  useUploadQueue,
   TERMINAL_STATUSES,
 } from "@/components/custom-requests";
+import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import {
   Card,
   Button,
@@ -114,7 +117,6 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
 
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
-  const [uploading, setUploading] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
   // Optimistic outbound queue — bubbles render immediately as
   // "Sending…" and clear when realtime patches the persisted
@@ -357,27 +359,33 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
     await quoteAction("counter_request", quoteId, { note });
   }
 
-  async function uploadFiles(files) {
-    if (!files || files.length === 0 || isLocked) return;
-    setUploading(true);
-    try {
-      for (const file of files) {
-        const form = new FormData();
-        form.append("file", file);
-        form.append("file_type", "attachment");
-        const headers = tokenHeaders(tenantId || domain, authToken, isGuestToken);
-        delete headers["Content-Type"];
-        const res = await fetch(
-          `${API_BASE}/api/v1/custom-requests/${requestId}/upload_file/`,
-          { method: "POST", headers, body: form, credentials: "include" },
-        );
-        if (!res.ok) throw new Error(`Upload failed: ${res.status}`);
-      }
-    } catch (err) {
-      alert(err.message || "Upload failed");
-    } finally {
-      setUploading(false);
-    }
+  // Upload queue — real per-file progress, cancel, retry, soft
+  // auto-fade on success. The persisted file lands in
+  // request.files via the realtime attachment envelope and shows
+  // in AttachmentGrid; the tray is just the in-flight surface.
+  const uploadOne = useCallback(async (file, { onProgress, signal }) => {
+    const form = new FormData();
+    form.append("file", file);
+    form.append("file_type", "attachment");
+    const headers = tokenHeaders(tenantId || domain, authToken, isGuestToken);
+    delete headers["Content-Type"]; // FormData sets its own boundary
+    return uploadWithProgress(
+      `${API_BASE}/api/v1/custom-requests/${requestId}/upload_file/`,
+      form,
+      { headers, onProgress, signal },
+    );
+  }, [tenantId, domain, authToken, isGuestToken, requestId]);
+
+  const {
+    queue: uploadQueue, busy: uploading,
+    enqueue: enqueueUploads,
+    cancel: cancelUpload, retry: retryUpload,
+    dismiss: dismissUpload, clearDone: clearDoneUploads,
+  } = useUploadQueue({ upload: uploadOne });
+
+  function uploadFiles(files) {
+    if (isLocked) return;
+    enqueueUploads(files);
   }
 
   // ── Render ──────────────────────────────────────────────────────
@@ -513,13 +521,25 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
           providerName={request.provider_name || businessName}
         />
 
-        {/* Attachments */}
-        {request.files?.length > 0 && (
+        {/* Attachments — persistent grid + live upload queue.
+            The tray collapses to nothing once every upload
+            finishes, so it never dominates the layout. */}
+        {(request.files?.length > 0 || uploadQueue.length > 0) && (
           <Card padding="lg">
             <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
               Attachments
             </h2>
-            <AttachmentGrid files={request.files} />
+            {request.files?.length > 0 && <AttachmentGrid files={request.files} />}
+            {uploadQueue.length > 0 && (
+              <UploadQueueTray
+                queue={uploadQueue}
+                onCancel={cancelUpload}
+                onRetry={retryUpload}
+                onDismiss={dismissUpload}
+                onClearDone={clearDoneUploads}
+                className={request.files?.length > 0 ? "mt-3" : ""}
+              />
+            )}
           </Card>
         )}
 
