@@ -49,6 +49,7 @@ export function buildFeed(request) {
       kind: "message",
       key: `m-${m.id}`,
       at: m.created_at,
+      updated_at: m.updated_at,
       author_role: m.author_role || "customer",
       author_name: m.author_name || m.author_email || "—",
       msg_kind: m.kind,

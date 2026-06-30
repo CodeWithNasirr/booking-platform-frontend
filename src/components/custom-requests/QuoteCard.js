@@ -1,22 +1,21 @@
 "use client";
 
 import { CheckCircle, XCircle, RotateCcw } from "lucide-react";
+import { Card, Button } from "@/components/ui";
 
 /**
- * QuoteCard — current offer + revision history disclosure +
- * customer/admin actions. Reused by every detail view; the host
- * passes which actions are allowed.
+ * QuoteCard — current offer + revision history + viewer actions.
  *
- * Props:
- *   quote              — full ServiceQuoteSerializer payload
- *   primary            — accent colour
- *   canAccept / canReject / canCounter
- *   disabled           — visually disable buttons (locked status)
- *   onAccept / onReject / onCounter
+ * Brand-aware: the price colour, accept button, and dashed
+ * focus rings inherit the tenant accent via the brand CSS
+ * variables — no more hard-coded primary colour prop.
+ *
+ * Host-driven actions: pass canAccept / canReject / canCounter
+ * to expose the customer-side affordances. Provider and tenant
+ * admin pass none → read-only display.
  */
 export default function QuoteCard({
   quote,
-  primary = "#3B82F6",
   canAccept = false,
   canReject = false,
   canCounter = false,
@@ -29,7 +28,7 @@ export default function QuoteCard({
     (quote.status === "pending" || quote.status === "countered");
 
   return (
-    <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-3">
+    <Card padding="lg" className="space-y-3">
       <div className="flex items-baseline justify-between">
         <h2 className="text-xs font-semibold uppercase text-gray-500 tracking-wide">
           Current quote
@@ -39,7 +38,7 @@ export default function QuoteCard({
         </span>
       </div>
       <div className="flex items-baseline gap-3 flex-wrap">
-        <span className="text-2xl font-extrabold" style={{ color: primary }}>
+        <span className="text-2xl font-extrabold text-[color:var(--brand-primary,#3B82F6)]">
           {quote.currency} {quote.price}
         </span>
         <span className="text-sm text-gray-500">{quote.delivery_days} days</span>
@@ -74,38 +73,37 @@ export default function QuoteCard({
       {showActions && (
         <div className="flex flex-wrap gap-2 pt-1">
           {canAccept && (
-            <button
+            <Button
+              variant="primary" size="md"
               onClick={onAccept}
               disabled={disabled}
-              className="px-4 py-2 rounded-xl text-white text-sm font-medium disabled:opacity-50 inline-flex items-center gap-1"
-              style={{ backgroundColor: primary }}
+              leftIcon={<CheckCircle className="w-4 h-4" />}
             >
-              <CheckCircle className="w-4 h-4" />
               Accept
-            </button>
+            </Button>
           )}
           {canCounter && (
-            <button
+            <Button
+              variant="secondary" size="md"
               onClick={onCounter}
               disabled={disabled}
-              className="px-4 py-2 rounded-xl border border-gray-300 text-gray-700 text-sm font-medium hover:bg-gray-50 disabled:opacity-50 inline-flex items-center gap-1"
+              leftIcon={<RotateCcw className="w-4 h-4" />}
             >
-              <RotateCcw className="w-4 h-4" />
               Ask for revision
-            </button>
+            </Button>
           )}
           {canReject && (
-            <button
+            <Button
+              variant="danger" size="md"
               onClick={onReject}
               disabled={disabled}
-              className="px-4 py-2 rounded-xl border border-rose-200 text-rose-700 text-sm font-medium hover:bg-rose-50 disabled:opacity-50 inline-flex items-center gap-1"
+              leftIcon={<XCircle className="w-4 h-4" />}
             >
-              <XCircle className="w-4 h-4" />
               Decline
-            </button>
+            </Button>
           )}
         </div>
       )}
-    </div>
+    </Card>
   );
 }

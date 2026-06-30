@@ -2,36 +2,29 @@
 
 import { useRef } from "react";
 import { Paperclip, Send } from "lucide-react";
+import { Button } from "@/components/ui";
 
 /**
- * StickyComposer — text + attachment row, optionally pinned to
- * the viewport bottom (customer portal) or to the parent column
- * (CRM right pane). The host controls layout via the `sticky`
- * boolean; the contents are identical.
+ * StickyComposer — text + attachment row. Brand-aware send
+ * button (uses --brand-primary). Position controlled by
+ * `sticky` so hosts can pin it to either the viewport bottom
+ * (customer portal) or the column bottom (CRM right pane).
  *
- * Props:
- *   value, onChange — controlled text
- *   onSend          — () => Promise<void>
- *   onAttach        — (FileList) => Promise<void>
- *   sending, uploading, disabled
- *   locked, lockedMessage, onReopen — render a locked notice
- *   primary         — accent colour
- *   allowKind       — show the kind radio (message / info_request)
- *   kind, onKindChange
- *   sticky          — true to fix to the viewport bottom
+ * `primary` prop is no longer required — the Button primitive
+ * reads the tenant accent from the BrandRoot wrapper. Kept the
+ * prop signature backward-compatible by ignoring it.
  */
 export default function StickyComposer({
   value, onChange,
   onSend, onAttach,
   sending = false, uploading = false, disabled = false,
   locked = false, lockedMessage = "This request is locked.", onReopen,
-  primary = "#3B82F6",
   allowKind = false, kind = "message", onKindChange,
   sticky = false,
 }) {
   const fileInputRef = useRef(null);
   const wrapperClass = sticky
-    ? "fixed inset-x-0 bottom-0 border-t bg-white/95 backdrop-blur"
+    ? "fixed inset-x-0 bottom-0 border-t bg-white/95 backdrop-blur z-30"
     : "border-t bg-white";
   const wrapperStyle = sticky
     ? { paddingBottom: "env(safe-area-inset-bottom)" }
@@ -53,7 +46,7 @@ export default function StickyComposer({
             {onReopen && (
               <button
                 onClick={onReopen}
-                className="ml-3 text-blue-600 hover:underline"
+                className="ml-3 text-[color:var(--brand-primary,#3B82F6)] hover:underline"
               >
                 Reopen
               </button>
@@ -63,19 +56,21 @@ export default function StickyComposer({
           <>
             {allowKind && (
               <div className="flex items-center gap-3 text-xs mb-2">
-                <label className="flex items-center gap-1">
+                <label className="flex items-center gap-1.5">
                   <input
                     type="radio" name="composer_kind"
                     checked={kind === "message"}
                     onChange={() => onKindChange?.("message")}
+                    className="accent-[color:var(--brand-primary,#3B82F6)]"
                   />
                   Message
                 </label>
-                <label className="flex items-center gap-1">
+                <label className="flex items-center gap-1.5">
                   <input
                     type="radio" name="composer_kind"
                     checked={kind === "info_request"}
                     onChange={() => onKindChange?.("info_request")}
+                    className="accent-[color:var(--brand-primary,#3B82F6)]"
                   />
                   Request info
                 </label>
@@ -94,15 +89,16 @@ export default function StickyComposer({
                       e.target.value = "";
                     }}
                   />
-                  <button
+                  <Button
                     type="button"
+                    variant="secondary"
+                    size="icon"
                     onClick={() => fileInputRef.current?.click()}
                     disabled={uploading || disabled}
                     aria-label="Attach file"
-                    className="px-3 py-2 rounded-xl border border-gray-200 text-gray-600 hover:bg-gray-50 disabled:opacity-50"
                   >
                     <Paperclip className="w-4 h-4" />
-                  </button>
+                  </Button>
                 </>
               )}
               <textarea
@@ -112,17 +108,16 @@ export default function StickyComposer({
                 rows={1}
                 placeholder="Write a reply…"
                 aria-label="Reply"
-                className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none focus:border-blue-500 max-h-32"
+                className="flex-1 resize-none border border-gray-200 rounded-xl px-3 py-2 text-sm outline-none max-h-32 focus:border-[color:var(--brand-primary,#3B82F6)] focus:ring-2 focus:ring-[color:var(--brand-primary,#3B82F6)]/20"
               />
-              <button
+              <Button
                 onClick={onSend}
-                disabled={sending || disabled || !value?.trim()}
+                disabled={disabled || !value?.trim()}
+                loading={sending}
                 aria-label="Send"
-                className="px-4 py-2 rounded-xl text-white font-medium disabled:opacity-50 inline-flex items-center gap-1"
-                style={{ backgroundColor: primary }}
               >
-                {sending ? "…" : <Send className="w-4 h-4" />}
-              </button>
+                <Send className="w-4 h-4" />
+              </Button>
             </div>
           </>
         )}
