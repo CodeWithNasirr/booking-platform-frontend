@@ -19,7 +19,7 @@
  * accent automatically.
  */
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { useTenantPermission } from "@/lib/useTenantPermission";
@@ -137,6 +137,12 @@ function Workspace() {
   // instantly while the API + realtime round-trip in the
   // background.
   const [pendingMessages, setPendingMessages] = useState([]);
+  // Unread tracking — populated from tenant-feed envelopes on
+  // non-selected rows; cleared when the admin selects a row.
+  // In-memory only (no backend "read receipt" needed yet).
+  const [unreadIds, setUnreadIds] = useState(() => new Set());
+  // Per-row toast throttle so a chatty thread doesn't spam.
+  const lastToastAtRef = useRef(new Map());
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
@@ -230,6 +236,17 @@ function Workspace() {
       if (!envelope?.entity_type) return;
       if (envelope.entity_type === "custom_request.summary") {
         setRequests((prev) => applyTenantRequestSummary(prev, envelope));
+        const id = envelope.payload?.id || envelope.entity_id;
+        if (id && id !== selectedId) {
+          // Mark unread + announce. Selected rows skip both.
+          setUnreadIds((prev) => {
+            if (prev.has(id)) return prev;
+            const next = new Set(prev);
+            next.add(id);
+            return next;
+          });
+          announceActivity(id, envelope.payload);
+        }
         return;
       }
       if (envelope.entity_type.startsWith("order.")) {
@@ -269,6 +286,54 @@ function Workspace() {
   function clearSelection() {
     router.push("/dashboard/custom-requests");
   }
+
+  // Whenever the selected request changes, drop it from the
+  // unread set — opening the conversation IS the read action.
+  useEffect(() => {
+    if (!selectedId) return;
+    setUnreadIds((prev) => {
+      if (!prev.has(selectedId)) return prev;
+      const next = new Set(prev);
+      next.delete(selectedId);
+      return next;
+    });
+  }, [selectedId]);
+
+  // Toast helper — brand-tinted, throttled per request, click to
+  // jump straight to the conversation. Uses toast.custom so the
+  // tile renders the actual request title + customer line.
+  const announceActivity = useCallback((id, payload) => {
+    if (id === selectedId) return;
+    const now = Date.now();
+    const last = lastToastAtRef.current.get(id) || 0;
+    if (now - last < 5000) return;
+    lastToastAtRef.current.set(id, now);
+
+    const title = payload?.title || "Custom request";
+    const customer = payload?.customer_name || payload?.customer_email || "";
+
+    toast.custom((t) => (
+      <button
+        type="button"
+        onClick={() => { toast.dismiss(t.id); selectRequest(id); }}
+        className={`${t.visible ? "animate-in" : "animate-out"} max-w-sm w-full bg-white border border-gray-100 shadow-lg rounded-2xl px-4 py-3 flex items-start gap-3 text-left hover:bg-gray-50`}
+      >
+        <span
+          aria-hidden="true"
+          className="w-2 h-2 rounded-full mt-2 bg-[color:var(--brand-primary,#3B82F6)] shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-900 truncate">{title}</p>
+          <p className="text-xs text-gray-500 truncate">
+            New activity{customer ? ` · ${customer}` : ""}
+          </p>
+        </div>
+        <span className="text-[10px] text-gray-400 shrink-0 mt-0.5 uppercase tracking-wide font-semibold">
+          Open
+        </span>
+      </button>
+    ), { duration: 4500 });
+  }, [selectedId, router]);  // selectRequest reads searchParams via router; safe
 
   // ── Actions ─────────────────────────────────────────────────────
   async function handleSend() {
@@ -390,12 +455,25 @@ function Workspace() {
     }
   }
 
+  // Unread broken down per status so each filter row can show
+  // both the total count and how many are unread within it.
+  const unreadCounts = useMemo(() => {
+    const m = { all: 0 };
+    for (const r of requests) {
+      if (!unreadIds.has(r.id)) continue;
+      m.all += 1;
+      m[r.status] = (m[r.status] || 0) + 1;
+    }
+    return m;
+  }, [requests, unreadIds]);
+
   const filterOptions = useMemo(() => FILTERS.map((s) => ({
     value: s,
     label: s === "all" ? "All" : (STATUS_TONE[s]?.label || s),
     count: counts[s] || 0,
+    unread: unreadCounts[s] || 0,
     tone: FILTER_TONES[s],
-  })), [counts]);
+  })), [counts, unreadCounts]);
 
   // ── Render ──────────────────────────────────────────────────────
   return (
@@ -463,11 +541,21 @@ function Workspace() {
                       )}
                       <span className="capitalize truncate">{opt.label}</span>
                     </span>
-                    {opt.count > 0 && (
-                      <span className={`text-xs tabular-nums ${isActive ? "text-gray-700" : "text-gray-400"}`}>
-                        {opt.count}
-                      </span>
-                    )}
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      {opt.unread > 0 && (
+                        <span
+                          className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-[color:var(--brand-primary,#3B82F6)] text-[color:var(--brand-primary-fg,#fff)] text-[10px] font-bold tabular-nums"
+                          title={`${opt.unread} unread`}
+                        >
+                          {opt.unread}
+                        </span>
+                      )}
+                      {opt.count > 0 && (
+                        <span className={`text-xs tabular-nums ${isActive ? "text-gray-700" : "text-gray-400"}`}>
+                          {opt.count}
+                        </span>
+                      )}
+                    </span>
                   </button>
                 </li>
               );
@@ -514,15 +602,19 @@ function Workspace() {
               <ul className="space-y-1.5">
                 {requests.map((r) => {
                   const isSelected = r.id === selectedId;
+                  const isUnread = unreadIds.has(r.id);
                   return (
                     <li key={r.id}>
                       <button
                         onClick={() => selectRequest(r.id)}
                         aria-current={isSelected ? "true" : undefined}
+                        aria-label={isUnread ? `Unread: ${r.title}` : r.title}
                         className={`w-full text-left rounded-xl border transition p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-primary,#3B82F6)]/30 ${
                           isSelected
                             ? "bg-[color:var(--brand-primary,#3B82F6)]/8 border-[color:var(--brand-primary,#3B82F6)]/30"
-                            : "bg-white border-gray-100 hover:border-gray-200 hover:bg-gray-50"
+                            : isUnread
+                              ? "bg-white border-gray-200 shadow-sm hover:border-gray-300"
+                              : "bg-white border-gray-100 hover:border-gray-200 hover:bg-gray-50"
                         }`}
                       >
                         <div className="flex items-start gap-2.5">
@@ -534,7 +626,7 @@ function Workspace() {
                           />
                           <div className="min-w-0 flex-1">
                             <div className="flex items-center justify-between gap-2">
-                              <p className="text-sm font-semibold text-gray-900 truncate">
+                              <p className={`text-sm truncate ${isUnread ? "font-bold text-gray-900" : "font-semibold text-gray-900"}`}>
                                 {r.title}
                               </p>
                               <span className="text-[10px] text-gray-400 shrink-0 tabular-nums">
@@ -545,6 +637,12 @@ function Workspace() {
                               #{r.request_number} · {r.customer_name || r.customer_email || "—"}
                             </p>
                             <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              {isUnread && !isSelected && (
+                                <span
+                                  aria-hidden="true"
+                                  className="w-2 h-2 rounded-full bg-[color:var(--brand-primary,#3B82F6)]"
+                                />
+                              )}
                               <StatusBadge status={r.status} size="sm" />
                               {r.budget_max && (
                                 <span className="text-[10px] text-gray-500">
