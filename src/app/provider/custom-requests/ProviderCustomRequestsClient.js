@@ -1,61 +1,109 @@
 "use client";
 
 /**
- * Provider Custom Requests — inbox-style list (V2.F)
+ * Provider Custom Requests — V3.F.3 inbox.
  *
- * Tabs:
- *   Inbox      — pending + negotiating + quoted (active work)
- *   My Requests — accepted + converted
- *   Completed  — completed
- *   Archived   — rejected + cancelled
+ * The provider is the tenant's employee/contractor. The workspace
+ * stays focused on doing work: triage the inbox, open a thread,
+ * reply, deliver. No quoting, no provider assignment, no customer
+ * management — those belong to the tenant.
  *
- * Each row shows status pill, customer, last-message preview from
- * the timeline+messages mix. Clicking a row jumps to the detail
- * page where the conversation lives.
+ * Composed entirely from the design system + shared
+ * custom-request primitives. BrandRoot at the page root mounts
+ * the active tenant's accent so a provider serving multiple
+ * tenants sees the right brand in the right workspace.
  */
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
+import {
+  Inbox, ListChecks, CheckCircle, Archive, RefreshCw, MessageCircle,
+} from "lucide-react";
+
 import { useApp } from "@/contexts/AppContext";
 import DashboardLayout from "@/components/provider/DashboardLayout";
-import { Inbox, ListChecks, CheckCircle, Archive, RefreshCw } from "lucide-react";
-import { fetchProviderRequests } from "./api";
 
-const STATUS_TONE = {
-  pending: { dot: "bg-yellow-400", chip: "bg-yellow-100 text-yellow-800" },
-  negotiating: { dot: "bg-blue-400", chip: "bg-blue-100 text-blue-800" },
-  quoted: { dot: "bg-indigo-400", chip: "bg-indigo-100 text-indigo-800" },
-  accepted: { dot: "bg-emerald-400", chip: "bg-emerald-100 text-emerald-800" },
-  converted: { dot: "bg-purple-400", chip: "bg-purple-100 text-purple-800" },
-  completed: { dot: "bg-slate-400", chip: "bg-slate-100 text-slate-800" },
-  rejected: { dot: "bg-rose-400", chip: "bg-rose-100 text-rose-800" },
-  cancelled: { dot: "bg-gray-400", chip: "bg-gray-100 text-gray-700" },
-};
+import {
+  StatusBadge,
+  ListRowSkeleton,
+  STATUS_TONE,
+  TERMINAL_STATUSES,
+} from "@/components/custom-requests";
+import {
+  Card,
+  Button,
+  PageHeader,
+  FilterBar,
+  EmptyState,
+  Avatar,
+  BrandRoot,
+} from "@/components/ui";
+
+import { fetchProviderRequests } from "./api";
 
 const TABS = {
   inbox: {
     label: "Inbox",
     icon: Inbox,
     statuses: ["pending", "negotiating", "quoted"],
+    emptyTitle: "Inbox zero",
+    emptyHint: "New assignments will land here.",
   },
   mine: {
     label: "My Requests",
     icon: ListChecks,
     statuses: ["accepted", "converted"],
+    emptyTitle: "Nothing in progress",
+    emptyHint: "Requests you've won and are delivering show up here.",
   },
   completed: {
     label: "Completed",
     icon: CheckCircle,
     statuses: ["completed"],
+    emptyTitle: "No completed requests yet",
+    emptyHint: "Wrapped-up work moves here.",
   },
   archived: {
     label: "Archived",
     icon: Archive,
     statuses: ["rejected", "cancelled"],
+    emptyTitle: "Nothing archived",
+    emptyHint: "Rejected and cancelled requests are kept here.",
   },
 };
 
+const TAB_TONE = {
+  inbox: "yellow",
+  mine: "emerald",
+  completed: "slate",
+  archived: "gray",
+};
+
+function relTime(iso) {
+  if (!iso) return "";
+  const then = new Date(iso).getTime();
+  const diff = Date.now() - then;
+  const minute = 60_000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  if (diff < minute) return "now";
+  if (diff < hour) return `${Math.floor(diff / minute)}m`;
+  if (diff < day) return `${Math.floor(diff / hour)}h`;
+  if (diff < 7 * day) return `${Math.floor(diff / day)}d`;
+  return new Date(iso).toLocaleDateString();
+}
+
 export default function ProviderCustomRequestsClient() {
+  return (
+    <DashboardLayout pageName="Custom Requests">
+      <BrandRoot className="contents">
+        <Inner />
+      </BrandRoot>
+    </DashboardLayout>
+  );
+}
+
+function Inner() {
   const router = useRouter();
   const { activeTenant } = useApp();
   const tenantId = activeTenant?.id || activeTenant;
@@ -65,8 +113,6 @@ export default function ProviderCustomRequestsClient() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
-  // Fetch ALL requests for this provider once; tab-filter client-side
-  // so counts stay accurate across tabs.
   const load = useCallback(async () => {
     if (!tenantId) return;
     setLoading(true);
@@ -83,11 +129,6 @@ export default function ProviderCustomRequestsClient() {
 
   useEffect(() => { load(); }, [load]);
 
-  const visible = useMemo(() => {
-    const statuses = TABS[tab].statuses;
-    return requests.filter((r) => statuses.includes(r.status));
-  }, [requests, tab]);
-
   const counts = useMemo(() => {
     const c = {};
     for (const key of Object.keys(TABS)) {
@@ -96,113 +137,109 @@ export default function ProviderCustomRequestsClient() {
     return c;
   }, [requests]);
 
+  const visible = useMemo(() => {
+    const statuses = TABS[tab].statuses;
+    return requests
+      .filter((r) => statuses.includes(r.status))
+      .sort((a, b) => new Date(b.updated_at || b.created_at) - new Date(a.updated_at || a.created_at));
+  }, [requests, tab]);
+
+  const tabOptions = useMemo(() => Object.entries(TABS).map(([key, def]) => ({
+    value: key,
+    label: def.label,
+    count: counts[key] || 0,
+    tone: TAB_TONE[key],
+  })), [counts]);
+
+  const current = TABS[tab];
+  const CurrentIcon = current.icon;
+
   return (
-    <DashboardLayout pageName="Custom Requests">
-      <div className="p-6 max-w-5xl mx-auto">
-        <div className="flex items-center justify-between mb-5">
-          <div>
-            <h1 className="text-2xl font-bold">Custom Requests</h1>
-            <p className="text-xs text-gray-500 mt-0.5">
-              {requests.length} assigned
-            </p>
-          </div>
-          <button onClick={load}
-            className="flex items-center gap-1 text-sm text-blue-600 hover:underline">
-            <RefreshCw className="w-4 h-4" /> Refresh
-          </button>
-        </div>
+    <div className="p-4 sm:p-6 max-w-5xl mx-auto space-y-5">
+      <PageHeader
+        title="Custom Requests"
+        subtitle={`${requests.length} assigned · ${counts.inbox} active`}
+        actions={(
+          <Button
+            variant="secondary"
+            size="sm"
+            onClick={load}
+            leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+          >
+            Refresh
+          </Button>
+        )}
+      />
 
-        {/* Tabs */}
-        <div className="flex gap-2 mb-6 overflow-x-auto border-b">
-          {Object.entries(TABS).map(([key, def]) => {
-            const Icon = def.icon;
-            const active = tab === key;
-            const count = counts[key];
-            return (
-              <button
-                key={key}
-                onClick={() => setTab(key)}
-                className={`flex items-center gap-2 px-4 py-2.5 text-sm font-medium border-b-2 transition ${
-                  active ? "border-blue-600 text-blue-600" : "border-transparent text-gray-600 hover:text-gray-900"
-                }`}
+      <FilterBar value={tab} onChange={setTab} options={tabOptions} ariaLabel="Inbox tabs" />
+
+      {loading ? (
+        <ListRowSkeleton count={4} />
+      ) : error ? (
+        <Card padding="lg">
+          <EmptyState
+            icon={RefreshCw}
+            title="Couldn't load your inbox"
+            hint={error}
+            action={<Button onClick={load}>Try again</Button>}
+          />
+        </Card>
+      ) : visible.length === 0 ? (
+        <Card padding="lg">
+          <EmptyState
+            icon={CurrentIcon}
+            title={current.emptyTitle}
+            hint={current.emptyHint}
+          />
+        </Card>
+      ) : (
+        <ul className="space-y-2" aria-label={`${current.label} requests`}>
+          {visible.map((r) => (
+            <li key={r.id}>
+              <Card
+                interactive
+                padding="md"
+                as="button"
+                onClick={() => router.push(`/provider/custom-requests/${r.id}`)}
+                className="!block w-full text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-primary,#3B82F6)]/40"
               >
-                <Icon className="w-4 h-4" />
-                {def.label}
-                {count > 0 && (
-                  <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${
-                    active ? "bg-blue-100 text-blue-700" : "bg-gray-200 text-gray-700"
-                  }`}>
-                    {count}
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-
-        {loading ? (
-          <div className="space-y-3">
-            {[1, 2, 3].map((i) => (
-              <div key={i} className="h-20 rounded-lg bg-gray-100 animate-pulse" />
-            ))}
-          </div>
-        ) : error ? (
-          <p className="text-red-600 text-center py-12">{error}</p>
-        ) : visible.length === 0 ? (
-          <EmptyState tab={tab} />
-        ) : (
-          <ul className="space-y-2">
-            {visible.map((r) => {
-              const tone = STATUS_TONE[r.status] || {};
-              return (
-                <li key={r.id}>
-                  <button
-                    onClick={() => router.push(`/provider/custom-requests/${r.id}`)}
-                    className="w-full text-left bg-white rounded-xl border hover:shadow-sm transition p-4 flex items-start justify-between gap-3"
-                  >
-                    <div className="min-w-0 flex-1">
+                <div className="flex items-start gap-3">
+                  <Avatar
+                    name={r.customer_name || r.customer_email}
+                    role="customer"
+                    size="md"
+                    className="mt-0.5"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center justify-between gap-2">
                       <p className="font-semibold text-gray-900 truncate">{r.title}</p>
-                      <p className="text-xs text-gray-500 mt-0.5">
-                        #{r.request_number} · {r.customer_name || r.customer_email || "—"}
-                      </p>
+                      <span className="text-[11px] text-gray-400 shrink-0">
+                        {relTime(r.updated_at || r.created_at)}
+                      </span>
+                    </div>
+                    <p className="text-xs text-gray-500 mt-0.5">
+                      #{r.request_number} · {r.customer_name || r.customer_email || "—"}
+                    </p>
+                    <div className="flex items-center gap-2 mt-2 flex-wrap">
+                      <StatusBadge status={r.status} size="sm" />
                       {r.budget_max && (
-                        <p className="text-xs text-gray-400 mt-0.5">
-                          Budget up to {r.budget_max}
-                        </p>
+                        <span className="text-[11px] text-gray-500">
+                          up to {r.budget_max}
+                        </span>
+                      )}
+                      {r.deadline && (
+                        <span className="text-[11px] text-gray-500">
+                          due {r.deadline}
+                        </span>
                       )}
                     </div>
-                    <div className="flex flex-col items-end gap-2 shrink-0">
-                      <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold uppercase ${tone.chip}`}>
-                        {r.status}
-                      </span>
-                      <span className="text-[10px] text-gray-400">
-                        {new Date(r.created_at).toLocaleDateString()}
-                      </span>
-                    </div>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </div>
-    </DashboardLayout>
-  );
-}
-
-function EmptyState({ tab }) {
-  const Icon = TABS[tab].icon;
-  const hints = {
-    inbox: "New assignments will land here.",
-    mine: "Requests you've quoted and won will show up here.",
-    completed: "Wrapped-up work moves here.",
-    archived: "Rejected and cancelled requests are kept here.",
-  };
-  return (
-    <div className="text-center py-16 text-gray-500">
-      <Icon className="w-10 h-10 mx-auto mb-3 text-gray-300" />
-      <p className="font-medium">Nothing in {TABS[tab].label.toLowerCase()}</p>
-      <p className="text-sm text-gray-400 mt-1">{hints[tab]}</p>
+                  </div>
+                </div>
+              </Card>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   );
 }

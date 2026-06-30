@@ -1,43 +1,63 @@
 "use client";
 
 /**
- * ProviderRequestDetailClient
+ * ProviderRequestDetailClient — V3.F.3.
  *
- * Business rule (V3.E): the provider does NOT issue quotes.
- * Quotes belong to the tenant. The provider participates in the
- * conversation, can share context with the tenant (including
- * info_request style notes), uploads files, and watches quote
- * status. Pricing decisions are the tenant's.
+ * Two-column on desktop (conversation left, context sidebar
+ * right), single-column on mobile with the sidebar collapsed
+ * below the conversation. The provider sees:
  *
- * Composed from the shared @/components/custom-requests primitives
- * so the provider view stays visually consistent with the
- * customer portal and tenant CRM.
+ *   - request context (customer + tenant + dates + budget)
+ *   - active quote (read-only — the tenant owns pricing)
+ *   - attachments
+ *   - the conversation thread
+ *   - a sticky composer
+ *
+ * No quote creation, no provider assignment, no customer
+ * management. V3.E business rule.
  */
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import toast from "react-hot-toast";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, RefreshCw, MessageCircle, User, Calendar, Wallet } from "lucide-react";
+
 import { useApp } from "@/contexts/AppContext";
 import { useRealtime } from "@/lib/realtime";
 import { applyRequestEnvelope } from "@/lib/realtimePatches";
 import DashboardLayout from "@/components/provider/DashboardLayout";
+
 import {
   StatusBadge,
   ConversationFeed,
   QuoteCard,
   AttachmentGrid,
   StickyComposer,
+  StatusTimeline,
   RequestDetailSkeleton,
   TERMINAL_STATUSES,
 } from "@/components/custom-requests";
-
 import {
-  fetchProviderRequest,
-  postProviderMessage,
-} from "../api";
+  Card,
+  Button,
+  EmptyState,
+  Avatar,
+  BrandRoot,
+} from "@/components/ui";
+
+import { fetchProviderRequest, postProviderMessage } from "../api";
 
 export default function ProviderRequestDetailClient({ id }) {
+  return (
+    <DashboardLayout pageName="Custom Request">
+      <BrandRoot className="contents">
+        <Inner id={id} />
+      </BrandRoot>
+    </DashboardLayout>
+  );
+}
+
+function Inner({ id }) {
   const router = useRouter();
   const { activeTenant } = useApp();
   const tenantId = activeTenant?.id || activeTenant;
@@ -87,6 +107,7 @@ export default function ProviderRequestDetailClient({ id }) {
     return request.quotes.find((q) => q.status === "pending" || q.status === "countered")
       || request.quotes[0] || null;
   }, [request]);
+
   async function handleSendReply() {
     const body = replyBody.trim();
     if (!body || sendingReply) return;
@@ -102,72 +123,171 @@ export default function ProviderRequestDetailClient({ id }) {
     }
   }
 
-  if (loading) {
+  // ── Render guards ───────────────────────────────────────────────
+  if (loading && !request) {
     return (
-      <DashboardLayout pageName="Custom Request">
-        <div className="p-6 max-w-4xl mx-auto">
-          <RequestDetailSkeleton />
-        </div>
-      </DashboardLayout>
+      <div className="p-4 sm:p-6 max-w-5xl mx-auto">
+        <RequestDetailSkeleton />
+      </div>
     );
   }
+
   if (error || !request) {
     return (
-      <DashboardLayout pageName="Custom Request">
-        <div className="p-6 max-w-4xl mx-auto text-center">
-          <p className="text-red-600">{error || "Request not found"}</p>
-        </div>
-      </DashboardLayout>
+      <div className="p-4 sm:p-6 max-w-2xl mx-auto">
+        <Card padding="lg">
+          <EmptyState
+            icon={RefreshCw}
+            title="Couldn't load this request"
+            hint={error || "Try refreshing — the tenant may have unassigned it."}
+            action={(
+              <Button onClick={() => router.push("/provider/custom-requests")}>
+                Back to inbox
+              </Button>
+            )}
+          />
+        </Card>
+      </div>
     );
   }
 
   return (
-    <DashboardLayout pageName="Custom Request">
-      <div className="p-6 max-w-4xl mx-auto space-y-6 pb-32">
+    <div className="p-4 sm:p-6 max-w-6xl mx-auto pb-32">
+      {/* Back affordance — real tap target */}
+      <div className="mb-4">
         <button
           onClick={() => router.push("/provider/custom-requests")}
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800"
+          className="inline-flex items-center gap-1.5 h-10 px-3 -ml-3 rounded-xl text-sm text-gray-600 hover:bg-gray-100 transition"
         >
-          <ArrowLeft className="w-4 h-4" /> Back
+          <ArrowLeft className="w-4 h-4" />
+          <span>Back to inbox</span>
         </button>
+      </div>
 
-        {/* Header */}
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-          <div className="flex items-center justify-between gap-3 flex-wrap mb-2">
-            <h1 className="text-xl font-bold">{request.title}</h1>
-            <StatusBadge status={request.status} />
-          </div>
-          <p className="text-xs text-gray-500">#{request.request_number}</p>
-          <p className="text-gray-700 mt-4 whitespace-pre-line">{request.description}</p>
-          <dl className="grid grid-cols-2 sm:grid-cols-3 gap-4 mt-5 text-sm">
-            {(request.budget_min || request.budget_max) && (
-              <Cell label="Budget">
-                {request.budget_min} {request.budget_min && request.budget_max && "– "}{request.budget_max}
-              </Cell>
-            )}
-            {request.deadline && <Cell label="Deadline">{request.deadline}</Cell>}
-            <Cell label="Customer">{request.customer_name || request.customer_email || "—"}</Cell>
-          </dl>
+      <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-5">
+        {/* Conversation column */}
+        <div className="space-y-4 min-w-0">
+          <Card padding="lg" className="space-y-3">
+            <div className="flex items-start justify-between gap-3 flex-wrap">
+              <div className="min-w-0">
+                <p className="text-xs text-gray-500 font-mono">#{request.request_number}</p>
+                <h1 className="text-lg sm:text-xl font-bold text-gray-900 mt-0.5">{request.title}</h1>
+              </div>
+              <StatusBadge status={request.status} />
+            </div>
+            <StatusTimeline status={request.status} />
+            <p className="text-gray-700 whitespace-pre-line text-[15px] leading-relaxed">
+              {request.description}
+            </p>
+          </Card>
+
+          {activeQuote && <QuoteCard quote={activeQuote} />}
+
+          {request.files?.length > 0 && (
+            <Card padding="lg">
+              <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+                Attachments
+              </h2>
+              <AttachmentGrid files={request.files} />
+            </Card>
+          )}
+
+          <Card padding="lg">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3 flex items-center gap-2">
+              <MessageCircle className="w-3.5 h-3.5" />
+              Conversation
+            </h2>
+            <ConversationFeed request={request} viewer="provider" />
+          </Card>
         </div>
 
-        {/* Quote is read-only here. Providers can see status and
-            history but cannot create or revise quotes — the
-            tenant owns the customer-facing pricing decision. */}
-        {activeQuote && (
-          <QuoteCard quote={activeQuote} />
-        )}
+        {/* Context sidebar (collapses below on mobile) */}
+        <aside className="space-y-4">
+          <Card padding="lg">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+              Customer
+            </h2>
+            <div className="flex items-center gap-3">
+              <Avatar
+                name={request.customer_name || request.customer_email}
+                role="customer"
+                size="lg"
+              />
+              <div className="min-w-0">
+                <p className="text-sm font-semibold text-gray-900 truncate">
+                  {request.customer_name || "—"}
+                </p>
+                {request.customer_email && (
+                  <p className="text-xs text-gray-500 truncate">{request.customer_email}</p>
+                )}
+                {request.customer_phone && (
+                  <p className="text-xs text-gray-500 truncate">{request.customer_phone}</p>
+                )}
+              </div>
+            </div>
+          </Card>
 
-        {request.files?.length > 0 && (
-          <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-6">
-            <h2 className="text-sm font-semibold text-gray-700 mb-3">Attachments</h2>
-            <AttachmentGrid files={request.files} />
-          </div>
-        )}
+          <Card padding="lg">
+            <h2 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+              Brief
+            </h2>
+            <dl className="space-y-2.5 text-sm">
+              {(request.budget_min || request.budget_max) && (
+                <div className="flex items-start gap-2">
+                  <Wallet className="w-3.5 h-3.5 text-gray-400 mt-0.5" />
+                  <div>
+                    <dt className="text-[10px] uppercase tracking-wide text-gray-500">Budget</dt>
+                    <dd className="text-gray-800">
+                      {request.budget_min || ""}
+                      {request.budget_min && request.budget_max && " – "}
+                      {request.budget_max || ""}
+                    </dd>
+                  </div>
+                </div>
+              )}
+              {request.deadline && (
+                <div className="flex items-start gap-2">
+                  <Calendar className="w-3.5 h-3.5 text-gray-400 mt-0.5" />
+                  <div>
+                    <dt className="text-[10px] uppercase tracking-wide text-gray-500">Deadline</dt>
+                    <dd className="text-gray-800">{request.deadline}</dd>
+                  </div>
+                </div>
+              )}
+              {request.created_at && (
+                <div className="flex items-start gap-2">
+                  <Calendar className="w-3.5 h-3.5 text-gray-400 mt-0.5" />
+                  <div>
+                    <dt className="text-[10px] uppercase tracking-wide text-gray-500">Submitted</dt>
+                    <dd className="text-gray-800">
+                      {new Date(request.created_at).toLocaleDateString()}
+                    </dd>
+                  </div>
+                </div>
+              )}
+              {request.provider_name && (
+                <div className="flex items-start gap-2">
+                  <User className="w-3.5 h-3.5 text-gray-400 mt-0.5" />
+                  <div>
+                    <dt className="text-[10px] uppercase tracking-wide text-gray-500">Assigned to</dt>
+                    <dd className="text-gray-800">{request.provider_name}</dd>
+                  </div>
+                </div>
+              )}
+            </dl>
+          </Card>
 
-        <div className="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 sm:p-6">
-          <h2 className="text-sm font-semibold text-gray-700 mb-3">Conversation</h2>
-          <ConversationFeed request={request} viewer="provider" />
-        </div>
+          {/* Tenant-owned actions — surfaced as a quiet note, not
+              buttons. Reminds the provider these decisions live
+              with the tenant. */}
+          <Card padding="lg" variant="inset">
+            <p className="text-xs text-gray-600 leading-relaxed">
+              <span className="font-semibold text-gray-700">Quotes and approvals</span> are managed
+              by the tenant. Share context in the conversation and the team will price the work
+              for the customer.
+            </p>
+          </Card>
+        </aside>
       </div>
 
       <StickyComposer
@@ -183,15 +303,6 @@ export default function ProviderRequestDetailClient({ id }) {
         onKindChange={setReplyKind}
         sticky
       />
-    </DashboardLayout>
-  );
-}
-
-function Cell({ label, children }) {
-  return (
-    <div>
-      <dt className="text-xs uppercase tracking-wide text-gray-500">{label}</dt>
-      <dd className="text-gray-800 mt-0.5">{children}</dd>
     </div>
   );
 }
