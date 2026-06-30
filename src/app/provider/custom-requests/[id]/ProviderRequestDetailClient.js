@@ -69,6 +69,9 @@ function Inner({ id }) {
   const [replyBody, setReplyBody] = useState("");
   const [replyKind, setReplyKind] = useState("message");
   const [sendingReply, setSendingReply] = useState(false);
+  // Optimistic outbound queue — local placeholders rendered as
+  // "Sending…" until realtime echoes the persisted row.
+  const [pendingMessages, setPendingMessages] = useState([]);
 
   const load = useCallback(async () => {
     if (!tenantId) return;
@@ -111,17 +114,48 @@ function Inner({ id }) {
   async function handleSendReply() {
     const body = replyBody.trim();
     if (!body || sendingReply) return;
+    const optimistic = {
+      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      body,
+      at: new Date().toISOString(),
+      author_role: "provider",
+      author_name: "You",
+    };
+    setPendingMessages((q) => [...q, optimistic]);
+    const restoreBody = body;
+    const restoreKind = replyKind;
+    setReplyBody("");
+    setReplyKind("message");
     setSendingReply(true);
     try {
-      await postProviderMessage(tenantId, id, body, replyKind);
-      setReplyBody("");
-      setReplyKind("message");
+      await postProviderMessage(tenantId, id, body, restoreKind);
+      // Realtime echoes the persisted message;
+      // the reconciliation effect below drops the pending entry.
     } catch (err) {
+      setPendingMessages((q) => q.filter((m) => m.id !== optimistic.id));
+      setReplyBody(restoreBody);
+      setReplyKind(restoreKind);
       toast.error(err.message || "Failed to send message");
     } finally {
       setSendingReply(false);
     }
   }
+
+  useEffect(() => {
+    if (pendingMessages.length === 0 || !request?.messages?.length) return;
+    const now = Date.now();
+    const stillPending = pendingMessages.filter((p) => {
+      const match = request.messages.find((m) =>
+        m.author_role === "provider"
+        && (m.body || "").trim() === p.body.trim()
+        && now - new Date(m.created_at).getTime() < 5 * 60 * 1000,
+      );
+      return !match;
+    });
+    if (stillPending.length !== pendingMessages.length) {
+      setPendingMessages(stillPending);
+    }
+  }, [pendingMessages, request?.messages]);
 
   // ── Render guards ───────────────────────────────────────────────
   if (loading && !request) {
@@ -197,7 +231,11 @@ function Inner({ id }) {
               <MessageCircle className="w-3.5 h-3.5" />
               Conversation
             </h2>
-            <ConversationFeed request={request} viewer="provider" />
+            <ConversationFeed
+              request={request}
+              viewer="provider"
+              pendingMessages={pendingMessages}
+            />
           </Card>
         </div>
 

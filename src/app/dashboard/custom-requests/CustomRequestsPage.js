@@ -128,6 +128,11 @@ function Workspace() {
   const [replyKind, setReplyKind] = useState("message");
   const [sending, setSending] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
+  // Optimistic outbound queue — same shape as the customer
+  // portal so all three roles render their own messages
+  // instantly while the API + realtime round-trip in the
+  // background.
+  const [pendingMessages, setPendingMessages] = useState([]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
@@ -237,17 +242,68 @@ function Workspace() {
   async function handleSend() {
     const body = reply.trim();
     if (!body || sending || !detail) return;
+    const optimistic = {
+      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      body,
+      at: new Date().toISOString(),
+      author_role: "admin",
+      author_name: "You",
+      requestId: detail.id,
+      kind: replyKind,
+    };
+    setPendingMessages((q) => [...q, optimistic]);
+    const restoreBody = body;
+    const restoreKind = replyKind;
+    setReply("");
+    setReplyKind("message");
     setSending(true);
     try {
-      await postRequestMessage(tenantId, detail.id, body, replyKind);
-      setReply("");
-      setReplyKind("message");
+      await postRequestMessage(tenantId, detail.id, body, restoreKind);
+      // Realtime patches the persisted row; reconciliation
+      // effect below drops the pending entry on match.
     } catch (err) {
+      setPendingMessages((q) => q.filter((m) => m.id !== optimistic.id));
+      setReply(restoreBody);
+      setReplyKind(restoreKind);
       toast.error(err.message || "Failed to send");
     } finally {
       setSending(false);
     }
   }
+
+  // Reconcile pending entries against the live messages array.
+  // Scoped to the currently-selected request so switching
+  // requests doesn't reapply stale optimistic entries.
+  useEffect(() => {
+    if (pendingMessages.length === 0) return;
+    if (!detail?.messages?.length) {
+      // Drop any pending entries that belong to a different request.
+      const sameRequest = pendingMessages.filter((p) => p.requestId === detail?.id);
+      if (sameRequest.length !== pendingMessages.length) {
+        setPendingMessages(sameRequest);
+      }
+      return;
+    }
+    const now = Date.now();
+    const stillPending = pendingMessages.filter((p) => {
+      if (p.requestId !== detail.id) return false;
+      const match = detail.messages.find((m) =>
+        (m.author_role === "admin")
+        && (m.body || "").trim() === p.body.trim()
+        && now - new Date(m.created_at).getTime() < 5 * 60 * 1000,
+      );
+      return !match;
+    });
+    if (stillPending.length !== pendingMessages.length) {
+      setPendingMessages(stillPending);
+    }
+  }, [pendingMessages, detail?.messages, detail?.id]);
+
+  // Visible pendings for the currently-open detail.
+  const visiblePending = useMemo(
+    () => pendingMessages.filter((p) => p.requestId === detail?.id),
+    [pendingMessages, detail?.id],
+  );
 
   async function handleReject() {
     if (!detail) return;
@@ -499,6 +555,7 @@ function Workspace() {
               replyKind={replyKind}
               setReplyKind={setReplyKind}
               sending={sending}
+              pendingMessages={visiblePending}
               onSend={handleSend}
               onClose={clearSelection}
               onRefresh={refreshBoth}
@@ -519,6 +576,7 @@ function Workspace() {
 function DetailPane({
   request, tenantId, canManage, actionBusy,
   reply, setReply, replyKind, setReplyKind, sending,
+  pendingMessages = [],
   onSend, onClose, onRefresh, onReject, onReopen,
   onAcceptQuote, onRejectQuote,
 }) {
@@ -606,7 +664,11 @@ function DetailPane({
               <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
                 Conversation
               </h3>
-              <ConversationFeed request={request} viewer="admin" />
+              <ConversationFeed
+                request={request}
+                viewer="admin"
+                pendingMessages={pendingMessages}
+              />
             </Card>
           </div>
 
