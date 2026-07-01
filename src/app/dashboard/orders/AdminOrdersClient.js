@@ -18,6 +18,10 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { useTenantPermission } from "@/lib/useTenantPermission";
+import { BrandRoot, Button, EmptyState } from "@/components/ui";
+import { OrderStatusBadge } from "@/components/orders";
+import { useRealtime } from "@/lib/realtime";
+import { applyTenantOrderSummary } from "@/lib/realtimePatches";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -143,6 +147,17 @@ export default function AdminOrdersClient() {
     fetchOrders();
   }, [fetchOrders]);
 
+  // ─── Realtime — tenant order feed ───
+  useRealtime({
+    topics: tenantId ? [`tenant:${tenantId}:orders`] : [],
+    onEvent: (envelope) => {
+      if (envelope?.entity_type === "order.summary") {
+        setOrders((prev) => applyTenantOrderSummary(prev, envelope));
+      }
+    },
+    onReconnect: () => { fetchOrders(); },
+  });
+
   // ─── Navigate to detail (SPA — no full reload) ───
   const handleOrderClick = (orderId) => {
     if (!canManage) return;
@@ -163,6 +178,7 @@ export default function AdminOrdersClient() {
   }, 0);
 
   return (
+    <BrandRoot>
     <div className="max-w-7xl mx-auto p-6">
       {/* Header */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
@@ -226,36 +242,34 @@ export default function AdminOrdersClient() {
 
       {/* Loading state */}
       {loading && (
-        <div className="flex justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
+        <div className="space-y-2" role="status" aria-busy="true" aria-label="Loading orders">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="h-14 rounded-lg bg-white border border-gray-100 animate-pulse" />
+          ))}
         </div>
       )}
 
       {/* Error state */}
       {!loading && error && (
-        <div className="text-center py-16">
-          <p className="text-red-600 text-lg mb-3">{error}</p>
-          <button onClick={fetchOrders} className="text-blue-600 hover:underline text-sm">
-           {t("orders.error.load")}
-          </button>
-        </div>
+        <EmptyState
+          title={t("orders.error.load")}
+          hint={error}
+          action={<Button variant="primary" onClick={fetchOrders}>Try again</Button>}
+        />
       )}
 
       {/* Empty state */}
       {!loading && !error && orders.length === 0 && (
-        <div className="text-center py-16">
-          <div className="text-4xl mb-3">📦</div>
-          <p className="text-lg text-gray-500">{t("orders.empty.title")}</p>
-          <p className="text-sm text-gray-400 mt-1">
-            {debouncedSearch
-              ? t("orders.empty.searchResults", {
-                  search: debouncedSearch,
-                })
+        <EmptyState
+          title={t("orders.empty.title")}
+          hint={
+            debouncedSearch
+              ? t("orders.empty.searchResults", { search: debouncedSearch })
               : statusFilter !== "all"
-                ? `No ${STATUS_CONFIG[statusFilter]?.label?.toLowerCase()} orders`
-                : t("orders.empty.description")}
-          </p>
-        </div>
+                ? `No ${statusFilter.replace(/_/g, " ")} orders`
+                : t("orders.empty.description")
+          }
+        />
       )}
 
       {/* Order table */}
@@ -319,12 +333,7 @@ export default function AdminOrdersClient() {
 
                     {/* Status */}
                     <td className="px-4 py-3">
-                      <span
-                        className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${sc.color}`}
-                      >
-                        <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
-                        {sc.label || order.status}
-                      </span>
+                      <OrderStatusBadge status={order.status} size="sm" />
                     </td>
 
                     {/* Amount */}
@@ -348,5 +357,6 @@ export default function AdminOrdersClient() {
         </div>
       )}
     </div>
+    </BrandRoot>
   );
 }

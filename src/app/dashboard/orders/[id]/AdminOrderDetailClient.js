@@ -27,6 +27,12 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import OrderChatPanel from "@/components/orders/OrderChatPanel";
 import { useTenantPermission } from "@/lib/useTenantPermission";
+import { BrandRoot } from "@/components/ui";
+import {
+  OrderStatusBadge, OrderStatusTimeline, OrderProgressCard, OrderTimelineFeed,
+} from "@/components/orders";
+import { useRealtime } from "@/lib/realtime";
+import { applyOrderEnvelope } from "@/lib/realtimePatches";
 // ─── Status config ───
 
 const STATUS_CONFIG = {
@@ -135,6 +141,15 @@ export default function AdminOrderDetailClient({ orderId }) {
   }, [orderId, tenantId, router]);
 
   useEffect(() => { fetchOrder(); }, [fetchOrder]);
+
+  // ─── Realtime — patch order in-place from order:<id> topic ───
+  useRealtime({
+    topics: orderId ? [`order:${orderId}`] : [],
+    onEvent: (envelope) => {
+      setOrder((prev) => applyOrderEnvelope(prev, envelope));
+    },
+    onReconnect: () => { fetchOrder(); },
+  });
 
 
   const fetchProviders = async () => {
@@ -332,6 +347,7 @@ export default function AdminOrderDetailClient({ orderId }) {
   const isTerminal = ["completed", "cancelled", "refunded"].includes(order.status);
 
   return (
+    <BrandRoot>
     <div className="max-w-7xl mx-auto p-6">
       {/* Back */}
       <button
@@ -351,6 +367,18 @@ export default function AdminOrderDetailClient({ orderId }) {
         {t("orderDetail.backToOrders")}
       </button>
 
+      {/* Status timeline + progress hero — the whole team gets the same signal */}
+      <div className="mb-5">
+        <OrderStatusTimeline status={order.status} />
+      </div>
+      <OrderProgressCard
+        order={order}
+        viewer="admin"
+        providerName={order.provider_name}
+        customerName={order.customer_name}
+        className="mb-5"
+      />
+
       {/* ═══ 2-Column Grid ═══ */}
       <div className="grid grid-cols-12 gap-6">
         {/* ═══ LEFT COLUMN (8/12) ═══ */}
@@ -366,11 +394,8 @@ export default function AdminOrderDetailClient({ orderId }) {
                   #{order.order_number}
                 </p>
               </div>
-              <span
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${sc.color}`}
-              >
-                {sc.icon} {sc.label || order.status}
-              </span>
+              <OrderStatusBadge status={order.status} />
+
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-4 border-t border-gray-100">
@@ -504,6 +529,16 @@ export default function AdminOrderDetailClient({ orderId }) {
                   })}
                 </div>
               </div>
+            </div>
+          )}
+
+          {/* Live activity — append-only timeline from the backend service */}
+          {(order.timeline_events || []).length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                Activity
+              </h3>
+              <OrderTimelineFeed events={order.timeline_events || []} />
             </div>
           )}
 
@@ -736,6 +771,7 @@ export default function AdminOrderDetailClient({ orderId }) {
         </div>
       )}
     </div>
+    </BrandRoot>
   );
 }
 
