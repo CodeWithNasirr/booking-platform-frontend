@@ -22,6 +22,7 @@ import { BrandRoot, Button, EmptyState } from "@/components/ui";
 import { OrderStatusBadge } from "@/components/orders";
 import { useRealtime } from "@/lib/realtime";
 import { applyTenantOrderSummary } from "@/lib/realtimePatches";
+import Cookies from "js-cookie";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -150,6 +151,7 @@ export default function AdminOrdersClient() {
   // ─── Realtime — tenant order feed ───
   useRealtime({
     topics: tenantId ? [`tenant:${tenantId}:orders`] : [],
+    auth: { jwt: Cookies.get("access_token") || null },
     onEvent: (envelope) => {
       if (envelope?.entity_type === "order.summary") {
         setOrders((prev) => applyTenantOrderSummary(prev, envelope));

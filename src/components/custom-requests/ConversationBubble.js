@@ -48,34 +48,61 @@ export default function ConversationBubble({
 
   const isViewerMessage =
     (viewer === "customer" && isCustomer) ||
-    (viewer === "provider" && isProvider);
+    (viewer === "provider" && isProvider) ||
+    (viewer === "admin" && isAdmin);
 
   const { align, bg } = useMemo(() => {
+    // Tenant (admin) bubbles always render centred — they act as
+    // the conversation's "authority voice" for everyone. When the
+    // admin is the viewer, their own bubbles stay centred too.
     if (isAdmin) {
       return { align: "justify-center", bg: "bg-gray-100 border-gray-200" };
     }
+
+    // From the admin viewer's perspective, customer and provider
+    // sit on opposite sides so the tenant can watch the exchange:
+    //   customer → left   provider → right
+    const adminOrientation =
+      viewer === "admin"
+        ? (isProvider ? "justify-end" : "justify-start")
+        : null;
+
     if (isInfo) {
       return {
-        align: isViewerMessage ? "justify-end" : "justify-start",
+        align: adminOrientation
+          || (isViewerMessage ? "justify-end" : "justify-start"),
         bg: "bg-amber-50 border-amber-200",
       };
     }
+
     return {
-      align: isViewerMessage ? "justify-end" : "justify-start",
+      align: adminOrientation
+        || (isViewerMessage ? "justify-end" : "justify-start"),
       bg: isViewerMessage
         ? "bg-[color:var(--brand-primary,#3B82F6)]/10 border-[color:var(--brand-primary,#3B82F6)]/20"
         : isProvider
           ? "bg-emerald-50 border-emerald-100"
           : "bg-white border-gray-200",
     };
-  }, [isViewerMessage, isProvider, isAdmin, isInfo]);
+  }, [isViewerMessage, isProvider, isAdmin, isInfo, viewer]);
 
   const edited = wasEdited(item);
   const isPending = state === "pending";
 
+  // From the admin viewer's perspective the provider sits on the
+  // right (justify-end), so the avatar must move to match.
+  const leftAvatar =
+    !isAdmin
+    && !isViewerMessage
+    && !(viewer === "admin" && isProvider);
+  const rightAvatar =
+    !isAdmin
+    && (isViewerMessage
+      || (viewer === "admin" && isProvider));
+
   return (
     <div className={`flex items-end gap-2 ${align} ${grouped ? "mt-0.5" : "mt-2"}`}>
-      {!isViewerMessage && !isAdmin && (
+      {leftAvatar && (
         grouped
           ? <div className="hidden sm:block w-9 shrink-0" />
           : <Avatar name={item.author_name} role={role} size="md" className="hidden sm:flex" />
@@ -107,7 +134,7 @@ export default function ConversationBubble({
         )}
       </div>
 
-      {isViewerMessage && (
+      {rightAvatar && (
         grouped
           ? <div className="hidden sm:block w-9 shrink-0" />
           : <Avatar name={item.author_name} role={role} size="md" className="hidden sm:flex" />
