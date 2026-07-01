@@ -384,9 +384,12 @@ export default function AdminOrderDetailClient({ orderId }) {
   const sc = STATUS_CONFIG[order.status] || {};
   let actions = ADMIN_ACTIONS[order.status] || [];
 
-  // hide assign button for individual tenant
-  if (!isAgency) {
-    actions = actions.filter(a => a.action !== "assign_provider");
+  // Hide the manual-assign shortcut for individual-seller tenants,
+  // EXCEPT when the order is genuinely stuck in pending_assignment
+  // (auto-assign either failed or the owner isn't wired up as a
+  // provider). In that case the admin has to be able to pick.
+  if (!isAgency && order.status !== "pending_assignment") {
+    actions = actions.filter((a) => a.action !== "assign_provider");
   }
   const isTerminal = ["completed", "cancelled", "refunded"].includes(order.status);
 
@@ -420,6 +423,11 @@ export default function AdminOrderDetailClient({ orderId }) {
         viewer="admin"
         providerName={order.provider_name}
         customerName={order.customer_name}
+        onAction={
+          order.status === "pending_assignment" && canManage
+            ? () => { setShowAssignModal(true); fetchProviders(); }
+            : undefined
+        }
         className="mb-5"
       />
 
