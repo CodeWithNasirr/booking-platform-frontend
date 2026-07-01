@@ -107,8 +107,11 @@ function clearStoredGuestToken(tenantId) {
 // Uses the shared OrderStatusBadge so tone + label stay consistent
 // with the tenant CRM and provider workspace.
 
-import { OrderStatusBadge as StatusBadge } from "@/components/orders";
 
+import {
+  OrderStatusBadge as StatusBadge,
+  ORDER_STATUS_LABEL,
+} from "@/components/orders";
 // =========================================================================
 // MAIN COMPONENT
 // =========================================================================
@@ -438,7 +441,7 @@ export default function CustomerOrdersDashboard({
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
-                {STATUS_CONFIG[s]?.label || s} ({count})
+                {ORDER_STATUS_LABEL[s] || s} ({count})
               </button>
             ))}
           </div>
