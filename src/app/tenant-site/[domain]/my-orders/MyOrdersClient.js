@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import LayoutRenderer from "../LayoutRenderer";
 import CustomerOrdersDashboard from "@/app/tenant-site/modules/CustomerOrdersDashboard";
 import { tenantRoutes } from "@/lib/tenantRoutes";
+import { BrandRoot, Button, EmptyState } from "@/components/ui";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -103,25 +104,27 @@ export default function MyOrdersClient({
   const footerSection = footer ? [footer] : [];
 
   return (
-    <>
+    <BrandRoot>
       {headerSection.length > 0 && (
         <LayoutRenderer sections={headerSection} site={site} />
       )}
 
       <main className="min-h-screen bg-gray-50">
         {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="animate-spin h-8 w-8 border-b-2 border-gray-900 rounded-full" />
+          <div className="max-w-4xl mx-auto px-4 py-8" role="status" aria-busy="true" aria-label="Loading orders">
+            <div className="space-y-3">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="h-20 rounded-xl bg-white border border-gray-100 animate-pulse" />
+              ))}
+            </div>
           </div>
         ) : error ? (
-          <div className="text-center py-20">
-            <p className="text-red-600 mb-4">{error}</p>
-            <button
-              onClick={fetchOrders}
-              className="px-4 py-2 bg-blue-600 text-white rounded-xl"
-            >
-              Try Again
-            </button>
+          <div className="max-w-4xl mx-auto px-4 py-16">
+            <EmptyState
+              title="Couldn't load your orders"
+              hint={error}
+              action={<Button variant="primary" onClick={fetchOrders}>Try again</Button>}
+            />
           </div>
         ) : !hasToken ? (
           <CustomerOrdersDashboard
@@ -142,6 +145,6 @@ export default function MyOrdersClient({
       {footerSection.length > 0 && (
         <LayoutRenderer sections={footerSection} site={site} />
       )}
-    </>
+    </BrandRoot>
   );
 }

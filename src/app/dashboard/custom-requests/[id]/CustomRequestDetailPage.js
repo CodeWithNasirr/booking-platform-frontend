@@ -15,6 +15,7 @@ import {
   listAssignableProviders,
   postRequestMessage,
 } from "../lib/api";
+import ProviderPicker from "@/components/dashboard/providers/ProviderPicker";
 import {
   ArrowLeft,
   ArrowRight,
@@ -536,35 +537,17 @@ export default function CustomRequestDetailPage({ id }) {
                 )}
 
                 {showAssignForm && (
-                  <div className="p-3 bg-gray-50 rounded-lg space-y-2">
-                    <select
+                  <div className="p-3 bg-gray-50 rounded-lg space-y-3">
+                    <ProviderPicker
+                      providers={providers}
+                      loading={providersLoading}
                       value={providerId}
-                      onChange={(e) => setProviderId(e.target.value)}
-                      disabled={providersLoading}
-                      className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500 bg-white"
-                    >
-                      <option value="">
-                        {providersLoading
-                          ? (t("common.loading") || "Loading providers…")
-                          : (t("customRequests.selectProvider") || "Select a provider…")}
-                      </option>
-                      {providers.map((p) => {
-                        const label = p.name || p.full_name
-                          || [p.first_name, p.last_name].filter(Boolean).join(" ")
-                          || p.email || p.id;
-                        return (
-                          <option key={p.id} value={p.id}>
-                            {label}{p.email ? ` — ${p.email}` : ""}
-                          </option>
-                        );
-                      })}
-                    </select>
-                    {!providersLoading && providers.length === 0 && (
-                      <p className="text-xs text-gray-500">
-                        {t("customRequests.noProviders")
-                          || "No active providers yet. Invite one from the Providers page."}
-                      </p>
-                    )}
+                      onChange={(id) => setProviderId(id)}
+                      currentProviderId={request.provider}
+                      placeholder={t("customRequests.searchProviders") || "Search providers by name or email…"}
+                      emptyHint={t("customRequests.noProviders")
+                        || "No active providers yet. Invite one from the Providers page."}
+                    />
                     <div className={`flex gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
                       <button
                         onClick={handleAssignProvider}

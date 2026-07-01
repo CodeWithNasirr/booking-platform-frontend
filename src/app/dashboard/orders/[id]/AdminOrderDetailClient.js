@@ -25,8 +25,19 @@ import { apiFetch as authFetch } from '@/lib/apiClient';
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
-import OrderChatPanel from "@/components/orders/OrderChatPanel";
 import { useTenantPermission } from "@/lib/useTenantPermission";
+import { BrandRoot, Card, Button } from "@/components/ui";
+import ProviderPicker from "@/components/dashboard/providers/ProviderPicker";
+import {
+  OrderStatusBadge, OrderStatusTimeline, OrderProgressCard,
+  OrderTimelineFeed, OrderConversation,
+} from "@/components/orders";
+import { useRealtime } from "@/lib/realtime";
+import { applyOrderEnvelope } from "@/lib/realtimePatches";
+import { uploadWithProgress } from "@/lib/uploadWithProgress";
+import Cookies from "js-cookie";
+
+const _API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 // ─── Status config ───
 
 const STATUS_CONFIG = {
@@ -109,9 +120,10 @@ export default function AdminOrderDetailClient({ orderId }) {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
-  // Provider Assignment 
+  // Provider Assignment
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [providers, setProviders] = useState([]);
+  const [providersLoading, setProvidersLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(null);
 
  
@@ -136,16 +148,29 @@ export default function AdminOrderDetailClient({ orderId }) {
 
   useEffect(() => { fetchOrder(); }, [fetchOrder]);
 
+  // ─── Realtime — patch order in-place from order:<id> topic ───
+  useRealtime({
+    topics: orderId ? [`order:${orderId}`] : [],
+    onEvent: (envelope) => {
+      setOrder((prev) => applyOrderEnvelope(prev, envelope));
+    },
+    onReconnect: () => { fetchOrder(); },
+  });
+
 
   const fetchProviders = async () => {
+    setProvidersLoading(true);
     try {
       const data = await authFetch(
         `/api/v1/services/${order.service_id}/providers/`,
         tenantId
       );
-      setProviders(data);
+      setProviders(Array.isArray(data) ? data : (data?.results || []));
     } catch (err) {
       console.error(err);
+      setProviders([]);
+    } finally {
+      setProvidersLoading(false);
     }
   };
 
@@ -332,6 +357,7 @@ export default function AdminOrderDetailClient({ orderId }) {
   const isTerminal = ["completed", "cancelled", "refunded"].includes(order.status);
 
   return (
+    <BrandRoot>
     <div className="max-w-7xl mx-auto p-6">
       {/* Back */}
       <button
@@ -351,6 +377,18 @@ export default function AdminOrderDetailClient({ orderId }) {
         {t("orderDetail.backToOrders")}
       </button>
 
+      {/* Status timeline + progress hero — the whole team gets the same signal */}
+      <div className="mb-5">
+        <OrderStatusTimeline status={order.status} />
+      </div>
+      <OrderProgressCard
+        order={order}
+        viewer="admin"
+        providerName={order.provider_name}
+        customerName={order.customer_name}
+        className="mb-5"
+      />
+
       {/* ═══ 2-Column Grid ═══ */}
       <div className="grid grid-cols-12 gap-6">
         {/* ═══ LEFT COLUMN (8/12) ═══ */}
@@ -366,11 +404,8 @@ export default function AdminOrderDetailClient({ orderId }) {
                   #{order.order_number}
                 </p>
               </div>
-              <span
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${sc.color}`}
-              >
-                {sc.icon} {sc.label || order.status}
-              </span>
+              <OrderStatusBadge status={order.status} />
+
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-4 border-t border-gray-100">
@@ -507,6 +542,16 @@ export default function AdminOrderDetailClient({ orderId }) {
             </div>
           )}
 
+          {/* Live activity — append-only timeline from the backend service */}
+          {(order.timeline_events || []).length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                Activity
+              </h3>
+              <OrderTimelineFeed events={order.timeline_events || []} />
+            </div>
+          )}
+
           {/* Review */}
           {order.review && (
             <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -589,24 +634,40 @@ export default function AdminOrderDetailClient({ orderId }) {
           </div>
         </div>
 
-        {/* ═══ RIGHT COLUMN (4/12) — Chat Panel ═══ */}
+        {/* ═══ RIGHT COLUMN (4/12) — Conversation ═══ */}
         <div className="col-span-12 lg:col-span-4">
           <div className="lg:sticky lg:top-6">
-          
-            <OrderChatPanel
-              orderId={orderId}
-              tenantId={tenantId}
-              authFetch={authFetch}
-              initialMessages={order.messages || []}
-              files={order.files || []}
-              onRefresh={fetchOrder}
-              currentUser={{
-                id: user?.id,
-                role: "admin"
-              }}
-              readOnly={isTerminal}
-            />
-           
+            <Card padding="none" className="overflow-hidden">
+              <div className="p-4 sm:p-5">
+                <OrderConversation
+                  order={order}
+                  viewer="admin"
+                  locked={isTerminal}
+                  lockedMessage="This order is closed."
+                  showComposer={!isTerminal}
+                  onSendMessage={async (content) => {
+                    await authFetch(
+                      `/api/v1/orders/${orderId}/messages/`,
+                      tenantId,
+                      { method: "POST", body: JSON.stringify({ content }) },
+                    );
+                  }}
+                  onUploadFile={async (file, { onProgress, signal }) => {
+                    const fd = new FormData();
+                    fd.append("file", file);
+                    fd.append("category", "delivery");
+                    const headers = { "X-Tenant": tenantId };
+                    const token = Cookies.get("access_token");
+                    if (token) headers.Authorization = `Bearer ${token}`;
+                    await uploadWithProgress(
+                      `${_API_BASE}/api/v1/orders/${orderId}/upload_file/`,
+                      fd,
+                      { headers, onProgress, signal },
+                    );
+                  }}
+                />
+              </div>
+            </Card>
           </div>
         </div>
       </div>
@@ -652,40 +713,48 @@ export default function AdminOrderDetailClient({ orderId }) {
         </div>
       )}
 
-      {/* showAssignModal Modal */}
+      {/* Assign Provider Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Assign Provider</h3>
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Assign provider"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAssignModal(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="px-5 pt-5 pb-3">
+              <h3 className="text-lg font-bold text-gray-900">Assign provider</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Pick who should own this order. Use the search or arrow keys, then press Enter.
+              </p>
+            </div>
 
-            <select
-              className="w-full border rounded-lg p-2 mb-4"
-              value={selectedProvider || ""}
-              onChange={(e) => setSelectedProvider(e.target.value)}
-            >
-              <option value="">Select Provider</option>
+            <div className="px-5 pb-4">
+              <ProviderPicker
+                providers={providers}
+                loading={providersLoading}
+                value={selectedProvider}
+                onChange={(id) => setSelectedProvider(id)}
+                currentProviderId={order.provider}
+              />
+            </div>
 
-              {providers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowAssignModal(false)}
-                className="px-3 py-2 text-sm"
+            <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 bg-gray-50">
+              <Button
+                variant="ghost"
+                onClick={() => { setShowAssignModal(false); setSelectedProvider(null); }}
               >
                 Cancel
-              </button>
-
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 onClick={confirmAssignProvider}
-                className="bg-blue-600 text-white px-4 py-2 rounded"
+                loading={actionLoading === "assign_provider"}
+                disabled={!selectedProvider || actionLoading !== null}
               >
-                Assign
-              </button>
+                Assign provider
+              </Button>
             </div>
           </div>
         </div>
@@ -736,6 +805,7 @@ export default function AdminOrderDetailClient({ orderId }) {
         </div>
       )}
     </div>
+    </BrandRoot>
   );
 }
 
