@@ -251,6 +251,41 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
     }
   };
 
+  // ─── Pay now — generate a gateway checkout on demand ───
+  const handlePayNow = async () => {
+    const { token, type } = authRef.current;
+    try {
+      setActionLoading("pay");
+      const data = await apiFetch(
+        `${API_BASE}/api/v1/orders/${orderId}/initiate_payment/`,
+        domain,
+        token,
+        type,
+        { method: "POST", body: JSON.stringify({}) },
+      );
+      const co = data?.checkout || {};
+      // HyperPay redirects to the widget; Stripe returns a client secret
+      // and the checkout URL comes from the widget page in the frontend.
+      if (co.gateway === "hyperpay" && co.widget_url) {
+        window.location.href = co.widget_url;
+        return;
+      }
+      if (co.gateway === "stripe" && co.client_secret) {
+        // Stripe: send the customer to the checkout page with the
+        // client secret. Legacy path — the app already has a
+        // /payment/stripe/[intent] route from earlier flows.
+        window.location.href = `/payment/stripe/${co.payment_intent_id}?cs=${encodeURIComponent(co.client_secret)}`;
+        return;
+      }
+      // Fallback: just refresh so the new external_payment_id shows.
+      await fetchOrder();
+    } catch (err) {
+      setError(err.data?.error || err.message || "Failed to start payment.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   // ─── Cancel Order ───
   const handleCancel = async () => {
     const { token, type } = authRef.current;
@@ -339,6 +374,8 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
       <OrderProgressCard
         order={order}
         viewer="customer"
+        onAction={order.status === "pending_payment" ? handlePayNow : undefined}
+        actionLoading={actionLoading === "pay"}
         providerName={order.provider_name}
         customerName={order.customer_name}
         className="mb-6"

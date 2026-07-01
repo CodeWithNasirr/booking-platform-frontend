@@ -87,6 +87,8 @@ export default function OrderProgressCard({
   order,
   viewer = "customer",
   actionHref,
+  onAction,
+  actionLoading = false,
   providerName,
   customerName,
   className = "",
@@ -146,16 +148,28 @@ export default function OrderProgressCard({
             </p>
           )}
 
-          {actionHref && (
+          {(onAction || actionHref) && (
             <div className="mt-4">
-              <Button
-                as={Link}
-                href={actionHref}
-                variant="primary"
-                rightIcon={<ArrowRight className="w-4 h-4" />}
-              >
-                {copy.cta}
-              </Button>
+              {onAction ? (
+                <Button
+                  variant="primary"
+                  onClick={onAction}
+                  loading={actionLoading}
+                  disabled={actionLoading}
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
+                >
+                  {copy.cta}
+                </Button>
+              ) : (
+                <Button
+                  as={Link}
+                  href={actionHref}
+                  variant="primary"
+                  rightIcon={<ArrowRight className="w-4 h-4" />}
+                >
+                  {copy.cta}
+                </Button>
+              )}
             </div>
           )}
         </div>

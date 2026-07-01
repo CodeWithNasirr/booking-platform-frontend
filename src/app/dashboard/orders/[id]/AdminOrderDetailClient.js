@@ -126,6 +126,39 @@ export default function AdminOrderDetailClient({ orderId }) {
   const [providersLoading, setProvidersLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(null);
 
+  // Edit details
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const openEditModal = () => {
+    setEditForm({
+      service_name: order?.service_name || "",
+      service_description: order?.service_description || "",
+      delivery_days: order?.delivery_days ?? "",
+      revisions_allowed: order?.revisions_allowed ?? "",
+      total_amount: order?.total_amount ?? "",
+      currency: order?.currency || "SAR",
+      customer_name: order?.customer_name || "",
+      customer_email: order?.customer_email || "",
+      customer_phone: order?.customer_phone || "",
+    });
+    setShowEditModal(true);
+  };
+  const handleEditSubmit = async () => {
+    try {
+      setActionLoading("edit");
+      await authFetch(`/api/v1/orders/${orderId}/update_details/`, tenantId, {
+        method: "PATCH",
+        body: JSON.stringify(editForm),
+      });
+      setShowEditModal(false);
+      await fetchOrder();
+    } catch (err) {
+      alert(err.data?.error || err.message || "Failed to save changes.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
  
 
   // ─── Fetch order detail ───
@@ -151,6 +184,7 @@ export default function AdminOrderDetailClient({ orderId }) {
   // ─── Realtime — patch order in-place from order:<id> topic ───
   useRealtime({
     topics: orderId ? [`order:${orderId}`] : [],
+    auth: { jwt: Cookies.get("access_token") || null },
     onEvent: (envelope) => {
       setOrder((prev) => applyOrderEnvelope(prev, envelope));
     },
@@ -404,8 +438,18 @@ export default function AdminOrderDetailClient({ orderId }) {
                   #{order.order_number}
                 </p>
               </div>
-              <OrderStatusBadge status={order.status} />
-
+              <div className="flex items-center gap-2">
+                <OrderStatusBadge status={order.status} />
+                {canManage && !isTerminal && (
+                  <button
+                    type="button"
+                    onClick={openEditModal}
+                    className="text-xs font-medium text-[color:var(--brand-primary,#3B82F6)] hover:underline"
+                  >
+                    Edit details
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-4 border-t border-gray-100">
@@ -755,6 +799,81 @@ export default function AdminOrderDetailClient({ orderId }) {
               >
                 Assign provider
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit details Modal */}
+      {showEditModal && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit order details"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowEditModal(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+            <div className="px-5 pt-5 pb-3 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">Edit order details</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Changes broadcast live to the customer and provider.
+              </p>
+            </div>
+
+            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto">
+              {[
+                { key: "service_name", label: "Service name", type: "text", span: 2 },
+                { key: "service_description", label: "Service description", type: "textarea", span: 2 },
+                { key: "delivery_days", label: "Delivery (days)", type: "number" },
+                { key: "revisions_allowed", label: "Revisions allowed", type: "number" },
+                { key: "total_amount", label: "Total amount", type: "number", step: "0.01" },
+                { key: "currency", label: "Currency", type: "text" },
+                { key: "customer_name", label: "Customer name", type: "text" },
+                { key: "customer_email", label: "Customer email", type: "email" },
+                { key: "customer_phone", label: "Customer phone", type: "text", span: 2 },
+              ].map((f) => (
+                <label
+                  key={f.key}
+                  className={`flex flex-col gap-1 text-sm ${f.span === 2 ? "sm:col-span-2" : ""}`}
+                >
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    {f.label}
+                  </span>
+                  {f.type === "textarea" ? (
+                    <textarea
+                      rows={3}
+                      value={editForm[f.key] ?? ""}
+                      onChange={(e) => setEditForm({ ...editForm, [f.key]: e.target.value })}
+                      className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[color:var(--brand-primary,#3B82F6)] focus:ring-2 focus:ring-[color:var(--brand-primary,#3B82F6)]/20"
+                    />
+                  ) : (
+                    <input
+                      type={f.type}
+                      step={f.step}
+                      value={editForm[f.key] ?? ""}
+                      onChange={(e) => setEditForm({ ...editForm, [f.key]: e.target.value })}
+                      className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[color:var(--brand-primary,#3B82F6)] focus:ring-2 focus:ring-[color:var(--brand-primary,#3B82F6)]/20"
+                    />
+                  )}
+                </label>
+              ))}
+            </div>
+
+            <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 bg-gray-50">
+              <button
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleEditSubmit}
+                disabled={actionLoading === "edit"}
+                className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-[color:var(--brand-primary,#3B82F6)] hover:brightness-110 disabled:opacity-50"
+              >
+                {actionLoading === "edit" ? "Saving…" : "Save changes"}
+              </button>
             </div>
           </div>
         </div>

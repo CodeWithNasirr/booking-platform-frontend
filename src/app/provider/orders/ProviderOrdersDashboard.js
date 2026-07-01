@@ -24,6 +24,7 @@ import {
 } from "@/components/orders";
 import { useRealtime } from "@/lib/realtime";
 import { applyOrderEnvelope, applyTenantOrderSummary } from "@/lib/realtimePatches";
+import Cookies from "js-cookie";
 
 export default function ProviderOrdersDashboard({ orderId = null }) {
   const { language, activeTenant, tenants, isRTL, t } = useApp();
@@ -75,6 +76,7 @@ function ProviderOrderList({ tenantId, theme, lang, isRTL, t }) {
   // Live feed — patch in-place when other roles change something
   useRealtime({
     topics: tenantId ? [`tenant:${tenantId}:orders`] : [],
+    auth: { jwt: Cookies.get("access_token") || null },
     onEvent: (envelope) => {
       if (envelope?.entity_type === "order.summary") {
         setOrders((prev) => applyTenantOrderSummary(prev, envelope));
@@ -318,6 +320,7 @@ function ProviderOrderDetail({ tenantId, orderId, theme, lang, isRTL, t }) {
   // Realtime — patch order in-place; append messages on message.created
   useRealtime({
     topics: orderId ? [`order:${orderId}`] : [],
+    auth: { jwt: Cookies.get("access_token") || null },
     onEvent: (envelope) => {
       setOrder((prev) => applyOrderEnvelope(prev, envelope));
       if (envelope?.entity_type === "order.message" && envelope.payload) {
