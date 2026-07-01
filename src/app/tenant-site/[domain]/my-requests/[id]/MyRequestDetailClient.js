@@ -106,10 +106,9 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   const { isRTL } = useTenantLang();
   const brand = useBrand();
   const searchParams = useSearchParams();
-  // const tenantId = site?.tenant?.id;
+
   const tenantId = site.tenant_id;
-  const primary = theme?.primary_color || "#3B82F6";
-  // const tenantId = site?.tenant?.id;
+
 
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
