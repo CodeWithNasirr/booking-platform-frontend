@@ -195,10 +195,17 @@ export default function AdminOrderDetailClient({ orderId }) {
   const fetchProviders = async () => {
     setProvidersLoading(true);
     try {
-      const data = await authFetch(
-        `/api/v1/services/${order.service_id}/providers/`,
-        tenantId
-      );
+      // Custom-request converted orders have no catalog service
+      // (order.service_id is null/undefined) — fall back to the
+      // tenant's global provider list so the admin can still pick.
+      // The service-scoped endpoint is only used when we know which
+      // catalog service the order is against so we can filter to
+      // providers that offer it.
+      const path = order.service_id
+        ? `/api/v1/services/${order.service_id}/providers/`
+        : `/api/v1/providers/`;
+
+      const data = await authFetch(path, tenantId);
       setProviders(Array.isArray(data) ? data : (data?.results || []));
     } catch (err) {
       console.error(err);
