@@ -251,34 +251,34 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
     }
   };
 
-  // ─── Pay now — generate a gateway checkout on demand ───
+  // ─── Pay now — hosted checkout redirect ───
   const handlePayNow = async () => {
     const { token, type } = authRef.current;
     try {
       setActionLoading("pay");
+      // Return to this order page whether payment succeeds or the
+      // customer bails; both gateways forward these on to their
+      // success/cancel handlers.
+      const here = typeof window !== "undefined" ? window.location.href : "";
       const data = await apiFetch(
         `${API_BASE}/api/v1/orders/${orderId}/initiate_payment/`,
         domain,
         token,
         type,
-        { method: "POST", body: JSON.stringify({}) },
+        {
+          method: "POST",
+          body: JSON.stringify({ success_url: here, cancel_url: here }),
+        },
       );
-      const co = data?.checkout || {};
-      // HyperPay redirects to the widget; Stripe returns a client secret
-      // and the checkout URL comes from the widget page in the frontend.
-      if (co.gateway === "hyperpay" && co.widget_url) {
-        window.location.href = co.widget_url;
+      const url = data?.checkout?.checkout_url;
+      if (url) {
+        window.location.href = url;
         return;
       }
-      if (co.gateway === "stripe" && co.client_secret) {
-        // Stripe: send the customer to the checkout page with the
-        // client secret. Legacy path — the app already has a
-        // /payment/stripe/[intent] route from earlier flows.
-        window.location.href = `/payment/stripe/${co.payment_intent_id}?cs=${encodeURIComponent(co.client_secret)}`;
-        return;
-      }
-      // Fallback: just refresh so the new external_payment_id shows.
+      // No URL returned — refresh so any state change lands, and
+      // show the customer whatever the server persisted.
       await fetchOrder();
+      setError("Payment gateway did not return a checkout URL.");
     } catch (err) {
       setError(err.data?.error || err.message || "Failed to start payment.");
     } finally {
