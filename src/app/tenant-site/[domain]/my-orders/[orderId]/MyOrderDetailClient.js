@@ -110,8 +110,11 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
 
-  // Store resolved auth for reuse across API calls
+  // Auth lives in state (not just a ref) so the useRealtime effect
+  // re-runs the moment we resolve a token. authRef mirrors it for
+  // synchronous access from callbacks (upload/send).
   const authRef = useRef({ token: null, type: null });
+  const [auth, setAuth] = useState({ token: null, type: null });
 
   // ─── Auth Fetch Adapter for OrderChatPanel ───
   const authFetch = useCallback(
@@ -136,8 +139,10 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
       setError(null);
 
       // Resolve token (JWT or guest OTP)
-      const auth = resolveToken(domain);
-      authRef.current = auth;
+      const nextAuth = resolveToken(domain);
+      authRef.current = nextAuth;
+      setAuth(nextAuth);
+      const auth = nextAuth;
 
       if (!auth.token) {
         // No token at all → go to my-orders where email verification runs
@@ -182,8 +187,8 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
   useRealtime({
     topics: orderId ? [`order:${orderId}`] : [],
     auth: {
-      jwt: authRef.current.type === "jwt" ? authRef.current.token : null,
-      requestToken: authRef.current.type === "guest" ? authRef.current.token : null,
+      jwt: auth.type === "jwt" ? auth.token : null,
+      orderToken: auth.type === "guest" ? auth.token : null,
     },
     onEvent: (envelope) => {
       setOrder((prev) => applyOrderEnvelope(prev, envelope));
@@ -450,42 +455,54 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
         </div>
       )}
 
-      {/* Delivery files */}
+      {/* Deliverables — one row per file, no visual noise */}
       {order.files?.filter((f) => (f.file_type || f.category) === "delivery").length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-          <h2 className="font-bold text-gray-900 mb-3">Deliverables</h2>
-          <div className="space-y-2">
+        <Card padding="none" className="mb-6 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+            <h2 className="font-bold text-gray-900">Deliverables</h2>
+            <span className="text-xs text-gray-400">
+              {order.files.filter((f) => (f.file_type || f.category) === "delivery").length} file(s)
+            </span>
+          </div>
+          <ul className="divide-y divide-gray-100" aria-label="Delivery files">
             {order.files
               .filter((f) => (f.file_type || f.category) === "delivery")
-              .map((file) => (
-                <a
-                  key={file.id}
-                  href={file.download_url || file.file_url || file.file}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <span className="text-xl">📄</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-700 truncate">
-                      {file.file_name || file.original_filename || "File"}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {file.file_size ? `${(file.file_size / 1024).toFixed(1)} KB` : ""}
-                    </p>
-                  </div>
-                  <span className="text-sm text-blue-600 font-medium shrink-0">Download</span>
-                </a>
-              ))}
-          </div>
-        </div>
+              .map((file) => {
+                const name = file.file_name || file.original_filename || "File";
+                const kb = file.file_size ? `${(file.file_size / 1024).toFixed(1)} KB` : "";
+                return (
+                  <li key={file.id}>
+                    <a
+                      href={file.download_url || file.file_url || file.file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
+                    >
+                      <span className="text-sm text-gray-900 truncate flex-1">{name}</span>
+                      {kb && <span className="text-xs text-gray-400 shrink-0 tabular-nums">{kb}</span>}
+                      <span className="text-xs font-medium text-[color:var(--brand-primary,#3B82F6)] shrink-0">
+                        Download
+                      </span>
+                    </a>
+                  </li>
+                );
+              })}
+          </ul>
+        </Card>
       )}
 
-      {/* Timeline — chronological lifecycle feed */}
+      {/* Activity — chronological lifecycle feed (dense rows) */}
       {(order.timeline_events || []).length > 0 && (
-        <Card padding="lg" className="mb-6">
-          <h2 className="font-bold text-gray-900 mb-4">Activity</h2>
-          <OrderTimelineFeed events={order.timeline_events || []} />
+        <Card padding="none" className="mb-6 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+            <h2 className="font-bold text-gray-900">Activity</h2>
+            <span className="text-xs text-gray-400">
+              {order.timeline_events.length} event(s)
+            </span>
+          </div>
+          <div className="px-5">
+            <OrderTimelineFeed events={order.timeline_events || []} />
+          </div>
         </Card>
       )}
 
