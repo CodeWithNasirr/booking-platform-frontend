@@ -26,7 +26,8 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { useTenantPermission } from "@/lib/useTenantPermission";
-import { BrandRoot, Card } from "@/components/ui";
+import { BrandRoot, Card, Button } from "@/components/ui";
+import ProviderPicker from "@/components/dashboard/providers/ProviderPicker";
 import {
   OrderStatusBadge, OrderStatusTimeline, OrderProgressCard,
   OrderTimelineFeed, OrderConversation,
@@ -119,9 +120,10 @@ export default function AdminOrderDetailClient({ orderId }) {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
-  // Provider Assignment 
+  // Provider Assignment
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [providers, setProviders] = useState([]);
+  const [providersLoading, setProvidersLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(null);
 
  
@@ -157,14 +159,18 @@ export default function AdminOrderDetailClient({ orderId }) {
 
 
   const fetchProviders = async () => {
+    setProvidersLoading(true);
     try {
       const data = await authFetch(
         `/api/v1/services/${order.service_id}/providers/`,
         tenantId
       );
-      setProviders(data);
+      setProviders(Array.isArray(data) ? data : (data?.results || []));
     } catch (err) {
       console.error(err);
+      setProviders([]);
+    } finally {
+      setProvidersLoading(false);
     }
   };
 
@@ -707,40 +713,48 @@ export default function AdminOrderDetailClient({ orderId }) {
         </div>
       )}
 
-      {/* showAssignModal Modal */}
+      {/* Assign Provider Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Assign Provider</h3>
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Assign provider"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAssignModal(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="px-5 pt-5 pb-3">
+              <h3 className="text-lg font-bold text-gray-900">Assign provider</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Pick who should own this order. Use the search or arrow keys, then press Enter.
+              </p>
+            </div>
 
-            <select
-              className="w-full border rounded-lg p-2 mb-4"
-              value={selectedProvider || ""}
-              onChange={(e) => setSelectedProvider(e.target.value)}
-            >
-              <option value="">Select Provider</option>
+            <div className="px-5 pb-4">
+              <ProviderPicker
+                providers={providers}
+                loading={providersLoading}
+                value={selectedProvider}
+                onChange={(id) => setSelectedProvider(id)}
+                currentProviderId={order.provider}
+              />
+            </div>
 
-              {providers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
-              ))}
-            </select>
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setShowAssignModal(false)}
-                className="px-3 py-2 text-sm"
+            <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 bg-gray-50">
+              <Button
+                variant="ghost"
+                onClick={() => { setShowAssignModal(false); setSelectedProvider(null); }}
               >
                 Cancel
-              </button>
-
-              <button
+              </Button>
+              <Button
+                variant="primary"
                 onClick={confirmAssignProvider}
-                className="bg-blue-600 text-white px-4 py-2 rounded"
+                loading={actionLoading === "assign_provider"}
+                disabled={!selectedProvider || actionLoading !== null}
               >
-                Assign
-              </button>
+                Assign provider
+              </Button>
             </div>
           </div>
         </div>
