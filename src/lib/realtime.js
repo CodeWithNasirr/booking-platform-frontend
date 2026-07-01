@@ -29,6 +29,7 @@ export function openRealtimeSocket({ auth = {}, onMessage, onOpen, onClose }) {
   const params = new URLSearchParams();
   if (auth.jwt) params.set("token", auth.jwt);
   if (auth.requestToken) params.set("request_token", auth.requestToken);
+  if (auth.orderToken) params.set("order_token", auth.orderToken);
   let ws;
   try {
     ws = new WebSocket(`${base}/ws/events/?${params.toString()}`);
@@ -53,7 +54,8 @@ export function openRealtimeSocket({ auth = {}, onMessage, onOpen, onClose }) {
  * Props:
  *   topics       — array of topic strings
  *   auth.jwt     — JWT access token (when available)
- *   auth.requestToken — guest request session token (when present)
+ *   auth.requestToken — custom-request guest session token
+ *   auth.orderToken   — order-flow guest OTP token
  *   onEvent      — (envelope) => void
  *   onReconnect  — () => void, fired ONLY on reconnects (not the
  *                  initial connect). The page should run one REST
@@ -84,7 +86,7 @@ export function useRealtime({
   useEffect(() => {
     const parsedTopics = JSON.parse(topicsKey);
     if (!parsedTopics.length) return undefined;
-    if (!auth || (!auth.jwt && !auth.requestToken)) return undefined;
+    if (!auth || (!auth.jwt && !auth.requestToken && !auth.orderToken)) return undefined;
 
     let stopped = false;
     let backoff = 1000;
@@ -160,5 +162,5 @@ export function useRealtime({
       try { ws?.close(); } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topicsKey, auth?.jwt, auth?.requestToken]);
+  }, [topicsKey, auth?.jwt, auth?.requestToken, auth?.orderToken]);
 }

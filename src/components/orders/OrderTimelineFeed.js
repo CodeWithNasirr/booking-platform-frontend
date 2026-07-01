@@ -58,42 +58,85 @@ function formatTime(value) {
   }
 }
 
-export default function OrderTimelineFeed({ events = [], className = "" }) {
+/**
+ * variant="rows"   — dense one-line-per-event layout, divider between
+ *                    rows. Great for customer/detail pages where you
+ *                    just want a scanable activity log.
+ * variant="stack"  — original stacked layout with a large brand-tinted
+ *                    icon puck for each event. Kept for surfaces that
+ *                    treated it like a hero timeline.
+ */
+export default function OrderTimelineFeed({
+  events = [], variant = "rows", className = "",
+}) {
   if (!events.length) {
     return (
       <p className={`text-sm text-gray-500 ${className}`}>No activity yet.</p>
     );
   }
 
+  if (variant === "stack") {
+    return (
+      <ol className={`space-y-3 ${className}`} aria-label="Order timeline">
+        {events.map((evt) => {
+          const Icon = ICON_BY_EVENT[evt.event] || Circle;
+          const label = LABEL_BY_EVENT[evt.event] || evt.event;
+          const actor = evt.actor_name || (evt.actor_role === "system" ? "System" : "");
+          return (
+            <li key={evt.id} className="flex items-start gap-3">
+              <div
+                className="w-8 h-8 rounded-full bg-[color:var(--brand-primary,#3B82F6)]/10 text-[color:var(--brand-primary,#3B82F6)] flex items-center justify-center shrink-0"
+                aria-hidden="true"
+              >
+                <Icon className="w-4 h-4" />
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="text-sm text-gray-900">
+                  <span className="font-medium">{label}</span>
+                  {actor && (
+                    <span className="text-gray-500"> · {actor}</span>
+                  )}
+                </p>
+                {evt.message_preview && (
+                  <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{evt.message_preview}</p>
+                )}
+                <p className="text-[11px] text-gray-400 mt-0.5">{formatTime(evt.created_at)}</p>
+              </div>
+            </li>
+          );
+        })}
+      </ol>
+    );
+  }
+
   return (
-    <ol className={`space-y-3 ${className}`} aria-label="Order timeline">
+    <ul
+      className={`divide-y divide-gray-100 ${className}`}
+      aria-label="Order timeline"
+    >
       {events.map((evt) => {
         const Icon = ICON_BY_EVENT[evt.event] || Circle;
         const label = LABEL_BY_EVENT[evt.event] || evt.event;
         const actor = evt.actor_name || (evt.actor_role === "system" ? "System" : "");
         return (
-          <li key={evt.id} className="flex items-start gap-3">
-            <div
-              className="w-8 h-8 rounded-full bg-[color:var(--brand-primary,#3B82F6)]/10 text-[color:var(--brand-primary,#3B82F6)] flex items-center justify-center shrink-0"
+          <li
+            key={evt.id}
+            className="flex items-center gap-3 py-2.5 text-sm"
+          >
+            <Icon
+              className="w-4 h-4 text-[color:var(--brand-primary,#3B82F6)] shrink-0"
               aria-hidden="true"
-            >
-              <Icon className="w-4 h-4" />
-            </div>
-            <div className="min-w-0 flex-1">
-              <p className="text-sm text-gray-900">
-                <span className="font-medium">{label}</span>
-                {actor && (
-                  <span className="text-gray-500"> · {actor}</span>
-                )}
-              </p>
-              {evt.message_preview && (
-                <p className="text-xs text-gray-600 mt-0.5 line-clamp-2">{evt.message_preview}</p>
-              )}
-              <p className="text-[11px] text-gray-400 mt-0.5">{formatTime(evt.created_at)}</p>
-            </div>
+            />
+            <span className="font-medium text-gray-900 truncate">{label}</span>
+            {actor && (
+              <span className="text-gray-500 hidden sm:inline truncate">· {actor}</span>
+            )}
+            <span className="ml-auto text-[11px] text-gray-400 shrink-0 tabular-nums">
+              {formatTime(evt.created_at)}
+            </span>
           </li>
         );
       })}
-    </ol>
+    </ul>
   );
 }
