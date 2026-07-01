@@ -10,7 +10,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { apiFetch as authFetch } from '@/lib/apiClient';
-import OrderChatPanel from "@/components/orders/OrderChatPanel";
+import { OrderConversation } from "@/components/orders";
 
 const STATUS_CONFIG = {
   pending_payment:    { labelKey: "orders_status_pending_payment",    color: "bg-amber-50 text-amber-700 border border-amber-200",     icon: "⏳" },
@@ -306,15 +306,19 @@ export default function ProviderOrderDetailClient({ orderId }) {
         {/* Chat Panel */}
         <div className="col-span-12 lg:col-span-4">
           <div className="lg:sticky lg:top-6">
-            <OrderChatPanel
-              orderId={orderId}
-              tenantId={tenantId}
-              authFetch={authFetch}
-              initialMessages={order.messages || []}
-              files={order.files || []}
-              onRefresh={fetchOrder}
-              currentUser={{ id: user?.id, role: "provider" }}
-              readOnly={isTerminal}
+            <OrderConversation
+              order={order}
+              viewer="provider"
+              locked={isTerminal}
+              showComposer={!isTerminal}
+              onSendMessage={async (content) => {
+                await authFetch(
+                  `/api/v1/orders/${orderId}/messages/`,
+                  tenantId,
+                  { method: "POST", body: JSON.stringify({ content }) },
+                );
+                fetchOrder?.();
+              }}
             />
           </div>
         </div>
@@ -358,7 +362,7 @@ function QuickStat({ label, value }) {
 // // import { authFetch } from "./orderApi";
 // import { apiFetch as authFetch } from '@/lib/apiClient';
 
-// import OrderChatPanel from "@/components/orders/OrderChatPanel";
+// (OrderChatPanel replaced by OrderConversation)
 
 // // ─── Status config ───
 

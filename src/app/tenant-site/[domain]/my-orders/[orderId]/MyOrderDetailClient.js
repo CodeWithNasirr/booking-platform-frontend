@@ -20,17 +20,18 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import OrderChatPanel from "@/components/orders/OrderChatPanel";
 import LayoutRenderer from "../../LayoutRenderer";
 import { tenantRoutes } from "@/lib/tenantRoutes";
 import {
   BrandRoot, Card, PageHeader, Button, EmptyState,
 } from "@/components/ui";
 import {
-  OrderStatusBadge, OrderStatusTimeline, OrderProgressCard, OrderTimelineFeed,
+  OrderStatusBadge, OrderStatusTimeline, OrderProgressCard,
+  OrderTimelineFeed, OrderConversation,
 } from "@/components/orders";
 import { useRealtime } from "@/lib/realtime";
 import { applyOrderEnvelope } from "@/lib/realtimePatches";
+import { uploadWithProgress } from "@/lib/uploadWithProgress";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -488,22 +489,45 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
         </Card>
       )}
 
-      {/* Messages & Files - Reusable Chat Panel */}
-      <div className="mb-6">
-        <OrderChatPanel
-          orderId={orderId}
-          tenantId={domain}
-          authFetch={authFetch}
-          initialMessages={order.messages || []}
-          files={order.files || []}
-          onRefresh={fetchOrder}
-          currentUser={{
-            id: order.customer,
-            role: "customer"
-          }}
-          readOnly={isTerminal}
-        />
-      </div>
+      {/* Conversation — feed + composer + upload queue tray */}
+      <Card padding="none" className="mb-6 overflow-hidden">
+        <div className="p-4 sm:p-5">
+          <OrderConversation
+            order={order}
+            viewer="customer"
+            locked={isTerminal}
+            lockedMessage="This order is closed."
+            showComposer={!isTerminal}
+            onSendMessage={async (content) => {
+              await apiFetch(
+                `${API_BASE}/api/v1/orders/${orderId}/messages/`,
+                domain,
+                authRef.current.token,
+                authRef.current.type,
+                { method: "POST", body: JSON.stringify({ content }) },
+              );
+            }}
+            onUploadFile={async (file, { onProgress, signal }) => {
+              const fd = new FormData();
+              fd.append("file", file);
+              fd.append("category", "delivery");
+              const headers = {};
+              if (domain) headers["X-Tenant"] = domain;
+              if (authRef.current.token) {
+                headers[authRef.current.type === "guest" ? "X-Order-Token" : "Authorization"] =
+                  authRef.current.type === "guest"
+                    ? authRef.current.token
+                    : `Bearer ${authRef.current.token}`;
+              }
+              await uploadWithProgress(
+                `${API_BASE}/api/v1/orders/${orderId}/upload_file/`,
+                fd,
+                { headers, onProgress, signal },
+              );
+            }}
+          />
+        </div>
+      </Card>
 
       {/* Review */}
       {order.review && (

@@ -19,7 +19,8 @@ import {
 } from "./orderApi";
 import { BrandRoot } from "@/components/ui";
 import {
-  OrderStatusBadge, OrderStatusTimeline, OrderProgressCard, OrderTimelineFeed,
+  OrderStatusBadge, OrderStatusTimeline, OrderProgressCard,
+  OrderTimelineFeed, OrderConversation,
 } from "@/components/orders";
 import { useRealtime } from "@/lib/realtime";
 import { applyOrderEnvelope, applyTenantOrderSummary } from "@/lib/realtimePatches";
@@ -670,53 +671,27 @@ function ProviderOrderDetail({ tenantId, orderId, theme, lang, isRTL, t }) {
         </div>
       )}
 
-      {/* Messages */}
-      <div className="space-y-4">
-        <h3 className="font-bold text-gray-900">{t("orders_messages")}</h3>
-
-        <div className="space-y-3 max-h-80 overflow-y-auto">
-          {messages.length === 0 ? (
-            <p className="text-gray-400 text-center py-6 text-sm">{t("orders_no_messages")}</p>
-          ) : (
-            messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`p-3 rounded-lg ${
-                  msg.is_system
-                    ? "bg-blue-50 text-blue-800 text-sm italic"
-                    : msg.sender_type === "provider"
-                    ? "bg-gray-100 ml-8"
-                    : "bg-white border mr-8"
-                }`}
-              >
-                <p className="text-sm">{msg.content}</p>
-                <p className="text-xs text-gray-400 mt-1">
-                  {msg.sender_name} · {new Date(msg.created_at).toLocaleString()}
-                </p>
-              </div>
-            ))
-          )}
-          <div ref={messagesEndRef} />
-        </div>
-
-        {!["completed", "cancelled", "refunded"].includes(order.status) && (
-          <div className="flex gap-2">
-            <input
-              value={newMessage}
-              onChange={(e) => setNewMessage(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleSendMessage()}
-              placeholder={t("orders_message_placeholder")}
-              className="flex-1 px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-200 focus:border-transparent"
-            />
-            <button
-              onClick={handleSendMessage}
-              className="px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90"
-              style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
-            >
-              {t("orders_send")}
-            </button>
-          </div>
-        )}
+      {/* Conversation — feed + composer + upload queue tray */}
+      <div className="bg-white rounded-xl border border-gray-200 p-4 sm:p-5">
+        <h3 className="font-bold text-gray-900 mb-3">{t("orders_messages")}</h3>
+        <OrderConversation
+          order={{ ...order, messages }}
+          viewer="provider"
+          locked={["completed", "cancelled", "refunded"].includes(order.status)}
+          lockedMessage={t("orders_locked") || "This order is closed."}
+          showComposer={!["completed", "cancelled", "refunded"].includes(order.status)}
+          onSendMessage={async (content) => {
+            const msg = await sendOrderMessage(tenantId, orderId, content);
+            if (msg?.id) {
+              setMessages((prev) => (prev.some((m) => m.id === msg.id) ? prev : [...prev, msg]));
+            }
+          }}
+          onUploadFile={async (file /*, { onProgress, signal } */) => {
+            // uploadOrderFile is fetch-based (no progress); the queue
+            // still shows pending/done state, just without a bar.
+            await uploadOrderFile(tenantId, orderId, file);
+          }}
+        />
       </div>
     </div>
   );

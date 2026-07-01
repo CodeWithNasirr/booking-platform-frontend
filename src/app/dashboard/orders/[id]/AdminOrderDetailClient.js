@@ -25,14 +25,18 @@ import { apiFetch as authFetch } from '@/lib/apiClient';
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
-import OrderChatPanel from "@/components/orders/OrderChatPanel";
 import { useTenantPermission } from "@/lib/useTenantPermission";
-import { BrandRoot } from "@/components/ui";
+import { BrandRoot, Card } from "@/components/ui";
 import {
-  OrderStatusBadge, OrderStatusTimeline, OrderProgressCard, OrderTimelineFeed,
+  OrderStatusBadge, OrderStatusTimeline, OrderProgressCard,
+  OrderTimelineFeed, OrderConversation,
 } from "@/components/orders";
 import { useRealtime } from "@/lib/realtime";
 import { applyOrderEnvelope } from "@/lib/realtimePatches";
+import { uploadWithProgress } from "@/lib/uploadWithProgress";
+import Cookies from "js-cookie";
+
+const _API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 // ─── Status config ───
 
 const STATUS_CONFIG = {
@@ -624,24 +628,40 @@ export default function AdminOrderDetailClient({ orderId }) {
           </div>
         </div>
 
-        {/* ═══ RIGHT COLUMN (4/12) — Chat Panel ═══ */}
+        {/* ═══ RIGHT COLUMN (4/12) — Conversation ═══ */}
         <div className="col-span-12 lg:col-span-4">
           <div className="lg:sticky lg:top-6">
-          
-            <OrderChatPanel
-              orderId={orderId}
-              tenantId={tenantId}
-              authFetch={authFetch}
-              initialMessages={order.messages || []}
-              files={order.files || []}
-              onRefresh={fetchOrder}
-              currentUser={{
-                id: user?.id,
-                role: "admin"
-              }}
-              readOnly={isTerminal}
-            />
-           
+            <Card padding="none" className="overflow-hidden">
+              <div className="p-4 sm:p-5">
+                <OrderConversation
+                  order={order}
+                  viewer="admin"
+                  locked={isTerminal}
+                  lockedMessage="This order is closed."
+                  showComposer={!isTerminal}
+                  onSendMessage={async (content) => {
+                    await authFetch(
+                      `/api/v1/orders/${orderId}/messages/`,
+                      tenantId,
+                      { method: "POST", body: JSON.stringify({ content }) },
+                    );
+                  }}
+                  onUploadFile={async (file, { onProgress, signal }) => {
+                    const fd = new FormData();
+                    fd.append("file", file);
+                    fd.append("category", "delivery");
+                    const headers = { "X-Tenant": tenantId };
+                    const token = Cookies.get("access_token");
+                    if (token) headers.Authorization = `Bearer ${token}`;
+                    await uploadWithProgress(
+                      `${_API_BASE}/api/v1/orders/${orderId}/upload_file/`,
+                      fd,
+                      { headers, onProgress, signal },
+                    );
+                  }}
+                />
+              </div>
+            </Card>
           </div>
         </div>
       </div>
