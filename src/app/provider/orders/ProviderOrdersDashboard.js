@@ -17,6 +17,12 @@ import {
   sendOrderMessage,
   getStatusConfig,
 } from "./orderApi";
+import { BrandRoot } from "@/components/ui";
+import {
+  OrderStatusBadge, OrderStatusTimeline, OrderProgressCard, OrderTimelineFeed,
+} from "@/components/orders";
+import { useRealtime } from "@/lib/realtime";
+import { applyOrderEnvelope, applyTenantOrderSummary } from "@/lib/realtimePatches";
 
 export default function ProviderOrdersDashboard({ orderId = null }) {
   const { language, activeTenant, tenants, isRTL, t } = useApp();
@@ -26,25 +32,29 @@ export default function ProviderOrdersDashboard({ orderId = null }) {
 
   if (orderId) {
     return (
-      <ProviderOrderDetail
+      <BrandRoot>
+        <ProviderOrderDetail
+          tenantId={activeTenant}
+          orderId={orderId}
+          theme={theme}
+          lang={language}
+          isRTL={isRTL}
+          t={t}
+        />
+      </BrandRoot>
+    );
+  }
+
+  return (
+    <BrandRoot>
+      <ProviderOrderList
         tenantId={activeTenant}
-        orderId={orderId}
         theme={theme}
         lang={language}
         isRTL={isRTL}
         t={t}
       />
-    );
-  }
-
-  return (
-    <ProviderOrderList
-      tenantId={activeTenant}
-      theme={theme}
-      lang={language}
-      isRTL={isRTL}
-      t={t}
-    />
+    </BrandRoot>
   );
 }
 
@@ -60,6 +70,17 @@ function ProviderOrderList({ tenantId, theme, lang, isRTL, t }) {
   useEffect(() => {
     loadOrders();
   }, [filter]);
+
+  // Live feed — patch in-place when other roles change something
+  useRealtime({
+    topics: tenantId ? [`tenant:${tenantId}:orders`] : [],
+    onEvent: (envelope) => {
+      if (envelope?.entity_type === "order.summary") {
+        setOrders((prev) => applyTenantOrderSummary(prev, envelope));
+      }
+    },
+    onReconnect: () => { loadOrders(); },
+  });
 
   async function loadOrders() {
     setLoading(true);
@@ -293,6 +314,21 @@ function ProviderOrderDetail({ tenantId, orderId, theme, lang, isRTL, t }) {
     loadOrder();
   }, [orderId]);
 
+  // Realtime — patch order in-place; append messages on message.created
+  useRealtime({
+    topics: orderId ? [`order:${orderId}`] : [],
+    onEvent: (envelope) => {
+      setOrder((prev) => applyOrderEnvelope(prev, envelope));
+      if (envelope?.entity_type === "order.message" && envelope.payload) {
+        setMessages((prev) => {
+          const seen = new Set(prev.map((m) => m.id));
+          return seen.has(envelope.payload.id) ? prev : [...prev, envelope.payload];
+        });
+      }
+    },
+    onReconnect: () => { loadOrder(); },
+  });
+
   async function loadOrder() {
     setLoading(true);
     try {
@@ -413,14 +449,21 @@ function ProviderOrderDetail({ tenantId, orderId, theme, lang, isRTL, t }) {
         {t("orders_back")}
       </a>
 
+      {/* Status timeline + progress hero */}
+      <OrderStatusTimeline status={order.status} />
+      <OrderProgressCard
+        order={order}
+        viewer="provider"
+        providerName={order.provider_name}
+        customerName={order.customer_name}
+      />
+
       {/* Header */}
       <div className={`flex justify-between items-start ${isRTL ? "flex-row-reverse" : ""}`}>
         <div>
           <div className="flex items-center gap-3 mb-1 flex-wrap">
             <h1 className="text-2xl font-bold text-gray-900">{order.order_number}</h1>
-            <span className={`px-3 py-1 text-sm font-medium rounded-full ${status.color}`}>
-              {status.icon} {status.label}
-            </span>
+            <OrderStatusBadge status={order.status} />
             {order.is_overdue && (
               <span className="px-3 py-1 text-sm font-medium rounded-full bg-red-100 text-red-700">
                 ⏰ {t("orders_overdue")}
@@ -616,6 +659,14 @@ function ProviderOrderDetail({ tenantId, orderId, theme, lang, isRTL, t }) {
           {order.review.comment && (
             <p className="text-sm text-gray-600">{order.review.comment}</p>
           )}
+        </div>
+      )}
+
+      {/* Live activity feed — append-only timeline from backend */}
+      {(order.timeline_events || []).length > 0 && (
+        <div className="bg-white rounded-xl border border-gray-200 p-5">
+          <h3 className="font-bold text-gray-900 mb-4">Activity</h3>
+          <OrderTimelineFeed events={order.timeline_events || []} />
         </div>
       )}
 
