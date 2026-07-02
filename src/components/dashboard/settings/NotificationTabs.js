@@ -3,20 +3,19 @@
 
 import { useState, useEffect } from 'react'
 import { useApp } from '@/contexts/AppContext'
-import { fetchNotificationDefaults } from '@/lib/notificationApi'
+import { fetchNotificationDefaults, fetchNotificationRegistry } from '@/lib/notificationApi'
 import NotificationRow from './NotificationRow'
 import TemplateModal from './TemplateModal'
 import { Loader2 } from 'lucide-react'
 
-// Categories must mirror notification_registry.py. The backend
-// already emits the "requests" bucket (custom-service-request
-// negotiation lifecycle) via get_default_notification_rules, so
-// wire up the tab so tenants can toggle and customise those.
-const CATEGORIES = [
+// Static fallback while the registry loads (or if the endpoint is
+// unreachable). The authoritative list comes from
+// GET /notifications/registry/?scope=tenant so a new backend
+// category shows up here without a frontend deploy.
+const FALLBACK_CATEGORIES = [
   { key: 'reservations', labelKey: 'settings.notifications.categories.reservations' },
   { key: 'orders', labelKey: 'settings.notifications.categories.orders' },
   { key: 'requests', labelKey: 'settings.notifications.categories.requests' },
-  // { key: 'subscriptions', labelKey: 'settings.notifications.categories.subscriptions' },
   { key: 'platform', labelKey: 'settings.notifications.categories.platform' },
 ]
 
@@ -31,6 +30,26 @@ export default function NotificationTabs({ rules, onChange }) {
   const [activeCategory, setActiveCategory] = useState('reservations')
   const [editingRule, setEditingRule] = useState(null)
   const [loading, setLoading] = useState(false)
+  const [categories, setCategories] = useState(FALLBACK_CATEGORIES)
+
+  // Category tabs come from the backend registry so the settings
+  // screen never drifts from notification_registry.py again.
+  useEffect(() => {
+    if (!activeTenant) return
+    let cancelled = false
+    fetchNotificationRegistry(activeTenant, 'tenant')
+      .then((data) => {
+        if (cancelled || !Array.isArray(data.categories) || data.categories.length === 0) return
+        setCategories(
+          data.categories.map((key) => ({
+            key,
+            labelKey: `settings.notifications.categories.${key}`,
+          })),
+        )
+      })
+      .catch(() => { /* fallback list stays */ })
+    return () => { cancelled = true }
+  }, [activeTenant])
 
   useEffect(() => {
     if (!activeTenant) return
@@ -98,7 +117,7 @@ export default function NotificationTabs({ rules, onChange }) {
     <div className="space-y-0">
       <div className="border-b border-gray-200">
         <div className="flex items-center gap-0 overflow-x-auto">
-          {CATEGORIES.map((cat) => {
+          {categories.map((cat) => {
             const count = (rules || []).filter(
               (r) => r.category === cat.key && r.channel === 'whatsapp'
             ).length

@@ -42,6 +42,18 @@ export async function fetchNotificationEvents(tenantId) {
 }
 
 /**
+ * Get the notification event catalog (single registry).
+ * Returns { events, categories, variable_categories }.
+ * scope: "tenant" for the settings screen, "platform" for superadmin.
+ */
+export async function fetchNotificationRegistry(tenantId, scope = "tenant") {
+  const qs = scope ? `?scope=${encodeURIComponent(scope)}` : "";
+  return apiCall(`${API}/api/v1/notifications/registry/${qs}`, {
+    headers: headers(tenantId),
+  });
+}
+
+/**
  * Send a test notification to a phone number.
  */
 export async function sendTestNotification(tenantId, event, phone) {
