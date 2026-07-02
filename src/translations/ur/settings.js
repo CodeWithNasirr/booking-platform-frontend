@@ -50,6 +50,8 @@ export default {
   "settings.notifications.receivers.provider": "سروس فراہم کنندگان کی اطلاعات",
   "settings.notifications.for": "کے لیے",
 "settings.notifications.customize": "تخصیص کریں",
+"settings.notifications.channels.whatsapp": "واٹس ایپ",
+"settings.notifications.channels.email": "ای میل",
 
   // =====================
   // SETTINGS - DOMAIN

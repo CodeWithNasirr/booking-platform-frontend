@@ -38,6 +38,8 @@ export default {
   "settings.notifications.receivers.provider": "Provider Notifications",
   "settings.notifications.for": "for",
 "settings.notifications.customize": "Customize",
+"settings.notifications.channels.whatsapp": "WhatsApp",
+"settings.notifications.channels.email": "Email",
   
   "settings.domain.websiteLink": "Website Link",
   "settings.domain.notConfigured": "Not configured",

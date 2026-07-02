@@ -50,6 +50,8 @@ export default {
   "settings.notifications.receivers.provider": "إشعارات مقدمي الخدمة",
   "settings.notifications.for": "لـ",
 "settings.notifications.customize": "تخصيص",
+"settings.notifications.channels.whatsapp": "واتساب",
+"settings.notifications.channels.email": "البريد الإلكتروني",
 
   // =====================
   // SETTINGS - DOMAIN
