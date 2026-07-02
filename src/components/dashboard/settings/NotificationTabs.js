@@ -8,9 +8,14 @@ import NotificationRow from './NotificationRow'
 import TemplateModal from './TemplateModal'
 import { Loader2 } from 'lucide-react'
 
+// Categories must mirror notification_registry.py. The backend
+// already emits the "requests" bucket (custom-service-request
+// negotiation lifecycle) via get_default_notification_rules, so
+// wire up the tab so tenants can toggle and customise those.
 const CATEGORIES = [
   { key: 'reservations', labelKey: 'settings.notifications.categories.reservations' },
   { key: 'orders', labelKey: 'settings.notifications.categories.orders' },
+  { key: 'requests', labelKey: 'settings.notifications.categories.requests' },
   // { key: 'subscriptions', labelKey: 'settings.notifications.categories.subscriptions' },
   { key: 'platform', labelKey: 'settings.notifications.categories.platform' },
 ]

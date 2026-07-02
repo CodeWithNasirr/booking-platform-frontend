@@ -30,6 +30,7 @@ export default {
   "settings.notifications.enableAll": "Enable All",
   "settings.notifications.categories.reservations": "Reservations",
   "settings.notifications.categories.orders": "Orders",
+  "settings.notifications.categories.requests": "Custom Requests",
   "settings.notifications.categories.subscriptions": "Subscriptions",
   "settings.notifications.categories.platform": "Platform",
   "settings.notifications.receivers.admin": "Admin Notifications",

@@ -42,6 +42,7 @@ export default {
   "settings.notifications.enableAll": "تفعيل الكل",
   "settings.notifications.categories.reservations": "الحجوزات",
   "settings.notifications.categories.orders": "الطلبات",
+  "settings.notifications.categories.requests": "طلبات مخصصة",
   "settings.notifications.categories.subscriptions": "الاشتراكات",
   "settings.notifications.categories.platform": "المنصة",
   "settings.notifications.receivers.admin": "إشعارات المشرف",

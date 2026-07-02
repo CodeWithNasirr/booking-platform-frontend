@@ -42,6 +42,7 @@ export default {
   "settings.notifications.enableAll": "سب فعال کریں",
   "settings.notifications.categories.reservations": "تحفظات",
   "settings.notifications.categories.orders": "آرڈرز",
+  "settings.notifications.categories.requests": "کسٹم درخواستیں",
   "settings.notifications.categories.subscriptions": "سبسکرپشنز",
   "settings.notifications.categories.platform": "پلیٹ فارم",
   "settings.notifications.receivers.admin": "ایڈمن اطلاعات",
