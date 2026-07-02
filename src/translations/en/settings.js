@@ -40,6 +40,11 @@ export default {
 "settings.notifications.customize": "Customize",
 "settings.notifications.channels.whatsapp": "WhatsApp",
 "settings.notifications.channels.email": "Email",
+"settings.notifications.mode.title": "Delivery mode",
+"settings.notifications.mode.parallel": "Both together",
+"settings.notifications.mode.waFirst": "WhatsApp → Email backup",
+"settings.notifications.mode.emailFirst": "Email → WhatsApp backup",
+"settings.notifications.mode.backup": "backup",
   
   "settings.domain.websiteLink": "Website Link",
   "settings.domain.notConfigured": "Not configured",

@@ -52,6 +52,11 @@ export default {
 "settings.notifications.customize": "تخصيص",
 "settings.notifications.channels.whatsapp": "واتساب",
 "settings.notifications.channels.email": "البريد الإلكتروني",
+"settings.notifications.mode.title": "طريقة الإرسال",
+"settings.notifications.mode.parallel": "معًا",
+"settings.notifications.mode.waFirst": "واتساب ← البريد احتياطي",
+"settings.notifications.mode.emailFirst": "البريد ← واتساب احتياطي",
+"settings.notifications.mode.backup": "احتياطي",
 
   // =====================
   // SETTINGS - DOMAIN

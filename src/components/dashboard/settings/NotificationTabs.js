@@ -132,6 +132,27 @@ export default function NotificationTabs({ rules, onChange }) {
     setEditingRule(null)
   }
 
+  // Phase 6: delivery mode per (event, receiver). The channel with
+  // `fallback: true` sits in standby and only fires when the other
+  // channel's delivery terminally fails.
+  const handleModeChange = (pair, mode) => {
+    const patch = {}
+    if (mode === 'wa_first') {
+      if (pair.wa) patch[pair.wa.id] = { enabled: true, fallback: false }
+      if (pair.email) patch[pair.email.id] = { enabled: true, fallback: true }
+    } else if (mode === 'email_first') {
+      if (pair.email) patch[pair.email.id] = { enabled: true, fallback: false }
+      if (pair.wa) patch[pair.wa.id] = { enabled: true, fallback: true }
+    } else {
+      if (pair.wa) patch[pair.wa.id] = { fallback: false }
+      if (pair.email) patch[pair.email.id] = { fallback: false }
+    }
+    const updated = (rules || []).map((r) =>
+      patch[r.id] ? { ...r, ...patch[r.id] } : r
+    )
+    onChange(updated)
+  }
+
   // Enable/disable every channel row for a receiver section.
   const handleToggleAll = (receiver, enable) => {
     const ids = new Set(
@@ -230,6 +251,7 @@ export default function NotificationTabs({ rules, onChange }) {
                       emailRule={pair.email}
                       onToggleWa={() => pair.wa && handleToggle(pair.wa.id)}
                       onToggleEmail={() => pair.email && handleToggle(pair.email.id)}
+                      onModeChange={(mode) => handleModeChange(pair, mode)}
                       onCustomize={() => pair.wa && setEditingRule(pair.wa)}
                     />
                   ))}
