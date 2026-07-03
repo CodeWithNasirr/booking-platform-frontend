@@ -50,6 +50,13 @@ export default {
   "settings.notifications.receivers.provider": "سروس فراہم کنندگان کی اطلاعات",
   "settings.notifications.for": "کے لیے",
 "settings.notifications.customize": "تخصیص کریں",
+"settings.notifications.channels.whatsapp": "واٹس ایپ",
+"settings.notifications.channels.email": "ای میل",
+"settings.notifications.mode.title": "ترسیل کا طریقہ",
+"settings.notifications.mode.parallel": "دونوں ایک ساتھ",
+"settings.notifications.mode.waFirst": "واٹس ایپ ← ای میل بیک اپ",
+"settings.notifications.mode.emailFirst": "ای میل ← واٹس ایپ بیک اپ",
+"settings.notifications.mode.backup": "بیک اپ",
 
   // =====================
   // SETTINGS - DOMAIN
