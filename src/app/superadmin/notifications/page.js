@@ -796,18 +796,11 @@ export default function NotificationsPage() {
   useEffect(() => { loadTemplates(); }, [loadTemplates]);
   useEffect(() => { if (tab === "logs") loadLogs(); }, [tab, loadLogs]);
 
-  /* ── When clicking Edit, fetch full template detail with variables ── */
-  async function openEditor(tpl) {
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/notifications/templates/${tpl.event_code}/`
-      );
-      if (!res.ok) throw new Error();
-      const full = await res.json();
-      setEditingTemplate(full);
-    } catch {
-      setEditingTemplate(tpl);
-    }
+  /* V4.Q: the list endpoint now returns subject/body_html/body_text/
+     variables/variables_grouped/conditionals per entry, so opening
+     the editor is pure local state — no extra HTTP round trip. */
+  function openEditor(tpl) {
+    setEditingTemplate(tpl);
   }
 
   /* ── Save ──────────────────────────────── */
