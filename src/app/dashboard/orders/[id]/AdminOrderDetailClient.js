@@ -25,8 +25,19 @@ import { apiFetch as authFetch } from '@/lib/apiClient';
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
-import OrderChatPanel from "@/components/orders/OrderChatPanel";
 import { useTenantPermission } from "@/lib/useTenantPermission";
+import { BrandRoot, Card, Button } from "@/components/ui";
+import ProviderPicker from "@/components/dashboard/providers/ProviderPicker";
+import {
+  OrderStatusBadge, OrderStatusTimeline, OrderProgressCard,
+  OrderTimelineFeed, OrderConversation,
+} from "@/components/orders";
+import { useRealtime } from "@/lib/realtime";
+import { applyOrderEnvelope } from "@/lib/realtimePatches";
+import { uploadWithProgress } from "@/lib/uploadWithProgress";
+import Cookies from "js-cookie";
+
+const _API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 // ─── Status config ───
 
 const STATUS_CONFIG = {
@@ -109,10 +120,44 @@ export default function AdminOrderDetailClient({ orderId }) {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
 
-  // Provider Assignment 
+  // Provider Assignment
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [providers, setProviders] = useState([]);
+  const [providersLoading, setProvidersLoading] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(null);
+
+  // Edit details
+  const [showEditModal, setShowEditModal] = useState(false);
+  const [editForm, setEditForm] = useState({});
+  const openEditModal = () => {
+    setEditForm({
+      service_name: order?.service_name || "",
+      service_description: order?.service_description || "",
+      delivery_days: order?.delivery_days ?? "",
+      revisions_allowed: order?.revisions_allowed ?? "",
+      total_amount: order?.total_amount ?? "",
+      currency: order?.currency || "SAR",
+      customer_name: order?.customer_name || "",
+      customer_email: order?.customer_email || "",
+      customer_phone: order?.customer_phone || "",
+    });
+    setShowEditModal(true);
+  };
+  const handleEditSubmit = async () => {
+    try {
+      setActionLoading("edit");
+      await authFetch(`/api/v1/orders/${orderId}/update_details/`, tenantId, {
+        method: "PATCH",
+        body: JSON.stringify(editForm),
+      });
+      setShowEditModal(false);
+      await fetchOrder();
+    } catch (err) {
+      alert(err.data?.error || err.message || "Failed to save changes.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
 
  
 
@@ -136,16 +181,37 @@ export default function AdminOrderDetailClient({ orderId }) {
 
   useEffect(() => { fetchOrder(); }, [fetchOrder]);
 
+  // ─── Realtime — patch order in-place from order:<id> topic ───
+  useRealtime({
+    topics: orderId ? [`order:${orderId}`] : [],
+    auth: { jwt: Cookies.get("access_token") || null },
+    onEvent: (envelope) => {
+      setOrder((prev) => applyOrderEnvelope(prev, envelope));
+    },
+    onReconnect: () => { fetchOrder(); },
+  });
+
 
   const fetchProviders = async () => {
+    setProvidersLoading(true);
     try {
-      const data = await authFetch(
-        `/api/v1/services/${order.service_id}/providers/`,
-        tenantId
-      );
-      setProviders(data);
+      // Custom-request converted orders have no catalog service
+      // (order.service_id is null/undefined) — fall back to the
+      // tenant's global provider list so the admin can still pick.
+      // The service-scoped endpoint is only used when we know which
+      // catalog service the order is against so we can filter to
+      // providers that offer it.
+      const path = order.service_id
+        ? `/api/v1/services/${order.service_id}/providers/`
+        : `/api/v1/providers/`;
+
+      const data = await authFetch(path, tenantId);
+      setProviders(Array.isArray(data) ? data : (data?.results || []));
     } catch (err) {
       console.error(err);
+      setProviders([]);
+    } finally {
+      setProvidersLoading(false);
     }
   };
 
@@ -325,13 +391,17 @@ export default function AdminOrderDetailClient({ orderId }) {
   const sc = STATUS_CONFIG[order.status] || {};
   let actions = ADMIN_ACTIONS[order.status] || [];
 
-  // hide assign button for individual tenant
-  if (!isAgency) {
-    actions = actions.filter(a => a.action !== "assign_provider");
+  // Hide the manual-assign shortcut for individual-seller tenants,
+  // EXCEPT when the order is genuinely stuck in pending_assignment
+  // (auto-assign either failed or the owner isn't wired up as a
+  // provider). In that case the admin has to be able to pick.
+  if (!isAgency && order.status !== "pending_assignment") {
+    actions = actions.filter((a) => a.action !== "assign_provider");
   }
   const isTerminal = ["completed", "cancelled", "refunded"].includes(order.status);
 
   return (
+    <BrandRoot>
     <div className="max-w-7xl mx-auto p-6">
       {/* Back */}
       <button
@@ -351,6 +421,23 @@ export default function AdminOrderDetailClient({ orderId }) {
         {t("orderDetail.backToOrders")}
       </button>
 
+      {/* Status timeline + progress hero — the whole team gets the same signal */}
+      <div className="mb-5">
+        <OrderStatusTimeline status={order.status} />
+      </div>
+      <OrderProgressCard
+        order={order}
+        viewer="admin"
+        providerName={order.provider_name}
+        customerName={order.customer_name}
+        onAction={
+          order.status === "pending_assignment" && canManage
+            ? () => { setShowAssignModal(true); fetchProviders(); }
+            : undefined
+        }
+        className="mb-5"
+      />
+
       {/* ═══ 2-Column Grid ═══ */}
       <div className="grid grid-cols-12 gap-6">
         {/* ═══ LEFT COLUMN (8/12) ═══ */}
@@ -366,11 +453,18 @@ export default function AdminOrderDetailClient({ orderId }) {
                   #{order.order_number}
                 </p>
               </div>
-              <span
-                className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${sc.color}`}
-              >
-                {sc.icon} {sc.label || order.status}
-              </span>
+              <div className="flex items-center gap-2">
+                <OrderStatusBadge status={order.status} />
+                {canManage && !isTerminal && (
+                  <button
+                    type="button"
+                    onClick={openEditModal}
+                    className="text-xs font-medium text-[color:var(--brand-primary,#3B82F6)] hover:underline"
+                  >
+                    Edit details
+                  </button>
+                )}
+              </div>
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-4 border-t border-gray-100">
@@ -507,6 +601,16 @@ export default function AdminOrderDetailClient({ orderId }) {
             </div>
           )}
 
+          {/* Live activity — append-only timeline from the backend service */}
+          {(order.timeline_events || []).length > 0 && (
+            <div className="bg-white rounded-xl border border-gray-200 p-5">
+              <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
+                Activity
+              </h3>
+              <OrderTimelineFeed events={order.timeline_events || []} />
+            </div>
+          )}
+
           {/* Review */}
           {order.review && (
             <div className="bg-white rounded-xl border border-gray-200 p-5">
@@ -589,24 +693,40 @@ export default function AdminOrderDetailClient({ orderId }) {
           </div>
         </div>
 
-        {/* ═══ RIGHT COLUMN (4/12) — Chat Panel ═══ */}
+        {/* ═══ RIGHT COLUMN (4/12) — Conversation ═══ */}
         <div className="col-span-12 lg:col-span-4">
           <div className="lg:sticky lg:top-6">
-          
-            <OrderChatPanel
-              orderId={orderId}
-              tenantId={tenantId}
-              authFetch={authFetch}
-              initialMessages={order.messages || []}
-              files={order.files || []}
-              onRefresh={fetchOrder}
-              currentUser={{
-                id: user?.id,
-                role: "admin"
-              }}
-              readOnly={isTerminal}
-            />
-           
+            <Card padding="none" className="overflow-hidden">
+              <div className="p-4 sm:p-5">
+                <OrderConversation
+                  order={order}
+                  viewer="admin"
+                  locked={isTerminal}
+                  lockedMessage="This order is closed."
+                  showComposer={!isTerminal}
+                  onSendMessage={async (content) => {
+                    await authFetch(
+                      `/api/v1/orders/${orderId}/messages/`,
+                      tenantId,
+                      { method: "POST", body: JSON.stringify({ content }) },
+                    );
+                  }}
+                  onUploadFile={async (file, { onProgress, signal }) => {
+                    const fd = new FormData();
+                    fd.append("file", file);
+                    fd.append("category", "delivery");
+                    const headers = { "X-Tenant": tenantId };
+                    const token = Cookies.get("access_token");
+                    if (token) headers.Authorization = `Bearer ${token}`;
+                    await uploadWithProgress(
+                      `${_API_BASE}/api/v1/orders/${orderId}/upload_file/`,
+                      fd,
+                      { headers, onProgress, signal },
+                    );
+                  }}
+                />
+              </div>
+            </Card>
           </div>
         </div>
       </div>
@@ -652,39 +772,122 @@ export default function AdminOrderDetailClient({ orderId }) {
         </div>
       )}
 
-      {/* showAssignModal Modal */}
+      {/* Assign Provider Modal */}
       {showAssignModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-50">
-          <div className="bg-white rounded-xl p-6 w-full max-w-md">
-            <h3 className="text-lg font-semibold mb-4">Assign Provider</h3>
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Assign provider"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowAssignModal(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-lg overflow-hidden">
+            <div className="px-5 pt-5 pb-3">
+              <h3 className="text-lg font-bold text-gray-900">Assign provider</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Pick who should own this order. Use the search or arrow keys, then press Enter.
+              </p>
+            </div>
 
-            <select
-              className="w-full border rounded-lg p-2 mb-4"
-              value={selectedProvider || ""}
-              onChange={(e) => setSelectedProvider(e.target.value)}
-            >
-              <option value="">Select Provider</option>
+            <div className="px-5 pb-4">
+              <ProviderPicker
+                providers={providers}
+                loading={providersLoading}
+                value={selectedProvider}
+                onChange={(id) => setSelectedProvider(id)}
+                currentProviderId={order.provider}
+              />
+            </div>
 
-              {providers.map((p) => (
-                <option key={p.id} value={p.id}>
-                  {p.name}
-                </option>
+            <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 bg-gray-50">
+              <Button
+                variant="ghost"
+                onClick={() => { setShowAssignModal(false); setSelectedProvider(null); }}
+              >
+                Cancel
+              </Button>
+              <Button
+                variant="primary"
+                onClick={confirmAssignProvider}
+                loading={actionLoading === "assign_provider"}
+                disabled={!selectedProvider || actionLoading !== null}
+              >
+                Assign provider
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit details Modal */}
+      {showEditModal && (
+        <div
+          className="fixed inset-0 bg-black/40 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+          role="dialog"
+          aria-modal="true"
+          aria-label="Edit order details"
+          onClick={(e) => { if (e.target === e.currentTarget) setShowEditModal(false); }}
+        >
+          <div className="bg-white rounded-2xl shadow-2xl w-full max-w-2xl overflow-hidden">
+            <div className="px-5 pt-5 pb-3 border-b border-gray-100">
+              <h3 className="text-lg font-bold text-gray-900">Edit order details</h3>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Changes broadcast live to the customer and provider.
+              </p>
+            </div>
+
+            <div className="p-5 grid grid-cols-1 sm:grid-cols-2 gap-4 max-h-[70vh] overflow-y-auto">
+              {[
+                { key: "service_name", label: "Service name", type: "text", span: 2 },
+                { key: "service_description", label: "Service description", type: "textarea", span: 2 },
+                { key: "delivery_days", label: "Delivery (days)", type: "number" },
+                { key: "revisions_allowed", label: "Revisions allowed", type: "number" },
+                { key: "total_amount", label: "Total amount", type: "number", step: "0.01" },
+                { key: "currency", label: "Currency", type: "text" },
+                { key: "customer_name", label: "Customer name", type: "text" },
+                { key: "customer_email", label: "Customer email", type: "email" },
+                { key: "customer_phone", label: "Customer phone", type: "text", span: 2 },
+              ].map((f) => (
+                <label
+                  key={f.key}
+                  className={`flex flex-col gap-1 text-sm ${f.span === 2 ? "sm:col-span-2" : ""}`}
+                >
+                  <span className="text-xs font-semibold text-gray-500 uppercase tracking-wide">
+                    {f.label}
+                  </span>
+                  {f.type === "textarea" ? (
+                    <textarea
+                      rows={3}
+                      value={editForm[f.key] ?? ""}
+                      onChange={(e) => setEditForm({ ...editForm, [f.key]: e.target.value })}
+                      className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[color:var(--brand-primary,#3B82F6)] focus:ring-2 focus:ring-[color:var(--brand-primary,#3B82F6)]/20"
+                    />
+                  ) : (
+                    <input
+                      type={f.type}
+                      step={f.step}
+                      value={editForm[f.key] ?? ""}
+                      onChange={(e) => setEditForm({ ...editForm, [f.key]: e.target.value })}
+                      className="border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:border-[color:var(--brand-primary,#3B82F6)] focus:ring-2 focus:ring-[color:var(--brand-primary,#3B82F6)]/20"
+                    />
+                  )}
+                </label>
               ))}
-            </select>
+            </div>
 
-            <div className="flex justify-end gap-2">
+            <div className="flex items-center justify-end gap-2 border-t border-gray-100 px-5 py-3 bg-gray-50">
               <button
-                onClick={() => setShowAssignModal(false)}
-                className="px-3 py-2 text-sm"
+                onClick={() => setShowEditModal(false)}
+                className="px-4 py-2 text-sm text-gray-600 hover:text-gray-900"
               >
                 Cancel
               </button>
-
               <button
-                onClick={confirmAssignProvider}
-                className="bg-blue-600 text-white px-4 py-2 rounded"
+                onClick={handleEditSubmit}
+                disabled={actionLoading === "edit"}
+                className="px-4 py-2 text-sm font-medium text-white rounded-lg bg-[color:var(--brand-primary,#3B82F6)] hover:brightness-110 disabled:opacity-50"
               >
-                Assign
+                {actionLoading === "edit" ? "Saving…" : "Save changes"}
               </button>
             </div>
           </div>
@@ -736,6 +939,7 @@ export default function AdminOrderDetailClient({ orderId }) {
         </div>
       )}
     </div>
+    </BrandRoot>
   );
 }
 

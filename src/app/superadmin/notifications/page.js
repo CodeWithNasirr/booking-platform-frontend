@@ -785,6 +785,7 @@ export default function NotificationsPage() {
       if (logEvent !== "all") params.event_code = logEvent;
       if (logSearch) params.email = logSearch;
       const data = await fetchNotificationLogs(params);
+      console.log("Fetched logs:", data);
       setLogs(Array.isArray(data) ? data : data?.results || []);
     } catch {
       setLogs([]);
@@ -796,18 +797,11 @@ export default function NotificationsPage() {
   useEffect(() => { loadTemplates(); }, [loadTemplates]);
   useEffect(() => { if (tab === "logs") loadLogs(); }, [tab, loadLogs]);
 
-  /* ── When clicking Edit, fetch full template detail with variables ── */
-  async function openEditor(tpl) {
-    try {
-      const res = await fetch(
-        `${process.env.NEXT_PUBLIC_API_URL}/api/v1/notifications/templates/${tpl.event_code}/`
-      );
-      if (!res.ok) throw new Error();
-      const full = await res.json();
-      setEditingTemplate(full);
-    } catch {
-      setEditingTemplate(tpl);
-    }
+  /* V4.Q: the list endpoint now returns subject/body_html/body_text/
+     variables/variables_grouped/conditionals per entry, so opening
+     the editor is pure local state — no extra HTTP round trip. */
+  function openEditor(tpl) {
+    setEditingTemplate(tpl);
   }
 
   /* ── Save ──────────────────────────────── */
@@ -858,6 +852,22 @@ export default function NotificationsPage() {
   const uniqueCategories = [...new Set(templates.map((t) => (t.event_code || "").split("_")[0]))].sort();
   const activeCount = templates.filter((t) => t.is_active).length;
 
+
+
+  const CATEGORY_LABELS = {
+   booking: t("superadmin.billing.cat_booking"),
+    order: t("superadmin.billing.cat_order"),
+    billing: t("superadmin.billing.cat_billing"),
+    platform: t("superadmin.billing.cat_platform"),
+    ticket: t("superadmin.billing.cat_ticket"),
+    document: t("superadmin.billing.cat_document"),
+    payment: t("superadmin.billing.cat_payment"),
+    dunning: t("superadmin.billing.cat_dunning"),
+    tenant: t("superadmin.billing.cat_tenant"),
+    invoice: t("superadmin.billing.cat_invoice"),
+    provider: t("superadmin.billing.cat_provider"),
+    subscription: t("superadmin.billing.cat_subscription"),
+  };
   /* ── States ────────────────────────────── */
   if (loading) {
     return (
@@ -955,11 +965,11 @@ export default function NotificationsPage() {
                   className="rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#800020]/30"
                 >
                   <option value="all">{t("superadmin.billing.filter_all_categories")}</option>
-                  {uniqueCategories.map((cat) => (
-                    <option key={cat} value={cat}>
-                      <CategoryBadge eventCode={cat + "_"} t={t} />
-                    </option>
-                  ))}
+                 {uniqueCategories.map((cat) => (
+                  <option key={cat} value={cat}>
+                    {CATEGORY_LABELS[cat] ?? humanizeEventCode(cat)}
+                  </option>
+                ))}
                 </select>
               </div>
             </div>

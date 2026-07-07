@@ -5,7 +5,7 @@ import { useTenantLang } from "../contexts/TenantLangContext";
 import { useTenantTheme } from "../contexts/TenantThemeContext";
 import { useTenantSite } from "../[domain]/TenantClientWrapper";
 import { tenantRoutes } from "@/lib/tenantRoutes";
-
+import { resolveTranslatedContent } from "../[domain]/utils/resolveTranslated";
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
 const TRANSLATIONS = {
@@ -340,6 +340,8 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
 
   const draftKey = DRAFT_KEY_PREFIX + (domain || "default");
 
+
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem(draftKey);
@@ -478,14 +480,18 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
       if (form.company_name) payload.company_name = form.company_name;
       if (form.contact_method) payload.contact_method = form.contact_method;
 
-      const res = await fetch(`${API_BASE}/api/v1/custom-requests/public/submit/`, {
-        method: "POST",
-        headers: {
-          "X-Tenant": domain,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        `${API_BASE}/api/v1/custom-requests/public/submit/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Tenant": domain,
+            "X-Locale": language,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -493,7 +499,7 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
       }
 
       const result = await res.json();
-
+      console.log("Request submitted successfully:", result);
       if (files.length > 0 && result.id) {
         for (const file of files) {
           const fileData = new FormData();
@@ -507,6 +513,19 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
       }
 
       try { localStorage.removeItem(draftKey); } catch {}
+
+      // Persist the request token + email so the customer can come
+      // back to /my-requests and see this submission without going
+      // through OTP. The backend returns these on success.
+      if (result.access_token && result.tenant_id) {
+        try {
+          localStorage.setItem(`customer_request_token_${result.tenant_id}`, result.access_token);
+          if (result.email) {
+            localStorage.setItem(`customer_request_email_${result.tenant_id}`, result.email);
+          }
+        } catch {}
+      }
+
       setSubmitResult(result);
       setSubmitted(true);
 
@@ -711,6 +730,18 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
     </div>
   );
 
+
+  const getTranslated = (value) => {
+    if (!value) return "";
+
+    if (typeof value === "string") return value;
+
+    if (typeof value === "object") {
+      return value[language] || value.en || Object.values(value)[0] || "";
+    }
+
+    return "";
+  };
   const renderStep1 = () => (
     <div className="space-y-5 animate-[fadeIn_0.3s_ease-out]">
       <div>
@@ -741,6 +772,7 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
                 className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm"
               >
                 <span className="text-blue-800">
+<<<<<<< HEAD
                   {t.weOffer} <strong>
                   {typeof svc.name === "object"
                     ? svc.name?.[language] ||
@@ -752,6 +784,9 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
                       Object.values(svc.title)[0]
                     : svc.name || svc.title}
                 </strong> - {t.instead}
+=======
+                  {t.weOffer} <strong>{getTranslated(svc.name || svc.title)}</strong> - {t.instead}
+>>>>>>> claude-work
                 </span>
                 <a
                   href={`/${domain}/services/${svc.slug}`}

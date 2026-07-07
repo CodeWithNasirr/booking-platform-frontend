@@ -1,280 +1,1137 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+/**
+ * Custom Requests — CRM workspace (V3.F.4).
+ *
+ * Three-pane Linear/Stripe-style shell:
+ *
+ *   left   — vertical filter rail with live counts (lg+) /
+ *            horizontal FilterBar above the list (sm)
+ *   center — searchable request list with thread-density rows
+ *   right  — conversation pane + context sidebar
+ *
+ * Mobile back-stack: when ?selected= is set the conversation
+ * fills the viewport and the list is hidden underneath a sticky
+ * back header. xl+ shows everything side-by-side.
+ *
+ * Composes from the platform design system; mounts BrandRoot at
+ * the page root so every primitive picks up the active tenant's
+ * accent automatically.
+ */
+
+import { useState, useEffect, useCallback, useMemo, useRef } from "react";
+import { useRouter, useSearchParams } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { useTenantPermission } from "@/lib/useTenantPermission";
-import { getCustomRequests } from "./lib/api";
+import { useRealtime } from "@/lib/realtime";
 import {
-  FileText,
-  Search,
+  applyRequestEnvelope, applyTenantRequestSummary, applyOrderEnvelope,
+} from "@/lib/realtimePatches";
+import toast from "react-hot-toast";
+import {
+  ArrowLeft,
   RefreshCw,
-  Clock,
-  MessageSquare,
-  CheckCircle,
-  XCircle,
-  ArrowRightCircle,
+  RotateCcw,
+  UserPlus,
+  Inbox,
+  MessageSquareDashed,
 } from "lucide-react";
 
-const STATUS_CONFIG = {
-  pending: {
-    label: "Pending",
-    color: "bg-yellow-100 text-yellow-800",
-    dot: "bg-yellow-400",
-    icon: Clock,
-  },
-  negotiating: {
-    label: "Negotiating",
-    color: "bg-blue-100 text-blue-800",
-    dot: "bg-blue-400",
-    icon: MessageSquare,
-  },
-  accepted: {
-    label: "Accepted",
-    color: "bg-green-100 text-green-800",
-    dot: "bg-green-400",
-    icon: CheckCircle,
-  },
-  rejected: {
-    label: "Rejected",
-    color: "bg-red-100 text-red-800",
-    dot: "bg-red-400",
-    icon: XCircle,
-  },
-  converted: {
-    label: "Converted",
-    color: "bg-purple-100 text-purple-800",
-    dot: "bg-purple-400",
-    icon: ArrowRightCircle,
-  },
+import {
+  getCustomRequests,
+  getCustomRequest,
+  assignProvider,
+  acceptQuote,
+  rejectQuote,
+  rejectRequest,
+  listAssignableProviders,
+  postRequestMessage,
+  reopenRequest,
+  submitQuote,
+  fetchOrderSummary,
+} from "./lib/api";
+import {
+  StatusBadge,
+  ConversationFeed,
+  QuoteCard,
+  StickyComposer,
+  PostAcceptanceCard,
+  ListRowSkeleton,
+  RequestDetailSkeleton,
+  STATUS_TONE,
+  TERMINAL_STATUSES,
+} from "@/components/custom-requests";
+import {
+  Card,
+  SectionCard,
+  PageHeader,
+  Button,
+  SearchInput,
+  FilterBar,
+  EmptyState,
+  Avatar,
+  BrandRoot,
+} from "@/components/ui";
+
+const FILTERS = [
+  "all", "pending", "negotiating", "quoted",
+  "accepted", "converted", "completed", "rejected", "cancelled",
+];
+
+const FILTER_TONES = {
+  all:         null,
+  pending:     "yellow",
+  negotiating: "blue",
+  quoted:      "indigo",
+  accepted:    "emerald",
+  converted:   "purple",
+  completed:   "slate",
+  rejected:    "rose",
+  cancelled:   "gray",
 };
 
-const ALL_STATUSES = Object.keys(STATUS_CONFIG);
-const TABS = ["all", ...ALL_STATUSES];
+function relTime(iso) {
+  if (!iso) return "";
+  const diff = Date.now() - new Date(iso).getTime();
+  if (diff < 60_000) return "now";
+  if (diff < 3_600_000) return `${Math.floor(diff / 60_000)}m`;
+  if (diff < 86_400_000) return `${Math.floor(diff / 3_600_000)}h`;
+  if (diff < 604_800_000) return `${Math.floor(diff / 86_400_000)}d`;
+  return new Date(iso).toLocaleDateString();
+}
 
 export default function CustomRequestsPage() {
+  return (
+    <BrandRoot className="contents">
+      <Workspace />
+    </BrandRoot>
+  );
+}
+
+function Workspace() {
   const router = useRouter();
-  const { t, activeTenant, isRTL } = useApp();
+  const searchParams = useSearchParams();
+  const { activeTenant } = useApp();
   const { allowed: canManage } = useTenantPermission("custom_requests.manage");
 
   const tenantId = activeTenant?.id || activeTenant;
+  const selectedId = searchParams.get("selected");
 
+  // ── List state ──────────────────────────────────────────────────
   const [requests, setRequests] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
+  const [listLoading, setListLoading] = useState(true);
+  const [listError, setListError] = useState(null);
   const [statusFilter, setStatusFilter] = useState("all");
   const [searchQuery, setSearchQuery] = useState("");
   const [debouncedSearch, setDebouncedSearch] = useState("");
-  console.log(requests,"ADDADA")
+
+  // ── Detail state ────────────────────────────────────────────────
+  const [detail, setDetail] = useState(null);
+  const [detailLoading, setDetailLoading] = useState(false);
+  const [reply, setReply] = useState("");
+  const [replyKind, setReplyKind] = useState("message");
+  const [sending, setSending] = useState(false);
+  const [actionBusy, setActionBusy] = useState(false);
+  // Optimistic outbound queue — same shape as the customer
+  // portal so all three roles render their own messages
+  // instantly while the API + realtime round-trip in the
+  // background.
+  const [pendingMessages, setPendingMessages] = useState([]);
+  // Unread tracking — populated from tenant-feed envelopes on
+  // non-selected rows; cleared when the admin selects a row.
+  // In-memory only (no backend "read receipt" needed yet).
+  const [unreadIds, setUnreadIds] = useState(() => new Set());
+  // Per-row toast throttle so a chatty thread doesn't spam.
+  const lastToastAtRef = useRef(new Map());
+
   useEffect(() => {
-    const timer = setTimeout(() => setDebouncedSearch(searchQuery), 300);
-    return () => clearTimeout(timer);
+    const t = setTimeout(() => setDebouncedSearch(searchQuery), 300);
+    return () => clearTimeout(t);
   }, [searchQuery]);
 
-  const fetchRequests = useCallback(async () => {
+  // ── Fetches ─────────────────────────────────────────────────────
+  const fetchList = useCallback(async () => {
+    if (!tenantId) return;
+    setListLoading(true);
     try {
-      setLoading(true);
-      setError(null);
-
-      if (!tenantId) {
-        router.push("/auth/login");
-        return;
-      }
-
       const params = {};
       if (statusFilter !== "all") params.status = statusFilter;
       if (debouncedSearch) params.search = debouncedSearch;
-
       const data = await getCustomRequests(tenantId, params);
       setRequests(data?.results || data || []);
+      setListError(null);
     } catch (err) {
-      if (err.status === 401) {
-        router.push("/auth/login");
+      if (err.status === 401) router.push("/auth/login");
+      else setListError(err.message || "Failed to load requests");
+    } finally {
+      setListLoading(false);
+    }
+  }, [tenantId, statusFilter, debouncedSearch, router]);
+
+  useEffect(() => { fetchList(); }, [fetchList]);
+
+  const fetchDetail = useCallback(async () => {
+    if (!tenantId || !selectedId) {
+      setDetail(null);
+      return;
+    }
+    setDetailLoading(true);
+    try {
+      const data = await getCustomRequest(tenantId, selectedId);
+      setDetail(data);
+    } catch (err) {
+      toast.error(err.message || "Failed to load request");
+      setDetail(null);
+    } finally {
+      setDetailLoading(false);
+    }
+  }, [tenantId, selectedId]);
+
+  useEffect(() => { fetchDetail(); }, [fetchDetail]);
+
+  // Order summary for the selected detail. Soft fetch — admins
+  // can read any order in the tenant; failures degrade the
+  // PostAcceptanceCard to the generic shape without inline
+  // status pill or price.
+  const [detailOrder, setDetailOrder] = useState(null);
+  const fetchDetailOrder = useCallback(async () => {
+    const orderId = detail?.converted_order;
+    const inScope = ["converted", "completed"].includes(detail?.status);
+    if (!orderId || !inScope || !tenantId) {
+      setDetailOrder(null);
+      return;
+    }
+    try {
+      const data = await fetchOrderSummary(tenantId, orderId);
+      setDetailOrder(data);
+    } catch {
+      setDetailOrder(null);
+    }
+  }, [detail?.converted_order, detail?.status, tenantId]);
+
+  useEffect(() => { fetchDetailOrder(); }, [fetchDetailOrder]);
+
+  const refreshBoth = useCallback(async () => {
+    await Promise.all([fetchList(), fetchDetail(), fetchDetailOrder()]);
+  }, [fetchList, fetchDetail, fetchDetailOrder]);
+
+  // ── Realtime ────────────────────────────────────────────────────
+  const cookieToken = useMemo(() => {
+    if (typeof document === "undefined") return null;
+    return document.cookie.match(/access_token=([^;]+)/)?.[1] || null;
+  }, []);
+  const orderTopicId = detail?.converted_order;
+  const realtimeTopics = useMemo(() => {
+    const t = [];
+    if (tenantId) t.push(`tenant:${tenantId}:requests`);
+    if (selectedId) t.push(`custom_request:${selectedId}`);
+    if (orderTopicId) t.push(`order:${orderTopicId}`);
+    return t;
+  }, [tenantId, selectedId, orderTopicId]);
+
+  useRealtime({
+    topics: realtimeTopics,
+    auth: { jwt: cookieToken },
+    onEvent: (envelope) => {
+      if (!envelope?.entity_type) return;
+      if (envelope.entity_type === "custom_request.summary") {
+        setRequests((prev) => applyTenantRequestSummary(prev, envelope));
+        const id = envelope.payload?.id || envelope.entity_id;
+        if (id && id !== selectedId) {
+          // Mark unread + announce. Selected rows skip both.
+          setUnreadIds((prev) => {
+            if (prev.has(id)) return prev;
+            const next = new Set(prev);
+            next.add(id);
+            return next;
+          });
+          announceActivity(id, envelope.payload);
+        }
         return;
       }
-      setError(err.message || "Failed to load custom requests.");
-    } finally {
-      setLoading(false);
-    }
-  }, [statusFilter, debouncedSearch, router, tenantId]);
+      if (envelope.entity_type.startsWith("order.")) {
+        setDetailOrder((prev) => applyOrderEnvelope(prev, envelope));
+        return;
+      }
+      if (envelope.topic?.startsWith("custom_request:")) {
+        setDetail((prev) => (prev ? applyRequestEnvelope(prev, envelope) : prev));
+      }
+    },
+    onReconnect: () => { refreshBoth(); },
+  });
 
+  // ── Derived ─────────────────────────────────────────────────────
+  const counts = useMemo(() => {
+    const c = { all: requests.length };
+    for (const r of requests) c[r.status] = (c[r.status] || 0) + 1;
+    return c;
+  }, [requests]);
+
+  const pulse = useMemo(() => {
+    if (!requests.length) return "Nothing in the queue";
+    const parts = [];
+    if (counts.pending) parts.push(`${counts.pending} new`);
+    if (counts.negotiating) parts.push(`${counts.negotiating} in chat`);
+    if (counts.quoted) parts.push(`${counts.quoted} quoted`);
+    if (counts.accepted) parts.push(`${counts.accepted} accepted`);
+    return parts.length ? parts.join(" · ") : `${requests.length} total`;
+  }, [requests.length, counts]);
+
+  // ── Selection helpers ───────────────────────────────────────────
+  function selectRequest(id) {
+    const params = new URLSearchParams(searchParams.toString());
+    params.set("selected", id);
+    router.push(`/dashboard/custom-requests?${params.toString()}`);
+  }
+  function clearSelection() {
+    router.push("/dashboard/custom-requests");
+  }
+
+  // Whenever the selected request changes, drop it from the
+  // unread set — opening the conversation IS the read action.
   useEffect(() => {
-    fetchRequests();
-  }, [fetchRequests]);
+    if (!selectedId) return;
+    setUnreadIds((prev) => {
+      if (!prev.has(selectedId)) return prev;
+      const next = new Set(prev);
+      next.delete(selectedId);
+      return next;
+    });
+  }, [selectedId]);
 
-  const handleRequestClick = (id) => {
-    router.push(`/dashboard/custom-requests/${id}`);
-  };
+  // Toast helper — brand-tinted, throttled per request, click to
+  // jump straight to the conversation. Uses toast.custom so the
+  // tile renders the actual request title + customer line.
+  const announceActivity = useCallback((id, payload) => {
+    if (id === selectedId) return;
+    const now = Date.now();
+    const last = lastToastAtRef.current.get(id) || 0;
+    if (now - last < 5000) return;
+    lastToastAtRef.current.set(id, now);
 
-  const statusCounts = requests.reduce((acc, r) => {
-    acc[r.status] = (acc[r.status] || 0) + 1;
-    return acc;
-  }, {});
+    const title = payload?.title || "Custom request";
+    const customer = payload?.customer_name || payload?.customer_email || "";
 
-  return (
-    <div className={`max-w-7xl mx-auto p-6 ${isRTL ? "text-right" : ""}`}>
-      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4 mb-6">
-        <div>
-          <h1 className="text-2xl font-bold">
-            {t("customRequests.title") || "Custom Requests"}
-          </h1>
-          <p className="text-sm text-gray-500 mt-1">
-            {requests.length} {t("common.total") || "total"}
+    toast.custom((t) => (
+      <button
+        type="button"
+        onClick={() => { toast.dismiss(t.id); selectRequest(id); }}
+        className={`${t.visible ? "animate-in" : "animate-out"} max-w-sm w-full bg-white border border-gray-100 shadow-lg rounded-2xl px-4 py-3 flex items-start gap-3 text-left hover:bg-gray-50`}
+      >
+        <span
+          aria-hidden="true"
+          className="w-2 h-2 rounded-full mt-2 bg-[color:var(--brand-primary,#3B82F6)] shrink-0"
+        />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold text-gray-900 truncate">{title}</p>
+          <p className="text-xs text-gray-500 truncate">
+            New activity{customer ? ` · ${customer}` : ""}
           </p>
         </div>
-        <button
-          onClick={fetchRequests}
-          className="flex items-center gap-1.5 text-sm text-blue-600 hover:underline"
-        >
-          <RefreshCw className="w-4 h-4" />
-          {t("common.refresh") || "Refresh"}
-        </button>
-      </div>
+        <span className="text-[10px] text-gray-400 shrink-0 mt-0.5 uppercase tracking-wide font-semibold">
+          Open
+        </span>
+      </button>
+    ), { duration: 4500 });
+  }, [selectedId, router]);  // selectRequest reads searchParams via router; safe
 
-      <div className="mb-4">
-        <div className="relative">
-          <Search className={`absolute top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400 ${isRTL ? "right-3" : "left-3"}`} />
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            placeholder={t("customRequests.searchPlaceholder") || "Search by title or customer..."}
-            className={`w-full sm:w-96 border rounded-lg py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 ${isRTL ? "pr-10 pl-4" : "pl-10 pr-4"}`}
+  // ── Actions ─────────────────────────────────────────────────────
+  async function handleSend() {
+    const body = reply.trim();
+    if (!body || sending || !detail) return;
+    const optimistic = {
+      id: `temp-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+      body,
+      at: new Date().toISOString(),
+      author_role: "admin",
+      author_name: "You",
+      requestId: detail.id,
+      kind: replyKind,
+    };
+    setPendingMessages((q) => [...q, optimistic]);
+    const restoreBody = body;
+    const restoreKind = replyKind;
+    setReply("");
+    setReplyKind("message");
+    setSending(true);
+    try {
+      await postRequestMessage(tenantId, detail.id, body, restoreKind);
+      // Realtime patches the persisted row; reconciliation
+      // effect below drops the pending entry on match.
+    } catch (err) {
+      setPendingMessages((q) => q.filter((m) => m.id !== optimistic.id));
+      setReply(restoreBody);
+      setReplyKind(restoreKind);
+      toast.error(err.message || "Failed to send");
+    } finally {
+      setSending(false);
+    }
+  }
+
+  // Reconcile pending entries against the live messages array.
+  // Scoped to the currently-selected request so switching
+  // requests doesn't reapply stale optimistic entries.
+  useEffect(() => {
+    if (pendingMessages.length === 0) return;
+    if (!detail?.messages?.length) {
+      // Drop any pending entries that belong to a different request.
+      const sameRequest = pendingMessages.filter((p) => p.requestId === detail?.id);
+      if (sameRequest.length !== pendingMessages.length) {
+        setPendingMessages(sameRequest);
+      }
+      return;
+    }
+    const now = Date.now();
+    const stillPending = pendingMessages.filter((p) => {
+      if (p.requestId !== detail.id) return false;
+      const match = detail.messages.find((m) =>
+        (m.author_role === "admin")
+        && (m.body || "").trim() === p.body.trim()
+        && now - new Date(m.created_at).getTime() < 5 * 60 * 1000,
+      );
+      return !match;
+    });
+    if (stillPending.length !== pendingMessages.length) {
+      setPendingMessages(stillPending);
+    }
+  }, [pendingMessages, detail?.messages, detail?.id]);
+
+  // Visible pendings for the currently-open detail.
+  const visiblePending = useMemo(
+    () => pendingMessages.filter((p) => p.requestId === detail?.id),
+    [pendingMessages, detail?.id],
+  );
+
+  async function handleReject() {
+    if (!detail) return;
+    if (!window.confirm("Reject this request?")) return;
+    setActionBusy(true);
+    try {
+      await rejectRequest(tenantId, detail.id);
+      toast.success("Request rejected");
+    } catch (err) {
+      toast.error(err.message || "Failed");
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleReopen() {
+    if (!detail) return;
+    setActionBusy(true);
+    try {
+      await reopenRequest(tenantId, detail.id);
+      toast.success("Reopened");
+    } catch (err) {
+      toast.error(err.message || "Failed");
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleAcceptQuote(quoteId) {
+    if (!detail) return;
+    setActionBusy(true);
+    try {
+      await acceptQuote(tenantId, detail.id, quoteId);
+      toast.success("Quote accepted — order created");
+    } catch (err) {
+      toast.error(err.message || "Failed");
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  async function handleRejectQuote(quoteId) {
+    if (!detail) return;
+    setActionBusy(true);
+    try {
+      await rejectQuote(tenantId, detail.id, quoteId);
+      toast.success("Quote rejected");
+    } catch (err) {
+      toast.error(err.message || "Failed");
+    } finally {
+      setActionBusy(false);
+    }
+  }
+
+  // Unread broken down per status so each filter row can show
+  // both the total count and how many are unread within it.
+  const unreadCounts = useMemo(() => {
+    const m = { all: 0 };
+    for (const r of requests) {
+      if (!unreadIds.has(r.id)) continue;
+      m.all += 1;
+      m[r.status] = (m[r.status] || 0) + 1;
+    }
+    return m;
+  }, [requests, unreadIds]);
+
+  const filterOptions = useMemo(() => FILTERS.map((s) => ({
+    value: s,
+    label: s === "all" ? "All" : (STATUS_TONE[s]?.label || s),
+    count: counts[s] || 0,
+    unread: unreadCounts[s] || 0,
+    tone: FILTER_TONES[s],
+  })), [counts, unreadCounts]);
+
+  // ── Render ──────────────────────────────────────────────────────
+  return (
+    <div className="h-[calc(100vh-4rem)] bg-gray-50 flex flex-col">
+      {/* Page header — single source of truth for title + pulse */}
+      <div className="bg-white border-b">
+        <div className="px-4 sm:px-6 py-4">
+          <PageHeader
+            title="Custom Requests"
+            subtitle={pulse}
+            actions={(
+              <Button
+                variant="secondary" size="sm"
+                onClick={fetchList}
+                leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
+              >
+                Refresh
+              </Button>
+            )}
+          />
+        </div>
+        {/* Mobile / tablet filter bar (vertical rail hidden) */}
+        <div className="px-4 sm:px-6 py-2 lg:hidden">
+          <FilterBar
+            value={statusFilter}
+            onChange={setStatusFilter}
+            options={filterOptions}
           />
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2 mb-6">
-        {TABS.map((tab) => {
-          const count = tab === "all" ? requests.length : statusCounts[tab] || 0;
-          if (tab !== "all" && !count && statusFilter !== tab) return null;
-          const config = STATUS_CONFIG[tab];
-          return (
-            <button
-              key={tab}
-              onClick={() => setStatusFilter(tab)}
-              className={`px-3 py-1.5 rounded-full text-sm font-medium transition flex items-center gap-1.5 ${
-                statusFilter === tab
-                  ? "bg-gray-900 text-white"
-                  : "bg-gray-100 text-gray-600 hover:bg-gray-200"
-              }`}
-            >
-              {config && (
-                <span className={`w-2 h-2 rounded-full ${config.dot}`} />
-              )}
-              {config?.label || t("common.all") || "All"}
-              {count ? ` (${count})` : ""}
-            </button>
-          );
-        })}
-      </div>
-
-      {loading && (
-        <div className="flex justify-center py-16">
-          <div className="animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900" />
-        </div>
-      )}
-
-      {!loading && error && (
-        <div className="text-center py-16">
-          <p className="text-red-600 text-lg mb-3">{error}</p>
-          <button onClick={fetchRequests} className="text-blue-600 hover:underline text-sm">
-            {t("common.tryAgain") || "Try again"}
-          </button>
-        </div>
-      )}
-
-      {!loading && !error && requests.length === 0 && (
-        <div className="text-center py-16">
-          <FileText className="w-12 h-12 text-gray-300 mx-auto mb-3" />
-          <p className="text-lg text-gray-500">
-            {t("customRequests.empty.title") || "No custom requests"}
+      <div className="flex-1 min-h-0 flex">
+        {/* LEFT — vertical filter rail (lg+) */}
+        <aside
+          className="hidden lg:flex flex-col w-56 border-r bg-white p-3 overflow-y-auto"
+          aria-label="Status filters"
+        >
+          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">
+            View
           </p>
-          <p className="text-sm text-gray-400 mt-1">
-            {debouncedSearch
-              ? `No results for "${debouncedSearch}"`
-              : statusFilter !== "all"
-                ? `No ${STATUS_CONFIG[statusFilter]?.label?.toLowerCase()} requests`
-                : t("customRequests.empty.description") || "Custom requests will appear here"}
-          </p>
-        </div>
-      )}
-
-      {!loading && !error && requests.length > 0 && (
-        <div className="bg-white rounded-lg shadow overflow-hidden">
-          <div className="overflow-x-auto">
-            <table className="w-full">
-              <thead>
-                <tr className={`bg-gray-50 border-b text-xs font-medium text-gray-500 uppercase tracking-wider ${isRTL ? "text-right" : "text-left"}`}>
-                  <th className="px-4 py-3">{t("customRequests.table.request") || "Request #"}</th>
-                  <th className="px-4 py-3">{t("customRequests.table.customer") || "Customer"}</th>
-                  <th className="px-4 py-3 hidden md:table-cell">{t("customRequests.table.title") || "Title"}</th>
-                  <th className="px-4 py-3 hidden sm:table-cell">{t("customRequests.table.budget") || "Budget"}</th>
-                  <th className="px-4 py-3 hidden lg:table-cell">{t("customRequests.table.deadline") || "Deadline"}</th>
-                  <th className="px-4 py-3">{t("customRequests.table.status") || "Status"}</th>
-                  <th className="px-4 py-3 hidden sm:table-cell">{t("customRequests.table.date") || "Date"}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {requests.map((req) => {
-                  const sc = STATUS_CONFIG[req.status] || {};
-                  return (
-                    <tr
-                      key={req.id}
-                      onClick={() => handleRequestClick(req.id)}
-                      className="hover:bg-gray-50 cursor-pointer transition"
-                    >
-                      <td className="px-4 py-3">
-                        <div className="font-medium text-sm">
-                          #{req.request_number || req.id}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3">
-                        <div className="text-sm">{req.customer_name || "-"}</div>
-                        <div className="text-xs text-gray-400">{req.customer_email}</div>
-                      </td>
-                      <td className="px-4 py-3 hidden md:table-cell">
-                        <div className="text-sm text-gray-700 max-w-xs truncate">
-                          {req.title}
-                        </div>
-                      </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
-                        <span className="text-sm font-medium">
-                          {req.budget_min && req.budget_max
-                            ? `${req.currency || "USD"} ${req.budget_min} - ${req.budget_max}`
-                            : req.budget
-                              ? `${req.currency || "USD"} ${req.budget}`
-                              : "-"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3 hidden lg:table-cell">
-                        <span className="text-sm text-gray-500">
-                          {req.deadline
-                            ? new Date(req.deadline).toLocaleDateString()
-                            : "-"}
-                        </span>
-                      </td>
-                      <td className="px-4 py-3">
+          <ul className="space-y-0.5">
+            {filterOptions.map((opt) => {
+              const isActive = statusFilter === opt.value;
+              return (
+                <li key={opt.value}>
+                  <button
+                    onClick={() => setStatusFilter(opt.value)}
+                    aria-pressed={isActive}
+                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-primary,#3B82F6)]/30 ${
+                      isActive
+                        ? "bg-[color:var(--brand-primary,#3B82F6)]/10 text-gray-900 font-semibold"
+                        : "text-gray-600 hover:bg-gray-100"
+                    }`}
+                  >
+                    <span className="flex items-center gap-2 min-w-0">
+                      {opt.tone && (
                         <span
-                          className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium ${sc.color}`}
+                          className={`w-1.5 h-1.5 rounded-full ${
+                            { yellow: "bg-yellow-400", blue: "bg-blue-400",
+                              indigo: "bg-indigo-400", emerald: "bg-emerald-400",
+                              purple: "bg-purple-400", slate: "bg-slate-400",
+                              rose: "bg-rose-400", gray: "bg-gray-400" }[opt.tone]
+                          }`}
+                        />
+                      )}
+                      <span className="capitalize truncate">{opt.label}</span>
+                    </span>
+                    <span className="flex items-center gap-1.5 shrink-0">
+                      {opt.unread > 0 && (
+                        <span
+                          className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-[color:var(--brand-primary,#3B82F6)] text-[color:var(--brand-primary-fg,#fff)] text-[10px] font-bold tabular-nums"
+                          title={`${opt.unread} unread`}
                         >
-                          <span className={`w-1.5 h-1.5 rounded-full ${sc.dot}`} />
-                          {sc.label || req.status}
+                          {opt.unread}
                         </span>
-                      </td>
-                      <td className="px-4 py-3 hidden sm:table-cell">
-                        <span className="text-sm text-gray-500">
-                          {new Date(req.created_at).toLocaleDateString()}
+                      )}
+                      {opt.count > 0 && (
+                        <span className={`text-xs tabular-nums ${isActive ? "text-gray-700" : "text-gray-400"}`}>
+                          {opt.count}
                         </span>
-                      </td>
-                    </tr>
+                      )}
+                    </span>
+                  </button>
+                </li>
+              );
+            })}
+          </ul>
+        </aside>
+
+        {/* CENTER — list */}
+        <section
+          className={`${selectedId ? "hidden xl:flex" : "flex"} flex-col w-full xl:w-[26rem] border-r bg-white`}
+          aria-label="Request list"
+        >
+          <div className="p-3 border-b">
+            <SearchInput
+              value={searchQuery}
+              onChange={setSearchQuery}
+              placeholder="Search title, customer, #number"
+              ariaLabel="Search requests"
+            />
+            <p className="text-[11px] text-gray-500 mt-2 px-1">
+              {requests.length} {requests.length === 1 ? "result" : "results"}
+            </p>
+          </div>
+
+          <div className="flex-1 overflow-y-auto p-3">
+            {listLoading ? (
+              <ListRowSkeleton count={5} />
+            ) : listError ? (
+              <Card padding="lg">
+                <EmptyState
+                  icon={RefreshCw}
+                  title="Couldn't load requests"
+                  hint={listError}
+                  action={<Button onClick={fetchList}>Try again</Button>}
+                />
+              </Card>
+            ) : requests.length === 0 ? (
+              <EmptyState
+                icon={Inbox}
+                title="Nothing here"
+                hint={debouncedSearch ? `No results for "${debouncedSearch}"` : "No requests match this view."}
+              />
+            ) : (
+              <ul className="space-y-1.5">
+                {requests.map((r) => {
+                  const isSelected = r.id === selectedId;
+                  const isUnread = unreadIds.has(r.id);
+                  return (
+                    <li key={r.id}>
+                      <button
+                        onClick={() => selectRequest(r.id)}
+                        aria-current={isSelected ? "true" : undefined}
+                        aria-label={isUnread ? `Unread: ${r.title}` : r.title}
+                        className={`w-full text-left rounded-xl border transition p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-primary,#3B82F6)]/30 ${
+                          isSelected
+                            ? "bg-[color:var(--brand-primary,#3B82F6)]/8 border-[color:var(--brand-primary,#3B82F6)]/30"
+                            : isUnread
+                              ? "bg-white border-gray-200 shadow-sm hover:border-gray-300"
+                              : "bg-white border-gray-100 hover:border-gray-200 hover:bg-gray-50"
+                        }`}
+                      >
+                        <div className="flex items-start gap-2.5">
+                          <Avatar
+                            name={r.customer_name || r.customer_email}
+                            role="customer"
+                            size="sm"
+                            className="mt-0.5"
+                          />
+                          <div className="min-w-0 flex-1">
+                            <div className="flex items-center justify-between gap-2">
+                              <p className={`text-sm truncate ${isUnread ? "font-bold text-gray-900" : "font-semibold text-gray-900"}`}>
+                                {r.title}
+                              </p>
+                              <span className="text-[10px] text-gray-400 shrink-0 tabular-nums">
+                                {relTime(r.updated_at || r.created_at)}
+                              </span>
+                            </div>
+                            <p className="text-xs text-gray-500 mt-0.5 truncate">
+                              #{r.request_number} · {r.customer_name || r.customer_email || "—"}
+                            </p>
+                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
+                              {isUnread && !isSelected && (
+                                <span
+                                  aria-hidden="true"
+                                  className="w-2 h-2 rounded-full bg-[color:var(--brand-primary,#3B82F6)]"
+                                />
+                              )}
+                              <StatusBadge status={r.status} size="sm" />
+                              {r.budget_max && (
+                                <span className="text-[10px] text-gray-500">
+                                  up to {r.budget_max}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        </div>
+                      </button>
+                    </li>
                   );
                 })}
-              </tbody>
-            </table>
+              </ul>
+            )}
           </div>
+        </section>
+
+        {/* RIGHT — conversation pane */}
+        <main className={`${selectedId ? "flex" : "hidden xl:flex"} flex-col flex-1 bg-gray-50 min-w-0`} aria-label="Conversation">
+          {!selectedId ? (
+            <EmptyState
+              icon={MessageSquareDashed}
+              title="Select a request"
+              hint="Pick a request on the left to see its conversation, timeline, and quote."
+              className="flex-1 self-stretch justify-center"
+            />
+          ) : detailLoading || !detail ? (
+            <div className="p-6 max-w-3xl mx-auto w-full">
+              <RequestDetailSkeleton />
+            </div>
+          ) : (
+            <DetailPane
+              request={detail}
+              order={detailOrder}
+              tenantId={tenantId}
+              canManage={canManage}
+              actionBusy={actionBusy}
+              reply={reply}
+              setReply={setReply}
+              replyKind={replyKind}
+              setReplyKind={setReplyKind}
+              sending={sending}
+              pendingMessages={visiblePending}
+              onSend={handleSend}
+              onClose={clearSelection}
+              onRefresh={refreshBoth}
+              onReject={handleReject}
+              onReopen={handleReopen}
+              onAcceptQuote={handleAcceptQuote}
+              onRejectQuote={handleRejectQuote}
+            />
+          )}
+        </main>
+      </div>
+    </div>
+  );
+}
+
+// ── DetailPane ─────────────────────────────────────────────────────
+
+function DetailPane({
+  request, order, tenantId, canManage, actionBusy,
+  reply, setReply, replyKind, setReplyKind, sending,
+  pendingMessages = [],
+  onSend, onClose, onRefresh, onReject, onReopen,
+  onAcceptQuote, onRejectQuote,
+}) {
+  const isLocked = TERMINAL_STATUSES.has(request.status);
+  const isReopenable = ["rejected", "cancelled", "completed"].includes(request.status);
+  const isPostAcceptance =
+    ["converted", "completed", "rejected", "cancelled"].includes(request.status);
+
+  const activeQuote = useMemo(() => {
+    return (request.quotes || []).find((q) => q.status === "pending" || q.status === "countered")
+      || (request.quotes || [])[0];
+  }, [request]);
+
+  return (
+    <>
+      {/* Sticky header — carries the mobile back button */}
+      <header className="bg-white border-b sticky top-0 z-10">
+        <div className="px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
+          <div className="flex items-center gap-2 min-w-0">
+            <button
+              onClick={onClose}
+              aria-label="Back to list"
+              className="xl:hidden -ml-2 h-10 w-10 inline-flex items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </button>
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <h2 className="text-base font-bold truncate">{request.title}</h2>
+                <StatusBadge status={request.status} size="sm" />
+              </div>
+              <p className="text-[11px] text-gray-500 mt-0.5">
+                #{request.request_number} · {request.customer_name || request.customer_email}
+              </p>
+            </div>
+          </div>
+          <button
+            onClick={onRefresh}
+            aria-label="Refresh"
+            className="h-9 w-9 inline-flex items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100"
+          >
+            <RefreshCw className="w-4 h-4" />
+          </button>
         </div>
-      )}
+      </header>
+
+      <div className="flex-1 overflow-hidden flex">
+        {/* Conversation column */}
+        <div className="flex-1 flex flex-col min-w-0">
+          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
+            <Card padding="lg">
+              <p className="text-sm text-gray-700 whitespace-pre-line">{request.description}</p>
+              <div className="grid grid-cols-3 gap-3 mt-3 text-xs">
+                {(request.budget_min || request.budget_max) && (
+                  <Cell label="Budget">
+                    {request.budget_min || ""}
+                    {request.budget_min && request.budget_max && " – "}
+                    {request.budget_max || ""}
+                  </Cell>
+                )}
+                {request.deadline && <Cell label="Deadline">{request.deadline}</Cell>}
+                {request.provider_name && <Cell label="Provider">{request.provider_name}</Cell>}
+              </div>
+            </Card>
+
+            {/* Quote stays the hero while the request is being
+                negotiated. Once it leaves negotiation
+                PostAcceptanceCard takes the slot — one CTA,
+                not two competing for the same eye line. */}
+            {!isPostAcceptance && activeQuote && (
+              <QuoteCard
+                quote={activeQuote}
+                canAccept={canManage && !isLocked}
+                canReject={canManage && !isLocked}
+                disabled={actionBusy}
+                onAccept={() => onAcceptQuote(activeQuote.id)}
+                onReject={() => onRejectQuote(activeQuote.id)}
+              />
+            )}
+
+            {/* V3.E business rule — tenant-only quote composer */}
+            {!isPostAcceptance && canManage && !isLocked && (
+              <QuoteComposer
+                tenantId={tenantId}
+                request={request}
+                isRevision={Boolean(activeQuote)}
+              />
+            )}
+
+            {/* Post-acceptance hero — V3.F.11 admin variant */}
+            {isPostAcceptance && (
+              <PostAcceptanceCard
+                request={request}
+                order={order}
+                viewer="admin"
+                providerName={request.provider_name}
+                customerName={request.customer_name || request.customer_email}
+                orderHref={request.converted_order
+                  ? `/dashboard/orders/${request.converted_order}`
+                  : null}
+              />
+            )}
+
+            <Card padding="lg">
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
+                Conversation
+              </h3>
+              <ConversationFeed
+                request={request}
+                viewer="admin"
+                pendingMessages={pendingMessages}
+              />
+            </Card>
+          </div>
+
+          <StickyComposer
+            value={reply}
+            onChange={setReply}
+            onSend={onSend}
+            sending={sending}
+            disabled={isLocked}
+            locked={isLocked}
+            lockedMessage="This request is locked."
+            onReopen={canManage && isReopenable ? onReopen : undefined}
+            allowKind
+            kind={replyKind}
+            onKindChange={setReplyKind}
+          />
+        </div>
+
+        {/* Context sidebar (xl+) */}
+        <aside
+          className="hidden xl:flex flex-col w-72 border-l bg-white overflow-y-auto"
+          aria-label="Request context"
+        >
+          <div className="p-4 space-y-4">
+            <SectionCard title="Customer" padding="md">
+              <div className="flex items-center gap-3">
+                <Avatar
+                  name={request.customer_name || request.customer_email}
+                  role="customer"
+                  size="lg"
+                />
+                <div className="min-w-0">
+                  <p className="text-sm font-semibold text-gray-900 truncate">
+                    {request.customer_name || "—"}
+                  </p>
+                  {request.customer_email && (
+                    <p className="text-xs text-gray-500 truncate">{request.customer_email}</p>
+                  )}
+                  {request.customer_phone && (
+                    <p className="text-xs text-gray-500 truncate">{request.customer_phone}</p>
+                  )}
+                </div>
+              </div>
+            </SectionCard>
+
+            <SectionCard title="Provider" padding="md">
+              {request.provider_name ? (
+                <div className="flex items-center gap-3">
+                  <Avatar name={request.provider_name} role="provider" size="md" />
+                  <p className="text-sm text-gray-800 truncate">{request.provider_name}</p>
+                </div>
+              ) : (
+                <p className="text-sm text-gray-400">Not assigned yet</p>
+              )}
+            </SectionCard>
+
+            {canManage && (
+              <div className="space-y-2">
+                <ProviderAssigner
+                  tenantId={tenantId}
+                  requestId={request.id}
+                  onAssigned={onRefresh}
+                  disabled={actionBusy || isLocked}
+                />
+                {!isLocked && (
+                  <Button
+                    variant="danger" size="sm" onClick={onReject} disabled={actionBusy}
+                    className="w-full"
+                  >
+                    Reject request
+                  </Button>
+                )}
+                {isReopenable && (
+                  <Button
+                    variant="outline" size="sm" onClick={onReopen} disabled={actionBusy}
+                    leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
+                    className="w-full"
+                  >
+                    Reopen
+                  </Button>
+                )}
+              </div>
+            )}
+
+            {/* PostAcceptanceCard in the main column is the
+                canonical order CTA now. Sidebar still carries a
+                tiny fallback link for when the right pane is
+                scrolled past the hero. */}
+            {request.converted_order && (
+              <a
+                href={`/dashboard/orders/${request.converted_order}`}
+                className="block px-3 py-2 text-xs text-[color:var(--brand-primary,#3B82F6)] hover:underline text-center"
+              >
+                Open order page →
+              </a>
+            )}
+          </div>
+        </aside>
+      </div>
+    </>
+  );
+}
+
+// ── Composed primitives stay file-local ────────────────────────────
+
+function QuoteComposer({ tenantId, request, isRevision }) {
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({
+    price: "", currency: "SAR", delivery_days: "", revisions: 1, message: "",
+  });
+  const [busy, setBusy] = useState(false);
+
+  async function handleSubmit(e) {
+    e.preventDefault();
+    if (busy) return;
+    if (!request.provider_id && !request.provider) {
+      toast.error("Assign a provider first — the quote is pinned to them.");
+      return;
+    }
+    setBusy(true);
+    try {
+      await submitQuote(tenantId, request.id, {
+        price: parseFloat(form.price),
+        currency: form.currency || "SAR",
+        delivery_days: parseInt(form.delivery_days, 10),
+        revisions: parseInt(form.revisions || 1, 10),
+        message: form.message,
+      });
+      toast.success(isRevision ? "Revision sent" : "Quote sent");
+      setOpen(false);
+      setForm({ price: "", currency: "SAR", delivery_days: "", revisions: 1, message: "" });
+    } catch (err) {
+      toast.error(err.message || "Failed to send quote");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <button
+        onClick={() => setOpen(true)}
+        className="w-full text-left px-4 py-3 rounded-xl border-2 border-dashed border-gray-200 text-sm font-medium text-gray-600 hover:text-gray-900 hover:border-gray-300 transition"
+      >
+        + {isRevision ? "Send a revised quote" : "Issue a quote to the customer"}
+      </button>
+    );
+  }
+
+  return (
+    <Card padding="lg">
+      <form onSubmit={handleSubmit} className="space-y-3">
+        <div className="flex items-center justify-between">
+          <h3 className="text-sm font-semibold text-gray-700">
+            {isRevision ? "Send a revised quote" : "Issue a quote"}
+          </h3>
+          <button
+            type="button"
+            onClick={() => setOpen(false)}
+            className="text-xs text-gray-500 hover:text-gray-700"
+          >
+            Cancel
+          </button>
+        </div>
+
+        <div className="grid grid-cols-3 gap-2">
+          <input
+            type="number" step="0.01" required min="0"
+            value={form.price}
+            onChange={(e) => setForm({ ...form, price: e.target.value })}
+            placeholder="Price"
+            aria-label="Price"
+            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-primary,#3B82F6)]/30"
+          />
+          <input
+            type="text"
+            value={form.currency}
+            onChange={(e) => setForm({ ...form, currency: e.target.value.toUpperCase() })}
+            placeholder="SAR"
+            aria-label="Currency"
+            maxLength={3}
+            className="border rounded-lg px-3 py-2 text-sm uppercase focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-primary,#3B82F6)]/30"
+          />
+          <input
+            type="number" required min="1"
+            value={form.delivery_days}
+            onChange={(e) => setForm({ ...form, delivery_days: e.target.value })}
+            placeholder="Days"
+            aria-label="Delivery days"
+            className="border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-primary,#3B82F6)]/30"
+          />
+        </div>
+
+        <textarea
+          required rows={3}
+          value={form.message}
+          onChange={(e) => setForm({ ...form, message: e.target.value })}
+          placeholder="What's included, scope, deliverables…"
+          aria-label="Quote message"
+          className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-primary,#3B82F6)]/30"
+        />
+
+        <Button type="submit" loading={busy} className="w-full">
+          {isRevision ? "Send revision" : "Send quote"}
+        </Button>
+      </form>
+    </Card>
+  );
+}
+
+function ProviderAssigner({ tenantId, requestId, onAssigned, disabled }) {
+  const [open, setOpen] = useState(false);
+  const [providers, setProviders] = useState([]);
+  const [loading, setLoading] = useState(false);
+  const [selected, setSelected] = useState("");
+  const [busy, setBusy] = useState(false);
+
+
+  useEffect(() => {
+    if (!open || providers.length > 0 || loading) return;
+
+    let cancelled = false;
+
+    const loadProviders = async () => {
+      setLoading(true);
+
+      try {
+        const result = await listAssignableProviders(tenantId);
+    
+
+        if (!cancelled) {
+          setProviders([...result]); // or simply setProviders(result)
+        }
+      } catch (err) {
+        toast.error(err.message || "Failed to load providers");
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    };
+
+    loadProviders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [open, tenantId]);
+
+  async function handleAssign() {
+    if (!selected) return;
+    setBusy(true);
+    try {
+      await assignProvider(tenantId, requestId, selected);
+      toast.success("Provider assigned");
+      setOpen(false);
+      setSelected("");
+      onAssigned?.();
+    } catch (err) {
+      toast.error(err.message || "Failed");
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  if (!open) {
+    return (
+      <Button
+        variant="primary" size="sm"
+        onClick={() => setOpen(true)} disabled={disabled}
+        leftIcon={<UserPlus className="w-3.5 h-3.5" />}
+        className="w-full"
+      >
+        Assign provider
+      </Button>
+    );
+  }
+
+  return (
+    <div className="border rounded-xl p-3 space-y-2 bg-gray-50">
+      <label className="sr-only" htmlFor="provider-select">Provider</label>
+      <select
+        id="provider-select"
+        value={selected}
+        onChange={(e) => setSelected(e.target.value)}
+        disabled={loading}
+        className="w-full border rounded-lg px-2 py-1.5 text-sm bg-white"
+      >
+        <option value="">{loading ? "Loading…" : "Select a provider"}</option>
+        {providers.map((p) => (
+          <option key={p.id} value={p.id}>
+            {p.name || p.full_name || p.email || p.id}
+          </option>
+        ))}
+      </select>
+      <div className="flex gap-2">
+        <Button size="sm" onClick={handleAssign} disabled={!selected || busy} className="flex-1">
+          {busy ? "…" : "Assign"}
+        </Button>
+        <Button size="sm" variant="ghost" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </div>
+  );
+}
+
+function Cell({ label, children }) {
+  return (
+    <div>
+      <div className="text-[10px] uppercase tracking-wide text-gray-500">{label}</div>
+      <div className="text-gray-800 mt-0.5 text-sm">{children}</div>
     </div>
   );
 }

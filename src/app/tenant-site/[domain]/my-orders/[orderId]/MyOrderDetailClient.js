@@ -20,9 +20,18 @@
 
 import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
-import OrderChatPanel from "@/components/orders/OrderChatPanel";
 import LayoutRenderer from "../../LayoutRenderer";
 import { tenantRoutes } from "@/lib/tenantRoutes";
+import {
+  BrandRoot, Card, PageHeader, Button, EmptyState,
+} from "@/components/ui";
+import {
+  OrderStatusBadge, OrderStatusTimeline, OrderProgressCard,
+  OrderTimelineFeed, OrderConversation,
+} from "@/components/orders";
+import { useRealtime } from "@/lib/realtime";
+import { applyOrderEnvelope } from "@/lib/realtimePatches";
+import { uploadWithProgress } from "@/lib/uploadWithProgress";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -86,20 +95,6 @@ async function apiFetch(url, domain, token, tokenType, options = {}) {
   return res.json();
 }
 
-// ─── Status config ───
-
-const STATUS_CONFIG = {
-  pending_payment: { label: "Pending Payment", color: "bg-yellow-100 text-yellow-800" },
-  paid:            { label: "Paid",            color: "bg-blue-100 text-blue-800" },
-  accepted:        { label: "Accepted",        color: "bg-indigo-100 text-indigo-800" },
-  in_progress:     { label: "In Progress",     color: "bg-purple-100 text-purple-800" },
-  delivered:       { label: "Delivered",        color: "bg-green-100 text-green-800" },
-  completed:       { label: "Completed",        color: "bg-green-200 text-green-900" },
-  revision_requested: { label: "Revision Requested", color: "bg-orange-100 text-orange-800" },
-  cancelled:       { label: "Cancelled",        color: "bg-red-100 text-red-800" },
-  refunded:        { label: "Refunded",         color: "bg-gray-100 text-gray-800" },
-};
-
 // =========================================================================
 // MAIN COMPONENT
 // =========================================================================
@@ -115,8 +110,11 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
   const [error, setError] = useState(null);
   const [actionLoading, setActionLoading] = useState(null);
 
-  // Store resolved auth for reuse across API calls
+  // Auth lives in state (not just a ref) so the useRealtime effect
+  // re-runs the moment we resolve a token. authRef mirrors it for
+  // synchronous access from callbacks (upload/send).
   const authRef = useRef({ token: null, type: null });
+  const [auth, setAuth] = useState({ token: null, type: null });
 
   // ─── Auth Fetch Adapter for OrderChatPanel ───
   const authFetch = useCallback(
@@ -141,8 +139,10 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
       setError(null);
 
       // Resolve token (JWT or guest OTP)
-      const auth = resolveToken(domain);
-      authRef.current = auth;
+      const nextAuth = resolveToken(domain);
+      authRef.current = nextAuth;
+      setAuth(nextAuth);
+      const auth = nextAuth;
 
       if (!auth.token) {
         // No token at all → go to my-orders where email verification runs
@@ -182,6 +182,19 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
       fetchOrder();
     }
   }, [fetchOrder, domain, orderId]);
+
+  // ─── Realtime — patch order in-place from order:<id> topic ───
+  useRealtime({
+    topics: orderId ? [`order:${orderId}`] : [],
+    auth: {
+      jwt: auth.type === "jwt" ? auth.token : null,
+      orderToken: auth.type === "guest" ? auth.token : null,
+    },
+    onEvent: (envelope) => {
+      setOrder((prev) => applyOrderEnvelope(prev, envelope));
+    },
+    onReconnect: () => { fetchOrder(); },
+  });
 
   // ─── Accept Delivery ───
   const handleAcceptDelivery = async () => {
@@ -238,6 +251,41 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
     }
   };
 
+  // ─── Pay now — hosted checkout redirect ───
+  const handlePayNow = async () => {
+    const { token, type } = authRef.current;
+    try {
+      setActionLoading("pay");
+      // Return to this order page whether payment succeeds or the
+      // customer bails; both gateways forward these on to their
+      // success/cancel handlers.
+      const here = typeof window !== "undefined" ? window.location.href : "";
+      const data = await apiFetch(
+        `${API_BASE}/api/v1/orders/${orderId}/initiate_payment/`,
+        domain,
+        token,
+        type,
+        {
+          method: "POST",
+          body: JSON.stringify({ success_url: here, cancel_url: here }),
+        },
+      );
+      const url = data?.checkout?.checkout_url;
+      if (url) {
+        window.location.href = url;
+        return;
+      }
+      // No URL returned — refresh so any state change lands, and
+      // show the customer whatever the server persisted.
+      await fetchOrder();
+      setError("Payment gateway did not return a checkout URL.");
+    } catch (err) {
+      setError(err.data?.error || err.message || "Failed to start payment.");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   // ─── Cancel Order ───
   const handleCancel = async () => {
     const { token, type } = authRef.current;
@@ -280,24 +328,26 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
   // ─── Error / Not Found ───
   if (error || !order) {
     return (
-      <div className="max-w-4xl mx-auto px-4 py-16 text-center">
-        <div className="text-4xl mb-4">📦</div>
-        <p className="text-gray-600 mb-6">{error || "Order not found"}</p>
-        <button
-          onClick={() => router.push(tenantRoutes.myOrders())}
-          className="px-5 py-2.5 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 text-sm font-medium"
-        >
-          ← Back to My Orders
-        </button>
-      </div>
+      <BrandRoot>
+        <div className="max-w-4xl mx-auto px-4 py-16">
+          <EmptyState
+            title={error || "Order not found"}
+            hint="This order may have been removed or you no longer have access to it."
+            action={
+              <Button variant="secondary" onClick={() => router.push(tenantRoutes.myOrders())}>
+                Back to My Orders
+              </Button>
+            }
+          />
+        </div>
+      </BrandRoot>
     );
   }
 
-  const sc = STATUS_CONFIG[order.status] || { label: order.status, color: "bg-gray-100" };
   const isTerminal = ["completed", "cancelled", "refunded"].includes(order.status);
 
   return (
-  <>
+  <BrandRoot>
    {headerSection.length > 0 && (
     <LayoutRenderer sections={headerSection} site={site} />
    )}
@@ -308,27 +358,36 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
       {/* Back link */}
       <button
         onClick={() => router.push(tenantRoutes.myOrders())}
+        aria-label="Back to My Orders"
         className="text-sm text-gray-400 hover:text-gray-600 mb-6 flex items-center gap-1.5 transition-colors"
       >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
         Back to My Orders
       </button>
 
+      {/* Status Timeline — visual lifecycle at a glance */}
+      <div className="mb-6">
+        <OrderStatusTimeline status={order.status} />
+      </div>
+
+      {/* Progress hero — status-aware "what happens next" copy */}
+      <OrderProgressCard
+        order={order}
+        viewer="customer"
+        onAction={order.status === "pending_payment" ? handlePayNow : undefined}
+        actionLoading={actionLoading === "pay"}
+        providerName={order.provider_name}
+        customerName={order.customer_name}
+        className="mb-6"
+      />
+
       {/* Order Header */}
-      <div className="bg-white rounded-xl border border-gray-200 p-6 mb-6">
-        <div className="flex flex-col sm:flex-row justify-between items-start gap-3">
-          <div>
-            <h1 className="text-2xl font-bold text-gray-900">
-              {order.service_name || "Order"}
-            </h1>
-            <p className="text-sm text-gray-400 mt-1 font-mono">
-              #{order.order_number}
-            </p>
-          </div>
-          <span className={`px-3 py-1.5 rounded-lg text-xs font-semibold ${sc.color}`}>
-            {sc.label}
-          </span>
-        </div>
+      <Card padding="lg" className="mb-6">
+        <PageHeader
+          title={order.service_name || "Order"}
+          subtitle={<span className="font-mono text-gray-400">#{order.order_number}</span>}
+          actions={<OrderStatusBadge status={order.status} />}
+        />
 
         <div className="mt-5 pt-4 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
           <div>
@@ -356,63 +415,68 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
             </div>
           )}
         </div>
-      </div>
+      </Card>
 
-      {/* Delivery actions */}
+      {/* Delivery actions — accept or revise the delivery */}
       {order.status === "delivered" && (
-        <div className="bg-emerald-50 rounded-xl border border-emerald-200 p-5 mb-6">
-          <h3 className="font-bold text-emerald-800 mb-2">
-            Your order has been delivered!
-          </h3>
+        <Card padding="lg" className="mb-6 !bg-emerald-50 !border-emerald-200">
+          <h3 className="font-bold text-emerald-800 mb-2">Your order has been delivered</h3>
           <p className="text-sm text-emerald-700 mb-4">
             Review the deliverables and accept, or request changes.
           </p>
 
           {!showRevisionForm ? (
-            <div className="flex gap-3">
-              <button
+            <div className="flex flex-col sm:flex-row gap-3">
+              <Button
+                variant="primary"
                 onClick={handleAcceptDelivery}
+                loading={actionLoading === "accept"}
                 disabled={actionLoading !== null}
-                className="flex-1 py-2.5 bg-emerald-600 text-white rounded-xl font-semibold hover:bg-emerald-700 disabled:opacity-50 text-sm"
+                className="flex-1 !bg-emerald-600 hover:!bg-emerald-700"
               >
-                {actionLoading === "accept" ? "..." : "✓ Accept Delivery"}
-              </button>
-              <button
+                Accept delivery
+              </Button>
+              <Button
+                variant="secondary"
                 onClick={() => setShowRevisionForm(true)}
                 disabled={actionLoading !== null}
-                className="flex-1 py-2.5 bg-orange-100 text-orange-800 rounded-xl font-semibold hover:bg-orange-200 disabled:opacity-50 text-sm"
+                className="flex-1"
               >
-                Request Revision
-                {order.can_request_revision === false && " ❌"}
-              </button>
+                Request revision
+                {order.can_request_revision === false && " (unavailable)"}
+              </Button>
             </div>
           ) : (
             <div className="space-y-3">
+              <label htmlFor="order-revision-msg" className="sr-only">Revision notes</label>
               <textarea
+                id="order-revision-msg"
                 value={revisionMessage}
                 onChange={(e) => setRevisionMessage(e.target.value)}
-                placeholder="Describe what needs to be changed..."
+                placeholder="Describe what needs to be changed…"
                 rows={3}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-orange-100"
+                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-primary,#3B82F6)]/30"
               />
               <div className="flex gap-3">
-                <button
+                <Button
+                  variant="primary"
                   onClick={handleRequestRevision}
+                  loading={actionLoading === "revision"}
                   disabled={actionLoading !== null || !revisionMessage.trim()}
-                  className="flex-1 py-2.5 bg-orange-500 text-white rounded-xl font-semibold hover:bg-orange-600 disabled:opacity-50 text-sm"
+                  className="flex-1"
                 >
-                  {actionLoading === "revision" ? "..." : "Submit Revision Request"}
-                </button>
-                <button
+                  Submit revision request
+                </Button>
+                <Button
+                  variant="ghost"
                   onClick={() => { setShowRevisionForm(false); setRevisionMessage(""); }}
-                  className="px-4 py-2.5 text-gray-500 text-sm"
                 >
                   Cancel
-                </button>
+                </Button>
               </div>
             </div>
           )}
-        </div>
+        </Card>
       )}
 
       {/* Cancel button */}
@@ -428,53 +492,96 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
         </div>
       )}
 
-      {/* Delivery files */}
-      {order.files?.filter((f) => f.category === "delivery").length > 0 && (
-        <div className="bg-white rounded-xl border border-gray-200 p-5 mb-6">
-          <h2 className="font-bold text-gray-900 mb-3">Deliverables</h2>
-          <div className="space-y-2">
-            {order.files
-              .filter((f) => f.category === "delivery")
-              .map((file) => (
-                <a
-                  key={file.id}
-                  href={file.download_url || file.file_url || file.file}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-3 p-3 bg-gray-50 rounded-lg hover:bg-gray-100 transition-colors"
-                >
-                  <span className="text-xl">📄</span>
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm font-medium text-gray-700 truncate">
-                      {file.file_name || file.original_filename || "File"}
-                    </p>
-                    <p className="text-xs text-gray-400">
-                      {file.file_size ? `${(file.file_size / 1024).toFixed(1)} KB` : ""}
-                    </p>
-                  </div>
-                  <span className="text-sm text-blue-600 font-medium shrink-0">Download</span>
-                </a>
-              ))}
+      {/* Deliverables — one row per file, no visual noise */}
+      {order.files?.filter((f) => (f.file_type || f.category) === "delivery").length > 0 && (
+        <Card padding="none" className="mb-6 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+            <h2 className="font-bold text-gray-900">Deliverables</h2>
+            <span className="text-xs text-gray-400">
+              {order.files.filter((f) => (f.file_type || f.category) === "delivery").length} file(s)
+            </span>
           </div>
-        </div>
+          <ul className="divide-y divide-gray-100" aria-label="Delivery files">
+            {order.files
+              .filter((f) => (f.file_type || f.category) === "delivery")
+              .map((file) => {
+                const name = file.file_name || file.original_filename || "File";
+                const kb = file.file_size ? `${(file.file_size / 1024).toFixed(1)} KB` : "";
+                return (
+                  <li key={file.id}>
+                    <a
+                      href={file.download_url || file.file_url || file.file}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
+                    >
+                      <span className="text-sm text-gray-900 truncate flex-1">{name}</span>
+                      {kb && <span className="text-xs text-gray-400 shrink-0 tabular-nums">{kb}</span>}
+                      <span className="text-xs font-medium text-[color:var(--brand-primary,#3B82F6)] shrink-0">
+                        Download
+                      </span>
+                    </a>
+                  </li>
+                );
+              })}
+          </ul>
+        </Card>
       )}
 
-      {/* Messages & Files - Reusable Chat Panel */}
-      <div className="mb-6">
-        <OrderChatPanel
-          orderId={orderId}
-          tenantId={domain}
-          authFetch={authFetch}
-          initialMessages={order.messages || []}
-          files={order.files || []}
-          onRefresh={fetchOrder}
-          currentUser={{
-            id: order.customer,
-            role: "customer"
-          }}
-          readOnly={isTerminal}
-        />
-      </div>
+      {/* Activity — chronological lifecycle feed (dense rows) */}
+      {(order.timeline_events || []).length > 0 && (
+        <Card padding="none" className="mb-6 overflow-hidden">
+          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
+            <h2 className="font-bold text-gray-900">Activity</h2>
+            <span className="text-xs text-gray-400">
+              {order.timeline_events.length} event(s)
+            </span>
+          </div>
+          <div className="px-5">
+            <OrderTimelineFeed events={order.timeline_events || []} />
+          </div>
+        </Card>
+      )}
+
+      {/* Conversation — feed + composer + upload queue tray */}
+      <Card padding="none" className="mb-6 overflow-hidden">
+        <div className="p-4 sm:p-5">
+          <OrderConversation
+            order={order}
+            viewer="customer"
+            locked={isTerminal}
+            lockedMessage="This order is closed."
+            showComposer={!isTerminal}
+            onSendMessage={async (content) => {
+              await apiFetch(
+                `${API_BASE}/api/v1/orders/${orderId}/messages/`,
+                domain,
+                authRef.current.token,
+                authRef.current.type,
+                { method: "POST", body: JSON.stringify({ content }) },
+              );
+            }}
+            onUploadFile={async (file, { onProgress, signal }) => {
+              const fd = new FormData();
+              fd.append("file", file);
+              fd.append("category", "delivery");
+              const headers = {};
+              if (domain) headers["X-Tenant"] = domain;
+              if (authRef.current.token) {
+                headers[authRef.current.type === "guest" ? "X-Order-Token" : "Authorization"] =
+                  authRef.current.type === "guest"
+                    ? authRef.current.token
+                    : `Bearer ${authRef.current.token}`;
+              }
+              await uploadWithProgress(
+                `${API_BASE}/api/v1/orders/${orderId}/upload_file/`,
+                fd,
+                { headers, onProgress, signal },
+              );
+            }}
+          />
+        </div>
+      </Card>
 
       {/* Review */}
       {order.review && (
@@ -507,5 +614,6 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
    {/* {footerSection.length > 0 && (
     <LayoutRenderer sections={footerSection} site={site} />
    )} */}
-  </>
-  )}
+  </BrandRoot>
+  );
+}

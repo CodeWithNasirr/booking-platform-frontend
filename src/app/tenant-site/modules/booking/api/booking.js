@@ -1,6 +1,19 @@
+import { useTenantLang } from "../contexts/TenantLangContext";
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
+function readAppLanguage() {
+  if (typeof document === "undefined") return "en";
+  try {
+    const raw = document.cookie
+      .split("; ")
+      .find((r) => r.startsWith("app_language="));
+    if (raw) return decodeURIComponent(raw.split("=")[1]) || "en";
+  } catch {}
+  return "en";
+}
+const { isRTL, language } = useTenantLang();
 export async function createBooking({
   domain,
   service,
@@ -9,11 +22,13 @@ export async function createBooking({
   time,
   customer,
 }) {
+  // V4.Q: tell the backend which locale the guest is reading in.
   const res = await fetch(`${API_BASE}/api/v1/bookings/`, {
     method: "POST",
     headers: {
       "Content-Type": "application/json",
       "X-Tenant": domain,
+      "X-Locale": language,
     },
     body: JSON.stringify({
       service: service.id,

@@ -50,6 +50,43 @@ export async function rejectRequest(tenantId, id) {
   });
 }
 
+export async function listAssignableProviders(tenantId) {
+  // Tenant-scoped list of active providers; backend already filters
+  // by tenant via X-Tenant header in apiFetch.
+  return apiFetch(`/api/v1/providers/?is_active=true`, tenantId);
+}
+
+export async function getRequestMessages(tenantId, id) {
+  return apiFetch(`/api/v1/custom-requests/${id}/messages/`, tenantId);
+}
+
+export async function postRequestMessage(tenantId, id, body, kind = "message") {
+  return apiFetch(`/api/v1/custom-requests/${id}/messages/`, tenantId, {
+    method: "POST",
+    body: JSON.stringify({ body, kind }),
+  });
+}
+
+export async function counterRequestQuote(tenantId, id, quoteId, note) {
+  return apiFetch(`/api/v1/custom-requests/${id}/counter_request/`, tenantId, {
+    method: "POST",
+    body: JSON.stringify({ quote_id: quoteId, note }),
+  });
+}
+
+export async function reopenRequest(tenantId, id) {
+  return apiFetch(`/api/v1/custom-requests/${id}/reopen/`, tenantId, {
+    method: "POST",
+  });
+}
+
+// Soft order summary fetch for the PostAcceptanceCard. Caller
+// must guard on request.status — admins can read any order in
+// the tenant via apiFetch.
+export async function fetchOrderSummary(tenantId, orderId) {
+  return apiFetch(`/api/v1/orders/${orderId}/`, tenantId);
+}
+
 export async function getSubscriptions(tenantId, params = {}) {
   const query = new URLSearchParams(params).toString();
   return apiFetch(`/api/v1/customer-subscriptions/?${query}`, tenantId);

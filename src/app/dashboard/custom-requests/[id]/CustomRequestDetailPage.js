@@ -12,7 +12,10 @@ import {
   acceptQuote,
   rejectQuote,
   rejectRequest,
+  listAssignableProviders,
+  postRequestMessage,
 } from "../lib/api";
+import ProviderPicker from "@/components/dashboard/providers/ProviderPicker";
 import {
   ArrowLeft,
   ArrowRight,
@@ -29,6 +32,8 @@ import {
   Send,
   ShoppingBag,
 } from "lucide-react";
+import MessageThread from "@/components/shared/CustomRequestMessageThread";
+import provider from "@/translations/en/provider";
 
 const STATUS_CONFIG = {
   pending: { label: "Pending", color: "bg-yellow-100 text-yellow-800" },
@@ -48,8 +53,8 @@ export default function CustomRequestDetailPage({ id }) {
   const router = useRouter();
   const { t, activeTenant, isRTL } = useApp();
   const { allowed: canManage } = useTenantPermission("custom_requests.manage");
-
-  const tenantId = activeTenant?.id || activeTenant;
+ 
+  const tenantId = activeTenant || activeTenant?.id;
 
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -65,6 +70,11 @@ export default function CustomRequestDetailPage({ id }) {
 
   const [showAssignForm, setShowAssignForm] = useState(false);
   const [providerId, setProviderId] = useState("");
+  const [providers, setProviders] = useState([]);
+  const [providersLoading, setProvidersLoading] = useState(false);
+  const [replyBody, setReplyBody] = useState("");
+  const [replyKind, setReplyKind] = useState("message");
+  const [sendingReply, setSendingReply] = useState(false);
 
   const BackArrow = isRTL ? ArrowRight : ArrowLeft;
 
@@ -88,6 +98,40 @@ export default function CustomRequestDetailPage({ id }) {
   useEffect(() => {
     if (tenantId && id) fetchRequest();
   }, [fetchRequest, tenantId, id]);
+
+  // Load the provider list lazily — only when the admin opens the
+  // assign panel. Avoids a wasteful fetch on every page load and
+  // keeps the dropdown fresh after invites.
+  useEffect(() => {
+    if (!showAssignForm || !tenantId || providersLoading) return;
+
+    let cancelled = false;
+
+    const loadProviders = async () => {
+      setProvidersLoading(true);
+
+      try {
+        const result = await listAssignableProviders(tenantId);
+
+        if (!cancelled) {
+          console.log("API Result:", result);
+          setProviders([...result]); // create a new array reference
+        }
+      } catch (err) {
+        toast.error(err.message || "Failed to load providers");
+      } finally {
+        if (!cancelled) {
+          setProvidersLoading(false);
+        }
+      }
+    };
+
+    loadProviders();
+
+    return () => {
+      cancelled = true;
+    };
+  }, [showAssignForm, tenantId]);
 
   const handleAssignProvider = async () => {
     if (!providerId) return;
@@ -163,6 +207,22 @@ export default function CustomRequestDetailPage({ id }) {
       toast.error(err.message || "Failed to reject request");
     } finally {
       setActionLoading(false);
+    }
+  };
+
+  const handleSendReply = async () => {
+    const body = replyBody.trim();
+    if (!body || sendingReply) return;
+    try {
+      setSendingReply(true);
+      await postRequestMessage(tenantId, id, body, replyKind);
+      setReplyBody("");
+      setReplyKind("message");
+      fetchRequest();
+    } catch (err) {
+      toast.error(err.message || "Failed to send message");
+    } finally {
+      setSendingReply(false);
     }
   };
 
@@ -375,7 +435,7 @@ export default function CustomRequestDetailPage({ id }) {
                     <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center gap-2 mb-2">
                       <div>
                         <span className="text-lg font-semibold">
-                          {quote.currency || request.currency || "SAR"} {parseFloat(quote.price).toFixed(2)}
+                          {quote.currency || "SAR"} {parseFloat(quote.price).toFixed(2)}
                         </span>
                         {quote.delivery_days && (
                           <span className="text-sm text-gray-500 ml-3">
@@ -420,6 +480,20 @@ export default function CustomRequestDetailPage({ id }) {
               })}
             </div>
           </div>
+
+          <MessageThread
+            messages={request.messages || []}
+            canPost={canManage && !["rejected", "converted", "cancelled"].includes(request.status)}
+            allowInfoRequest
+            replyBody={replyBody}
+            setReplyBody={setReplyBody}
+            replyKind={replyKind}
+            setReplyKind={setReplyKind}
+            onSend={handleSendReply}
+            sending={sendingReply}
+            isRTL={isRTL}
+            t={t}
+          />
         </div>
 
         <div className="space-y-6">
@@ -463,13 +537,16 @@ export default function CustomRequestDetailPage({ id }) {
                 )}
 
                 {showAssignForm && (
-                  <div className="p-3 bg-gray-50 rounded-lg space-y-2">
-                    <input
-                      type="text"
+                  <div className="p-3 bg-gray-50 rounded-lg space-y-3">
+                    <ProviderPicker
+                      providers={providers}
+                      loading={providersLoading}
                       value={providerId}
-                      onChange={(e) => setProviderId(e.target.value)}
-                      placeholder={t("customRequests.providerIdPlaceholder") || "Provider ID"}
-                      className="w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                      onChange={(id) => setProviderId(id)}
+                      currentProviderId={request.provider}
+                      placeholder={t("customRequests.searchProviders") || "Search providers by name or email…"}
+                      emptyHint={t("customRequests.noProviders")
+                        || "No active providers yet. Invite one from the Providers page."}
                     />
                     <div className={`flex gap-2 ${isRTL ? "flex-row-reverse" : ""}`}>
                       <button

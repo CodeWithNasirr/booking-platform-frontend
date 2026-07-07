@@ -18,10 +18,26 @@
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 
+// ─── Helper: read the tenant-site language cookie ───
+// V4.Q: the guest's locale is sent as X-Locale so notification
+// emails render in the language they were reading — not
+// tenant.default_language.
+function readAppLanguage() {
+  if (typeof document === "undefined") return "en";
+  try {
+    const raw = document.cookie
+      .split("; ")
+      .find((r) => r.startsWith("app_language="));
+    if (raw) return decodeURIComponent(raw.split("=")[1]) || "en";
+  } catch {}
+  return "en";
+}
+
 // ─── Helper: build headers with auth + tenant ───
 function buildHeaders(domain, token) {
   const headers = {
     "Content-Type": "application/json",
+    "X-Locale": readAppLanguage(),
   };
 
   if (token) {

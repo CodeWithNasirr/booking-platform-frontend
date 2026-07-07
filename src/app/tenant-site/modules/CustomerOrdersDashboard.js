@@ -104,26 +104,14 @@ function clearStoredGuestToken(tenantId) {
 
 
 // ─── Status config ───
+// Uses the shared OrderStatusBadge so tone + label stay consistent
+// with the tenant CRM and provider workspace.
 
-const STATUS_CONFIG = {
-  pending_payment: { label: "Pending Payment", color: "bg-yellow-100 text-yellow-800" },
-  paid:            { label: "Paid",            color: "bg-blue-100 text-blue-800" },
-  in_progress:     { label: "In Progress",     color: "bg-purple-100 text-purple-800" },
-  delivered:       { label: "Delivered",        color: "bg-green-100 text-green-800" },
-  completed:       { label: "Completed",        color: "bg-green-200 text-green-900" },
-  cancelled:       { label: "Cancelled",        color: "bg-red-100 text-red-800" },
-  refunded:        { label: "Refunded",         color: "bg-gray-100 text-gray-800" },
-};
 
-function StatusBadge({ status }) {
-  const c = STATUS_CONFIG[status] || { label: status, color: "bg-gray-100" };
-  return (
-    <span className={`px-2 py-1 rounded-full text-xs font-medium ${c.color}`}>
-      {c.label}
-    </span>
-  );
-}
-
+import {
+  OrderStatusBadge as StatusBadge,
+  ORDER_STATUS_LABEL,
+} from "@/components/orders";
 // =========================================================================
 // MAIN COMPONENT
 // =========================================================================
@@ -453,7 +441,7 @@ export default function CustomerOrdersDashboard({
                     : "bg-gray-100 text-gray-600 hover:bg-gray-200"
                 }`}
               >
-                {STATUS_CONFIG[s]?.label || s} ({count})
+                {ORDER_STATUS_LABEL[s] || s} ({count})
               </button>
             ))}
           </div>
