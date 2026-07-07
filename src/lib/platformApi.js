@@ -187,7 +187,16 @@ export async function fetchNotificationLogs(params = {}) {
   );
 }
 
+// ═══════════════════════════════════════════════════════════════
+// EMAIL TEMPLATE DETAILS
+// ═══════════════════════════════════════════════════════════════
 
+
+export async function fetchTemplateVariables(code) {
+  return platformFetch(
+    `/api/v1/platform/notifications/templates/${code}/variables/`
+  );
+}
 
 // ═══════════════════════════════════════════════════════════════
 // PLATFORM SETTINGS

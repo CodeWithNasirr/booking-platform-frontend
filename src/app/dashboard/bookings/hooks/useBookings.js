@@ -66,7 +66,7 @@ export default function useBookings(initialFilters = {}) {
 
       // Handle both paginated and non-paginated responses
       if (data.results) {
-        console.log(data,"ADADADA")
+        // console.log(data,"ADADADA")
         setBookings(data.results);
         setPagination({
           page: pagination.page,

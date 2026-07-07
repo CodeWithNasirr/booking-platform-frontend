@@ -61,7 +61,7 @@ export default async function TenantSiteLayout({ children, params }) {
   const domain = resolved.domain;
 
   const { site, theme, error, code, status } = await fetchSite(domain);
-  console.log(site,"ADAD")
+
   if (status === 503 || code === "maintenance") {
     return (
       <div className="min-h-screen flex items-center justify-center bg-black text-white">

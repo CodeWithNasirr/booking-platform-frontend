@@ -118,7 +118,7 @@ export async function fetchSite(domain) {
     }
 
     const data = await res.json();
-    console.log("fetchSite response", data);
+    // console.log("fetchSite response", data);
 
     return {
       site: data.site,

@@ -340,6 +340,8 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
 
   const draftKey = DRAFT_KEY_PREFIX + (domain || "default");
 
+
+
   useEffect(() => {
     try {
       const saved = localStorage.getItem(draftKey);
@@ -478,14 +480,18 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
       if (form.company_name) payload.company_name = form.company_name;
       if (form.contact_method) payload.contact_method = form.contact_method;
 
-      const res = await fetch(`${API_BASE}/api/v1/custom-requests/public/submit/`, {
-        method: "POST",
-        headers: {
-          "X-Tenant": domain,
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(payload),
-      });
+      const res = await fetch(
+        `${API_BASE}/api/v1/custom-requests/public/submit/`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "X-Tenant": domain,
+            "X-Locale": language,
+          },
+          body: JSON.stringify(payload),
+        }
+      );
 
       if (!res.ok) {
         const errData = await res.json().catch(() => ({}));
@@ -493,7 +499,7 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
       }
 
       const result = await res.json();
-
+      console.log("Request submitted successfully:", result);
       if (files.length > 0 && result.id) {
         for (const file of files) {
           const fileData = new FormData();

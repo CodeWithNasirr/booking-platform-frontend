@@ -1,3 +1,5 @@
+import { useTenantLang } from "../contexts/TenantLangContext";
+
 const API_BASE =
   process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
 
@@ -11,7 +13,7 @@ function readAppLanguage() {
   } catch {}
   return "en";
 }
-
+const { isRTL, language } = useTenantLang();
 export async function createBooking({
   domain,
   service,
@@ -26,7 +28,7 @@ export async function createBooking({
     headers: {
       "Content-Type": "application/json",
       "X-Tenant": domain,
-      "X-Locale": readAppLanguage(),
+      "X-Locale": language,
     },
     body: JSON.stringify({
       service: service.id,
