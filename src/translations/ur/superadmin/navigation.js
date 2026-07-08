@@ -3,6 +3,7 @@ export default {
   'superadmin.nav.tenants': 'ٹیننٹس',
   'superadmin.nav.documents': 'دستاویزات',
   'superadmin.nav.billing': 'بلنگ اور پلانس',
+  'superadmin.nav.enterprise': 'انٹرپرائز',
   'superadmin.nav.notifications': 'اطلاعات',
   'superadmin.nav.announcements': 'اعلانات',
   'superadmin.nav.templates': 'ٹیمپلیٹس',

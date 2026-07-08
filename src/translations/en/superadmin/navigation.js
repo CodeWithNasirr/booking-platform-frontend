@@ -4,6 +4,7 @@ export default {
   'superadmin.nav.tenants': 'Tenants',
   'superadmin.nav.documents': 'Documents',
   'superadmin.nav.billing': 'Billing & Plans',
+  'superadmin.nav.enterprise': 'Enterprise',
   'superadmin.nav.notifications': 'Notifications',
   'superadmin.nav.announcements': 'Announcements',
   'superadmin.nav.templates': 'Templates',

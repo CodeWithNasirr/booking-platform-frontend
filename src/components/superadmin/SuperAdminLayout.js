@@ -21,6 +21,7 @@ import {
   RotateCcw,
   Megaphone,
   AlertCircle,
+  Crown,
 } from "lucide-react";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -70,6 +71,12 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
       key: "/superadmin/billing",
       label: t("superadmin.nav.billing"),
       icon: CreditCard,
+      visible: hasAnyPermission(["billing.view", "plans.view"]),
+    },
+    {
+      key: "/superadmin/enterprise",
+      label: t("superadmin.nav.enterprise"),
+      icon: Crown,
       visible: hasAnyPermission(["billing.view", "plans.view"]),
     },
     {
