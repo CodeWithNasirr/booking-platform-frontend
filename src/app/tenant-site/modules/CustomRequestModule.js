@@ -772,21 +772,7 @@ export default function CustomRequestModule({ data = {}, settings = {}, tenantId
                 className="flex items-center justify-between p-3 bg-blue-50 border border-blue-200 rounded-xl text-sm"
               >
                 <span className="text-blue-800">
-<<<<<<< HEAD
-                  {t.weOffer} <strong>
-                  {typeof svc.name === "object"
-                    ? svc.name?.[language] ||
-                      svc.name?.en ||
-                      Object.values(svc.name)[0]
-                    : typeof svc.title === "object"
-                    ? svc.title?.[language] ||
-                      svc.title?.en ||
-                      Object.values(svc.title)[0]
-                    : svc.name || svc.title}
-                </strong> - {t.instead}
-=======
                   {t.weOffer} <strong>{getTranslated(svc.name || svc.title)}</strong> - {t.instead}
->>>>>>> claude-work
                 </span>
                 <a
                   href={`/${domain}/services/${svc.slug}`}
