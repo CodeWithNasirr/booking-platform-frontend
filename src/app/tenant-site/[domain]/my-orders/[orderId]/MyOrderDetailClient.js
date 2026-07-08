@@ -261,7 +261,7 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
       // success/cancel handlers.
       const here = typeof window !== "undefined" ? window.location.href : "";
       const data = await apiFetch(
-        `${API_BASE}/api/v1/orders/${orderId}/initiate_payment/`,
+        `${API_BASE}/api/v1/orders/${orderId}/pay/`,
         domain,
         token,
         type,
