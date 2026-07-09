@@ -65,7 +65,7 @@ function authHeaders() {
 
 // ─── Core fetch wrapper ─────────────────────────────────────────
 
-async function platformFetch(endpoint, options = {}) {
+export async function platformFetch(endpoint, options = {}) {
   const url = `${API}${endpoint}`;
 
   const makeReq = (token) =>
