@@ -9,6 +9,9 @@ import {
   fetchPlans,
   createCheckout,
   openBillingPortal,
+  fetchEnterpriseRequest,
+  submitEnterpriseRequest,
+  cancelEnterpriseRequest,
 } from "@/lib/billingApi";
 import {
   CreditCard,
@@ -33,7 +36,14 @@ import {
   Calendar,
   FileText,
   Download,
+  Building2,
+  Send,
 } from "lucide-react";
+
+const isEnterprisePlan = (plan) => plan?.is_custom || plan?.tier === "enterprise";
+
+// Open (non-terminal) enterprise request statuses.
+const OPEN_ENTERPRISE_STATUSES = ["pending", "under_review"];
 
 const STATUS_STYLES = {
   active:    "bg-emerald-100 text-emerald-700 border-emerald-200",
@@ -68,6 +78,9 @@ export default function BillingDashboard() {
   const [showPlans, setShowPlans] = useState(false);
   const [expandedSections, setExpandedSections] = useState({ addons: false, history: false });
   const [checkoutBanner, setCheckoutBanner] = useState(null);
+  const [enterpriseReq, setEnterpriseReq] = useState(null);
+  const [enterprisePlan, setEnterprisePlan] = useState(null); // plan being requested (opens modal)
+  const [enterpriseSubmitting, setEnterpriseSubmitting] = useState(false);
 
   // Check URL for checkout result
   useEffect(() => {
@@ -88,12 +101,14 @@ export default function BillingDashboard() {
     if (!activeTenant) return;
     try {
       setLoading(true);
-      const [dashData, plansData] = await Promise.all([
+      const [dashData, plansData, entData] = await Promise.all([
         fetchBillingDashboard(activeTenant),
         fetchPlans(),
+        fetchEnterpriseRequest(activeTenant).catch(() => ({ request: null })),
       ]);
       setDashboard(dashData);
       setPlans(plansData);
+      setEnterpriseReq(entData?.request || null);
       if (dashData.current_plan?.billing_interval) {
         setBillingInterval(dashData.current_plan.billing_interval);
       }
@@ -130,6 +145,36 @@ export default function BillingDashboard() {
       if (result.portal_url) window.location.href = result.portal_url;
     } catch (err) { alert(err.message); }
     finally { setActionLoading(null); }
+  };
+
+  const handleContactSales = (plan) => {
+    // Close the plan picker, open the enterprise request modal for this plan.
+    setShowPlans(false);
+    setEnterprisePlan(plan);
+  };
+
+  const handleSubmitEnterprise = async (payload) => {
+    setEnterpriseSubmitting(true);
+    try {
+      const result = await submitEnterpriseRequest(activeTenant, payload);
+      setEnterpriseReq(result.request);
+      setEnterprisePlan(null);
+      setCheckoutBanner("enterprise_submitted");
+    } catch (err) {
+      alert(err.message || "Something went wrong");
+    } finally {
+      setEnterpriseSubmitting(false);
+    }
+  };
+
+  const handleCancelEnterprise = async () => {
+    if (!confirm(t("billing.enterprise.cancelConfirm") || "Withdraw this Enterprise request?")) return;
+    try {
+      const result = await cancelEnterpriseRequest(activeTenant);
+      setEnterpriseReq(result.request);
+    } catch (err) {
+      alert(err.message);
+    }
   };
 
   const toggleSection = (key) => setExpandedSections((p) => ({ ...p, [key]: !p[key] }));
@@ -169,6 +214,14 @@ export default function BillingDashboard() {
       )}
       {checkoutBanner === "cancelled" && (
         <Banner type="warning" icon={AlertTriangle} title={t("billing.checkoutCancelled")} message={t("billing.checkoutCancelledDesc")} onDismiss={() => setCheckoutBanner(null)} />
+      )}
+      {checkoutBanner === "enterprise_submitted" && (
+        <Banner type="success" icon={Building2} title={t("billing.enterprise.submittedTitle") || "Request received"} message={t("billing.enterprise.submittedDesc") || "Our sales team will reach out shortly."} onDismiss={() => setCheckoutBanner(null)} />
+      )}
+
+      {/* ═══════ ENTERPRISE REQUEST STATUS ═══════ */}
+      {enterpriseReq && OPEN_ENTERPRISE_STATUSES.includes(enterpriseReq.status) && (
+        <EnterpriseStatusCard req={enterpriseReq} onCancel={handleCancelEnterprise} t={t} />
       )}
 
       {/* ═══════ MY PLAN ═══════ */}
@@ -301,9 +354,23 @@ export default function BillingDashboard() {
           currentInterval={sub?.billing_interval} // ✅ ADD THIS
           onIntervalChange={setBillingInterval}
           onSelect={handleUpgrade}
+          onContactSales={handleContactSales}
+          enterpriseReq={enterpriseReq}
           onClose={() => setShowPlans(false)}
           actionLoading={actionLoading}
           getPrice={getPrice}
+          t={t}
+        />
+      )}
+
+      {/* ═══════ ENTERPRISE REQUEST MODAL ═══════ */}
+      {enterprisePlan && (
+        <EnterpriseRequestModal
+          plan={enterprisePlan}
+          tenant={activeTenant}
+          submitting={enterpriseSubmitting}
+          onSubmit={handleSubmitEnterprise}
+          onClose={() => setEnterprisePlan(null)}
           t={t}
         />
       )}
@@ -389,7 +456,8 @@ function CurrentPlanCard({ sub, t , onManage, onViewPlans, actionLoading }) {
   );
 }
 
-function PlanPickerModal({ plans, currentTier, billingInterval,currentInterval,onIntervalChange, onSelect, onClose, actionLoading, getPrice , t}) {
+function PlanPickerModal({ plans, currentTier, billingInterval,currentInterval,onIntervalChange, onSelect, onContactSales, enterpriseReq, onClose, actionLoading, getPrice , t}) {
+  const hasOpenEnterprise = enterpriseReq && ["pending", "under_review"].includes(enterpriseReq.status);
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -413,20 +481,28 @@ function PlanPickerModal({ plans, currentTier, billingInterval,currentInterval,o
             plan.tier === currentTier &&
             billingInterval === currentInterval;
             const isFree = plan.tier === "free";
+            const isCustom = isEnterprisePlan(plan);
             const price = getPrice(plan);
             const isLoading = actionLoading === plan.tier;
 
             return (
-              <div key={plan.id} className={`rounded-xl border p-5 flex flex-col ${isCurrent ? "border-[#8B1E3F] ring-2 ring-[#8B1E3F]/20 bg-[#8B1E3F]/5" : plan.is_popular ? "border-rose-200 bg-rose-50/50" : "border-gray-200 bg-white"}`}>
+              <div key={plan.id} className={`rounded-xl border p-5 flex flex-col ${isCurrent ? "border-[#8B1E3F] ring-2 ring-[#8B1E3F]/20 bg-[#8B1E3F]/5" : isCustom ? "border-amber-200 bg-amber-50/40" : plan.is_popular ? "border-rose-200 bg-rose-50/50" : "border-gray-200 bg-white"}`}>
                 <div className="flex items-center gap-2 mb-3">
                   {isCurrent && <span className="px-2.5 py-0.5 rounded-full bg-[#8B1E3F] text-white text-xs font-bold">{t("billing.current")}</span>}
-                  {plan.is_popular && !isCurrent && <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1"><Star className="w-3 h-3 fill-current" />{t("billing.popular")}</span>}
+                  {isCustom && !isCurrent && <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold flex items-center gap-1"><Building2 className="w-3 h-3" />{t("billing.enterprise.badge") || "Enterprise"}</span>}
+                  {plan.is_popular && !isCurrent && !isCustom && <span className="px-2.5 py-0.5 rounded-full bg-rose-100 text-rose-700 text-xs font-bold flex items-center gap-1"><Star className="w-3 h-3 fill-current" />{t("billing.popular")}</span>}
                 </div>
                 <h4 className="font-bold text-gray-900 mb-1">{plan.name}</h4>
                 <p className="text-xs text-gray-500 mb-3">{plan.tagline}</p>
                 <div className="mb-4">
-                  <span className="text-2xl font-extrabold text-gray-900">{isFree ? "Free" : `$${price}`}</span>
-                  {!isFree && <span className="text-gray-500 text-sm">/mo</span>}
+                  {isCustom ? (
+                    <span className="text-2xl font-extrabold text-gray-900">{t("billing.enterprise.customPrice") || "Custom"}</span>
+                  ) : (
+                    <>
+                      <span className="text-2xl font-extrabold text-gray-900">{isFree ? "Free" : `$${price}`}</span>
+                      {!isFree && <span className="text-gray-500 text-sm">/mo</span>}
+                    </>
+                  )}
                 </div>
                 <div className="flex-1 space-y-2 mb-4">
                   {plan.features?.slice(0, 5).map((f, i) => (
@@ -440,6 +516,14 @@ function PlanPickerModal({ plans, currentTier, billingInterval,currentInterval,o
                 </div>
                 {isCurrent ? (
                   <div className="py-2.5 rounded-xl text-center text-sm font-medium text-[#8B1E3F] bg-[#8B1E3F]/10">{t("billing.currentPlan")}</div>
+                ) : isCustom ? (
+                  hasOpenEnterprise ? (
+                    <div className="py-2.5 rounded-xl text-center text-sm font-medium text-amber-700 bg-amber-100">{t("billing.enterprise.requestPending") || "Request pending"}</div>
+                  ) : (
+                    <button onClick={() => onContactSales(plan)} className="w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 bg-gradient-to-r from-amber-600 to-amber-700 text-white hover:opacity-90 shadow-md">
+                      <Building2 className="w-3.5 h-3.5" /> {t("billing.enterprise.contactSales") || "Contact Sales"}
+                    </button>
+                  )
                 ) : (
                   <button onClick={() => onSelect(plan.tier)} disabled={isLoading} className={`w-full py-2.5 rounded-xl text-sm font-semibold flex items-center justify-center gap-2 ${isFree ? "bg-gray-100 text-gray-600 hover:bg-gray-200" : "bg-gradient-to-r from-[#8B1E3F] to-[#6B1630] text-white hover:opacity-90 shadow-md"}`}>
                     {isLoading ? <Loader2 className="w-4 h-4 animate-spin" /> : <>{isFree ? t("billing.switchToFree") : <> {t("billing.upgrade")} <ArrowRight className="w-3.5 h-3.5" /></>}</>}
@@ -450,6 +534,126 @@ function PlanPickerModal({ plans, currentTier, billingInterval,currentInterval,o
           })}
         </div>
       </div>
+    </div>
+  );
+}
+
+function EnterpriseStatusCard({ req, onCancel, t }) {
+  const statusLabel =
+    req.status === "under_review"
+      ? t("billing.enterprise.statusUnderReview") || "Under review"
+      : t("billing.enterprise.statusPending") || "Pending review";
+  return (
+    <div className="rounded-xl border border-amber-200 bg-amber-50/60 overflow-hidden">
+      <div className="flex items-start gap-3 p-5">
+        <div className="w-10 h-10 rounded-xl bg-amber-100 flex items-center justify-center flex-shrink-0">
+          <Building2 className="w-5 h-5 text-amber-700" />
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-2 flex-wrap">
+            <h3 className="font-semibold text-gray-900">{t("billing.enterprise.requestTitle") || "Enterprise request"}</h3>
+            <span className="px-2.5 py-0.5 rounded-full bg-amber-100 text-amber-700 text-xs font-bold">{statusLabel}</span>
+          </div>
+          <p className="text-sm text-gray-600 mt-1">
+            {t("billing.enterprise.requestPendingDesc") || "Our sales team is reviewing your request and will be in touch. You can withdraw it any time before it's approved."}
+          </p>
+          {req.created_at && (
+            <p className="text-xs text-gray-400 mt-2">
+              {t("billing.enterprise.submittedOn") || "Submitted"}: {new Date(req.created_at).toLocaleDateString()}
+            </p>
+          )}
+        </div>
+        <button onClick={onCancel} className="px-3 py-1.5 rounded-lg border border-amber-300 text-amber-700 text-xs font-medium hover:bg-amber-100 flex-shrink-0">
+          {t("billing.enterprise.withdraw") || "Withdraw"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function EnterpriseRequestModal({ plan, tenant, submitting, onSubmit, onClose, t }) {
+  const [form, setForm] = useState({
+    contact_name: "",
+    contact_email: "",
+    contact_phone: "",
+    company_size: "",
+    expected_volume: "",
+    message: "",
+  });
+  const set = (k, v) => setForm((p) => ({ ...p, [k]: v }));
+  const input = "w-full px-3 py-2 border border-gray-300 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-amber-500/30 focus:border-amber-500";
+
+  const submit = (e) => {
+    e.preventDefault();
+    if (submitting) return;
+    onSubmit(form);
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-y-auto">
+        <div className="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex items-center justify-between z-10">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-amber-100 flex items-center justify-center">
+              <Building2 className="w-5 h-5 text-amber-700" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-gray-900">{t("billing.enterprise.contactSales") || "Contact Sales"}</h2>
+              <p className="text-xs text-gray-500">{plan?.name || "Enterprise"}</p>
+            </div>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-lg"><X className="w-5 h-5 text-gray-500" /></button>
+        </div>
+
+        <form onSubmit={submit} className="p-6 space-y-4">
+          <p className="text-sm text-gray-600">
+            {t("billing.enterprise.modalIntro") || "Tell us about your needs and our sales team will prepare a tailored Enterprise quote for you."}
+          </p>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <Field label={t("billing.enterprise.contactName") || "Contact name"}>
+              <input value={form.contact_name} onChange={(e) => set("contact_name", e.target.value)} className={input} />
+            </Field>
+            <Field label={t("billing.enterprise.contactEmail") || "Work email"}>
+              <input type="email" value={form.contact_email} onChange={(e) => set("contact_email", e.target.value)} className={input} />
+            </Field>
+            <Field label={t("billing.enterprise.contactPhone") || "Phone"}>
+              <input value={form.contact_phone} onChange={(e) => set("contact_phone", e.target.value)} className={input} />
+            </Field>
+            <Field label={t("billing.enterprise.companySize") || "Company size"}>
+              <input value={form.company_size} onChange={(e) => set("company_size", e.target.value)} placeholder="e.g. 50–200" className={input} />
+            </Field>
+            <div className="sm:col-span-2">
+              <Field label={t("billing.enterprise.expectedVolume") || "Expected monthly volume"}>
+                <input value={form.expected_volume} onChange={(e) => set("expected_volume", e.target.value)} placeholder="e.g. 10,000 bookings/mo" className={input} />
+              </Field>
+            </div>
+            <div className="sm:col-span-2">
+              <Field label={t("billing.enterprise.message") || "Anything else?"}>
+                <textarea value={form.message} onChange={(e) => set("message", e.target.value)} rows={3} className={`${input} resize-none`} />
+              </Field>
+            </div>
+          </div>
+          <div className="flex items-center justify-end gap-3 pt-2">
+            <button type="button" onClick={onClose} className="px-4 py-2 rounded-xl border border-gray-200 text-gray-600 text-sm font-medium hover:bg-gray-50">
+              {t("common.cancel") || "Cancel"}
+            </button>
+            <button type="submit" disabled={submitting} className="inline-flex items-center gap-2 px-5 py-2 rounded-xl bg-gradient-to-r from-amber-600 to-amber-700 text-white text-sm font-semibold hover:opacity-90 disabled:opacity-50">
+              {submitting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Send className="w-4 h-4" />}
+              {t("billing.enterprise.sendRequest") || "Send request"}
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+  );
+}
+
+function Field({ label, children }) {
+  return (
+    <div>
+      <label className="block text-xs font-semibold text-gray-600 mb-1">{label}</label>
+      {children}
     </div>
   );
 }
