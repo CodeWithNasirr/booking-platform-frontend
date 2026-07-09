@@ -715,6 +715,7 @@ export default function BillingPlansPage() {
             const isExpanded = expandedPlan === plan.id;
             const detail = planDetails[plan.id];
             const features = detail?.features || [];
+            const isEnterprise = plan.is_custom || plan.tier === "enterprise";
 
             return (
               <div
@@ -776,28 +777,47 @@ export default function BillingPlansPage() {
 
                   {/* Pricing */}
                   <div className="mb-4">
-                    <div className="flex items-baseline gap-1.5">
-                      <span className="text-3xl font-bold text-gray-900">
-                        {formatCurrency(plan.price_monthly, plan.currency)}
-                      </span>
-                      <span className="text-gray-500 text-sm">{t("superadmin.billing.per_month")}</span>
-                    </div>
-                    {plan.price_yearly > 0 && (
-                      <div className="flex items-center gap-2 mt-1">
-                        <span className="text-sm text-gray-500">
-                          {formatCurrency(plan.price_yearly, plan.currency)}{t("superadmin.billing.per_year")}
-                        </span>
-                        {plan.yearly_discount_pct > 0 && (
-                          <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-600">
-                            {t("superadmin.billing.save_pct", { pct: plan.yearly_discount_pct })}
+                    {isEnterprise ? (
+                      <>
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-2xl font-bold text-gray-900">
+                            {t("superadmin.billing.custom_pricing")}
                           </span>
+                          <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700">
+                            <Crown className="w-3 h-3" />
+                            {t("superadmin.billing.sales_led")}
+                          </span>
+                        </div>
+                        <p className="text-xs text-gray-500 mt-1.5">
+                          {t("superadmin.billing.custom_pricing_desc")}
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-baseline gap-1.5">
+                          <span className="text-3xl font-bold text-gray-900">
+                            {formatCurrency(plan.price_monthly, plan.currency)}
+                          </span>
+                          <span className="text-gray-500 text-sm">{t("superadmin.billing.per_month")}</span>
+                        </div>
+                        {plan.price_yearly > 0 && (
+                          <div className="flex items-center gap-2 mt-1">
+                            <span className="text-sm text-gray-500">
+                              {formatCurrency(plan.price_yearly, plan.currency)}{t("superadmin.billing.per_year")}
+                            </span>
+                            {plan.yearly_discount_pct > 0 && (
+                              <span className="inline-flex items-center px-1.5 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-600">
+                                {t("superadmin.billing.save_pct", { pct: plan.yearly_discount_pct })}
+                              </span>
+                            )}
+                          </div>
                         )}
-                      </div>
-                    )}
-                    {plan.trial_days > 0 && (
-                      <p className="text-xs text-amber-600 mt-1.5">
-                        {t("superadmin.billing.trial_days", { days: plan.trial_days })}
-                      </p>
+                        {plan.trial_days > 0 && (
+                          <p className="text-xs text-amber-600 mt-1.5">
+                            {t("superadmin.billing.trial_days", { days: plan.trial_days })}
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
 
@@ -873,13 +893,23 @@ export default function BillingPlansPage() {
                   >
                     <Edit className="w-3.5 h-3.5" /> {t("superadmin.billing.edit")}
                   </button>
-                  <button
-                    onClick={() => setSubscribersPlan(plan)}
-                    className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-white rounded-lg transition-colors"
-                    style={{ backgroundColor: MAROON }}
-                  >
-                    <Users className="w-3.5 h-3.5" /> {t("superadmin.billing.subscribers")}
-                  </button>
+                  {isEnterprise ? (
+                    <button
+                      onClick={() => router.push("/superadmin/enterprise")}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+                      style={{ backgroundColor: MAROON }}
+                    >
+                      <Crown className="w-3.5 h-3.5" /> {t("superadmin.billing.manage_enterprise")}
+                    </button>
+                  ) : (
+                    <button
+                      onClick={() => setSubscribersPlan(plan)}
+                      className="flex-1 inline-flex items-center justify-center gap-1.5 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+                      style={{ backgroundColor: MAROON }}
+                    >
+                      <Users className="w-3.5 h-3.5" /> {t("superadmin.billing.subscribers")}
+                    </button>
+                  )}
                 </div>
               </div>
             );

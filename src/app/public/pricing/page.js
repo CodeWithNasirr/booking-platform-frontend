@@ -55,14 +55,17 @@ export default function PricingPage() {
     return Math.round(((monthlyTotal - yearlyTotal) / monthlyTotal) * 100);
   };
 
+  const isEnterprise = (plan) => plan.is_custom || plan.tier === "enterprise";
+
   const getCtaText = (plan) => {
+    if (isEnterprise(plan)) return "Contact Sales";
     if (plan.tier === "free") return "Get Started Free";
     if (plan.trial_days > 0) return `Start ${plan.trial_days}-Day Free Trial`;
     return "Subscribe Now";
   };
 
   const getCtaUrl = (plan) => {
-    if (plan.tier === "enterprise") return "/contact?plan=enterprise";
+    if (isEnterprise(plan)) return "/public/contact?plan=enterprise";
     return `/auth/signup?plan=${plan.tier}&interval=${billingInterval}`;
   };
 
@@ -167,6 +170,7 @@ export default function PricingPage() {
             {plans.map((plan) => {
               const isPopular = plan.is_popular;
               const isFree = plan.tier === "free";
+              const isCustom = isEnterprise(plan);
               const price = getPrice(plan);
               const savings = getYearlySavings(plan);
 
@@ -202,27 +206,42 @@ export default function PricingPage() {
                   </div>
 
                   <div className="mb-6">
-                    <div className="flex items-baseline gap-1">
-                      <span className="text-4xl font-extrabold text-slate-900">
-                        {isFree ? "Free" : new Intl.NumberFormat("en-SA", {
-                          style: "currency",
-                          currency: plan.currency,
-                          maximumFractionDigits: 0,
-                        }).format(price)}
-                      </span>
-                      {!isFree && (
-                        <span className="text-slate-500 text-sm">/month</span>
-                      )}
-                    </div>
-                    {!isFree && billingInterval === "year" && savings > 0 && (
-                      <p className="text-emerald-600 text-sm font-medium mt-1">
-                        Save {savings}% with yearly billing
-                      </p>
-                    )}
-                    {!isFree && plan.trial_days > 0 && (
-                      <p className="text-amber-600 text-sm mt-1 font-medium">
-                        {plan.trial_days}-day free trial included
-                      </p>
+                    {isCustom ? (
+                      <>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-4xl font-extrabold text-slate-900">
+                            Custom
+                          </span>
+                        </div>
+                        <p className="text-slate-500 text-sm mt-1">
+                          Tailored pricing for your organization
+                        </p>
+                      </>
+                    ) : (
+                      <>
+                        <div className="flex items-baseline gap-1">
+                          <span className="text-4xl font-extrabold text-slate-900">
+                            {isFree ? "Free" : new Intl.NumberFormat("en-SA", {
+                              style: "currency",
+                              currency: plan.currency,
+                              maximumFractionDigits: 0,
+                            }).format(price)}
+                          </span>
+                          {!isFree && (
+                            <span className="text-slate-500 text-sm">/month</span>
+                          )}
+                        </div>
+                        {!isFree && billingInterval === "year" && savings > 0 && (
+                          <p className="text-emerald-600 text-sm font-medium mt-1">
+                            Save {savings}% with yearly billing
+                          </p>
+                        )}
+                        {!isFree && plan.trial_days > 0 && (
+                          <p className="text-amber-600 text-sm mt-1 font-medium">
+                            {plan.trial_days}-day free trial included
+                          </p>
+                        )}
+                      </>
                     )}
                   </div>
 
