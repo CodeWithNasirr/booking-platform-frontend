@@ -51,6 +51,24 @@ export function saveEnterpriseContract(tenantId, payload) {
   });
 }
 
+// ── Sales inquiries (lead pipeline) ──────────────────────────────
+
+export function fetchSalesInquiries(status) {
+  const qs = status && status !== "all" ? `?status=${encodeURIComponent(status)}` : "";
+  return platformFetch(`${BASE}/sales-inquiries/${qs}`);
+}
+
+export function fetchSalesInquiry(id) {
+  return platformFetch(`${BASE}/sales-inquiries/${id}/`);
+}
+
+export function updateSalesInquiry(id, payload) {
+  return platformFetch(`${BASE}/sales-inquiries/${id}/`, {
+    method: "PATCH",
+    body: JSON.stringify(payload || {}),
+  });
+}
+
 // ── Feature manager (B5) ─────────────────────────────────────────
 
 export function fetchFeatures({ category, includeArchived } = {}) {

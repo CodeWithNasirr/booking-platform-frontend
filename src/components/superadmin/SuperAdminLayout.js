@@ -22,6 +22,7 @@ import {
   Megaphone,
   AlertCircle,
   Crown,
+  Inbox,
 } from "lucide-react";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -77,6 +78,12 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
       key: "/superadmin/enterprise",
       label: t("superadmin.nav.enterprise"),
       icon: Crown,
+      visible: hasAnyPermission(["billing.view", "plans.view"]),
+    },
+    {
+      key: "/superadmin/sales-inquiries",
+      label: t("superadmin.nav.salesInquiries"),
+      icon: Inbox,
       visible: hasAnyPermission(["billing.view", "plans.view"]),
     },
     {
