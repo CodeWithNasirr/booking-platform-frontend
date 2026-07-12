@@ -6,6 +6,7 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import useBlockBackNavigation from "@/lib/useBlockBackNavigation";
 import { PlanProvider } from "@/contexts/PlanContext";
+import { UpgradeProvider } from "@/contexts/UpgradeContext";
 import { TenantRBACProvider } from "@/contexts/TenantRBACContext";
 import Sidebar from "./Sidebar";
 import { Toaster } from "react-hot-toast";
@@ -99,6 +100,7 @@ export default function DashboardLayout({ children }) {
     <PlanProvider>
       {/* ── TenantRBACProvider wraps everything inside PlanProvider ── */}
       <TenantRBACProvider>
+       <UpgradeProvider>
         <div
           className={`flex h-screen bg-background ${
             isRTL ? "flex-row-reverse" : ""
@@ -123,6 +125,7 @@ export default function DashboardLayout({ children }) {
             />
           )}
         </div>
+       </UpgradeProvider>
       </TenantRBACProvider>
     </PlanProvider>
   );
