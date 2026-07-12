@@ -10,6 +10,7 @@ import StatsCards from './components/StatsCards'
 import ProviderCard from './components/ProviderCard'
 import ProviderModal from './components/ProviderModal'
 import { useTenantPermission } from "@/lib/useTenantPermission";
+import { useUpgrade } from "@/contexts/UpgradeContext";
 
 
 const defaultAvailability = {
@@ -55,6 +56,7 @@ export default function ProvidersPage() {
   const [form, setForm] = useState(initialForm)
   const [isSaving, setIsSaving] = useState(false)
 
+  const { handleUpgradeError } = useUpgrade();
   const { allowed: canCreate } = useTenantPermission("providers.manage");
   const { allowed: canEdit } = useTenantPermission("providers.manage");
   const { allowed: canDelete } = useTenantPermission("providers.manage");
@@ -117,12 +119,13 @@ export default function ProvidersPage() {
       setForm(initialForm)
 
   } catch (err) {
-    showToast(err.message, "error")   // ← now works
     setForm(initialForm)
-    if (err.data?.upgrade_required) {
-    // console.log(err.data,"ERROR")
-    // console.log("Trigger upgrade modal here")
-   }
+    // Plan-gate errors open the upgrade modal instead of a raw toast.
+    if (handleUpgradeError(err)) {
+      // handled — modal shown
+    } else {
+      showToast(err.message, "error")
+    }
 
     } finally {
       setIsSaving(false)
