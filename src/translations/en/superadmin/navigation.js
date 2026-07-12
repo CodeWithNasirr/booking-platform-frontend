@@ -5,6 +5,7 @@ export default {
   'superadmin.nav.documents': 'Documents',
   'superadmin.nav.billing': 'Billing & Plans',
   'superadmin.nav.enterprise': 'Enterprise',
+  'superadmin.nav.salesInquiries': 'Sales Inquiries',
   'superadmin.nav.notifications': 'Notifications',
   'superadmin.nav.announcements': 'Announcements',
   'superadmin.nav.templates': 'Templates',
