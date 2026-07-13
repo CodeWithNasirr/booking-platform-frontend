@@ -1,8 +1,13 @@
 // src/lib/collaborationApi.js
 //
 // REST client for the collaboration (voice / video / screen-share)
-// session API. Thin wrappers over apiFetch so every call carries the
-// JWT + X-Tenant headers the backend expects.
+// session API. Works for BOTH authenticated staff/customers (JWT) and
+// tenant-site guests (scoped X-*-Token), so the same CallDock drives
+// every surface.
+//
+// Every call takes an `auth` descriptor:
+//   { tenantId, jwt }                                   staff / logged-in
+//   { tenantId, guestToken, guestHeader: "X-Order-Token" | "X-Booking-Token" }
 //
 // Backend surface (apps/collaboration/urls.py):
 //   GET  /api/v1/collaboration/ice-servers/
@@ -19,8 +24,7 @@
 // updated session. All the mesh WebRTC signaling happens over the
 // realtime websocket (session:<id> topic), not here.
 
-import { apiFetch } from "@/lib/apiClient";
-
+const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 const BASE = "/api/v1/collaboration";
 
 // ── Media / subject constants (mirror the backend model choices) ──
@@ -39,68 +43,83 @@ export function isSessionLive(session) {
   return !!session && SESSION_LIVE_STATUSES.includes(session.status);
 }
 
+// ── Guest header helper: pick the right X-*-Token for a subject ──
+export function guestHeaderFor(subjectType) {
+  return subjectType === "booking" ? "X-Booking-Token" : "X-Order-Token";
+}
+
+// ── Core fetch: build headers from the auth descriptor ──
+async function call(auth, endpoint, { method = "GET", body } = {}) {
+  const headers = { "Content-Type": "application/json" };
+  if (auth?.tenantId) headers["X-Tenant"] = auth.tenantId;
+  if (auth?.jwt) headers["Authorization"] = `Bearer ${auth.jwt}`;
+  if (auth?.guestToken && auth?.guestHeader) {
+    headers[auth.guestHeader] = auth.guestToken;
+  }
+  const res = await fetch(`${API_BASE}${endpoint}`, {
+    method,
+    headers,
+    body: body !== undefined ? JSON.stringify(body) : undefined,
+    credentials: "include",
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data.detail || data.message || `Request failed (${res.status})`);
+    err.status = res.status;
+    err.detail = data.detail;
+    err.code = data.code;
+    throw err;
+  }
+  return data;
+}
+
 // ── ICE servers (STUN always, TURN when the tenant has coturn) ──
-export function getIceServers(tenantId) {
-  return apiFetch(`${BASE}/ice-servers/`, tenantId);
+export function getIceServers(auth) {
+  return call(auth, `${BASE}/ice-servers/`);
 }
 
 // ── Call history for one subject (participant only) ──
-export function getSessionHistory(tenantId, { order, booking } = {}) {
+export function getSessionHistory(auth, { order, booking } = {}) {
   const qs = order
     ? `?order=${encodeURIComponent(order)}`
     : booking
     ? `?booking=${encodeURIComponent(booking)}`
     : "";
-  return apiFetch(`${BASE}/sessions/${qs}`, tenantId);
+  return call(auth, `${BASE}/sessions/${qs}`);
 }
 
 // ── Start (or rejoin) a call → { session, ice_servers } ──
-export function startSession(tenantId, { order, booking, mediaType = MEDIA_VIDEO } = {}) {
+export function startSession(auth, { order, booking, mediaType = MEDIA_VIDEO } = {}) {
   const body = { media_type: mediaType };
   if (order) body.order = order;
   if (booking) body.booking = booking;
-  return apiFetch(`${BASE}/sessions/`, tenantId, {
-    method: "POST",
-    body: JSON.stringify(body),
-  });
+  return call(auth, `${BASE}/sessions/`, { method: "POST", body });
 }
 
-export function getSession(tenantId, sessionId) {
-  return apiFetch(`${BASE}/sessions/${sessionId}/`, tenantId);
+export function getSession(auth, sessionId) {
+  return call(auth, `${BASE}/sessions/${sessionId}/`);
 }
 
 // ── Join → { session, ice_servers } ──
-export function joinSession(tenantId, sessionId) {
-  return apiFetch(`${BASE}/sessions/${sessionId}/join/`, tenantId, {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
+export function joinSession(auth, sessionId) {
+  return call(auth, `${BASE}/sessions/${sessionId}/join/`, { method: "POST", body: {} });
 }
 
-export function leaveSession(tenantId, sessionId) {
-  return apiFetch(`${BASE}/sessions/${sessionId}/leave/`, tenantId, {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
+export function leaveSession(auth, sessionId) {
+  return call(auth, `${BASE}/sessions/${sessionId}/leave/`, { method: "POST", body: {} });
 }
 
-export function rejectSession(tenantId, sessionId) {
-  return apiFetch(`${BASE}/sessions/${sessionId}/reject/`, tenantId, {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
+export function rejectSession(auth, sessionId) {
+  return call(auth, `${BASE}/sessions/${sessionId}/reject/`, { method: "POST", body: {} });
 }
 
-export function endSession(tenantId, sessionId) {
-  return apiFetch(`${BASE}/sessions/${sessionId}/end/`, tenantId, {
-    method: "POST",
-    body: JSON.stringify({}),
-  });
+export function endSession(auth, sessionId) {
+  return call(auth, `${BASE}/sessions/${sessionId}/end/`, { method: "POST", body: {} });
 }
 
-export function setScreenShare(tenantId, sessionId, on) {
-  return apiFetch(`${BASE}/sessions/${sessionId}/screen-share/`, tenantId, {
+export function setScreenShare(auth, sessionId, on) {
+  return call(auth, `${BASE}/sessions/${sessionId}/screen-share/`, {
     method: "POST",
-    body: JSON.stringify({ on: !!on }),
+    body: { on: !!on },
   });
 }

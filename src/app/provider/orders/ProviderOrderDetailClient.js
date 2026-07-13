@@ -10,7 +10,9 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import { apiFetch as authFetch } from '@/lib/apiClient';
+import Cookies from "js-cookie";
 import { OrderConversation } from "@/components/orders";
+import { CallDock } from "@/components/collaboration";
 
 const STATUS_CONFIG = {
   pending_payment:    { labelKey: "orders_status_pending_payment",    color: "bg-amber-50 text-amber-700 border border-amber-200",     icon: "⏳" },
@@ -306,6 +308,20 @@ export default function ProviderOrderDetailClient({ orderId }) {
         {/* Chat Panel */}
         <div className="col-span-12 lg:col-span-4">
           <div className="lg:sticky lg:top-6">
+            <CallDock
+              subjectType="order"
+              subjectId={orderId}
+              tenantId={tenantId}
+              authMode="jwt"
+              jwt={Cookies.get("access_token") || null}
+              selfUserId={user?.id}
+              selfName={user?.full_name || user?.name || "You"}
+              canStart={
+                !!(order.provider || order.provider_id) &&
+                ["accepted", "in_progress", "delivered", "revision_requested"].includes(order.status)
+              }
+              className="mb-3"
+            />
             <OrderConversation
               order={order}
               viewer="provider"

@@ -20,8 +20,10 @@
  *
  * Props:
  *   session      serialized CollaborationSession (must be live)
- *   tenantId     active tenant id (REST + ICE)
- *   auth         { jwt } | { orderToken } | { requestToken }
+ *   restAuth     collaborationApi auth descriptor ({ tenantId, jwt } or
+ *                { tenantId, guestToken, guestHeader })
+ *   wsAuth       openRealtimeSocket auth ({ jwt } | { orderToken } |
+ *                { bookingToken }) for signaling
  *   selfName     label for the local tile
  *   joinOnMount  call join() on mount (default true)
  *   onClose      () => void  — fired after we leave / on fatal error
@@ -46,8 +48,8 @@ function canScreenShare() {
 
 export default function CallPanel({
   session,
-  tenantId,
-  auth,
+  restAuth,
+  wsAuth,
   selfName = "You",
   joinOnMount = true,
   onClose,
@@ -65,8 +67,8 @@ export default function CallPanel({
 
   const webrtc = useWebRTCSession({
     sessionId: session?.id,
-    tenantId,
-    auth,
+    restAuth,
+    wsAuth,
     localStream: media.stream,
     iceServers: session?.ice_servers, // present when caller passed the start/join response
     active: ready && !fatal,
@@ -81,7 +83,7 @@ export default function CallPanel({
         if (cancelled) return;
         if (joinOnMount && session?.id) {
           try {
-            await joinSession(tenantId, session.id);
+            await joinSession(restAuth, session.id);
           } catch {
             // Non-fatal: the caller may have already registered us as a
             // participant (e.g. the initiator). Signaling still proceeds.
@@ -112,10 +114,10 @@ export default function CallPanel({
       webrtc.replaceVideoTrack(camTrack);
       setSharingScreen(false);
       if (notify && session?.id) {
-        setScreenShare(tenantId, session.id, false).catch(() => {});
+        setScreenShare(restAuth, session.id, false).catch(() => {});
       }
     },
-    [media.stream, webrtc, session?.id, tenantId]
+    [media.stream, webrtc, session?.id, restAuth]
   );
 
   const toggleScreenShare = useCallback(async () => {
@@ -138,13 +140,13 @@ export default function CallPanel({
       track.onended = () => stopScreenShare(true);
       webrtc.replaceVideoTrack(track);
       setSharingScreen(true);
-      if (session?.id) setScreenShare(tenantId, session.id, true).catch(() => {});
+      if (session?.id) setScreenShare(restAuth, session.id, true).catch(() => {});
     } catch {
       // user cancelled the picker — no-op
     } finally {
       setBusy(false);
     }
-  }, [busy, sharingScreen, stopScreenShare, webrtc, session?.id, tenantId]);
+  }, [busy, sharingScreen, stopScreenShare, webrtc, session?.id, restAuth]);
 
   const switchCamera = useCallback(async () => {
     try {
@@ -164,17 +166,17 @@ export default function CallPanel({
       media.stop();
     } catch {}
     try {
-      if (session?.id) await leaveSession(tenantId, session.id);
+      if (session?.id) await leaveSession(restAuth, session.id);
     } catch {}
     onClose?.();
-  }, [media, session?.id, tenantId, stopScreenShare, onClose]);
+  }, [media, session?.id, restAuth, stopScreenShare, onClose]);
 
   // Best-effort leave if the component unmounts without an explicit
   // hang-up (route change, tab close via pagehide handled by browser).
   useEffect(() => {
     return () => {
       if (!leftRef.current && session?.id) {
-        leaveSession(tenantId, session.id).catch(() => {});
+        leaveSession(restAuth, session.id).catch(() => {});
       }
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
