@@ -1,5 +1,4 @@
 "use client";
-
 import { useTenantLang } from "../../contexts/TenantLangContext";
 import { useTenantTheme } from "../../contexts/TenantThemeContext";
 import { resolveTranslated, resolveTranslatedArray } from "../utils/resolveTranslated";
