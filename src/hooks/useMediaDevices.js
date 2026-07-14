@@ -32,12 +32,69 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+/**
+ * callCapability — why a call can or can't run, with a reason so the UI
+ * never shows "unsupported" to a browser that actually supports WebRTC.
+ *
+ * The trap: `navigator.mediaDevices` is undefined in TWO cases unrelated
+ * to browser support —
+ *   1. server-side render (no `navigator`), and
+ *   2. an INSECURE CONTEXT. Browsers only expose getUserMedia over HTTPS
+ *      or localhost; a tenant site opened over plain HTTP (e.g.
+ *      tenant.example.com or a LAN IP) gets `undefined` in full-featured
+ *      Chrome/Edge/Firefox/Safari.
+ *
+ * Returns { supported, reason } where reason ∈
+ *   "ok" | "ssr" | "insecure" | "no_webrtc" | "no_media".
+ * "ssr" is transient — recompute in a client effect (useCallCapability).
+ */
+export function callCapability() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return { supported: false, reason: "ssr" };
+  }
+  const hasRTC =
+    typeof window.RTCPeerConnection === "function" ||
+    typeof window.webkitRTCPeerConnection === "function";
+  const md = navigator.mediaDevices;
+  const hasGUM = !!md && typeof md.getUserMedia === "function";
+  // isSecureContext is true on https AND on localhost/127.0.0.1/::1.
+  const secure =
+    typeof window.isSecureContext === "boolean" ? window.isSecureContext : true;
+
+  if (hasGUM && hasRTC) return { supported: true, reason: "ok" };
+  // mediaDevices missing on an insecure origin → it's the context, not the browser.
+  if (!secure && !hasGUM) return { supported: false, reason: "insecure" };
+  if (!hasRTC) return { supported: false, reason: "no_webrtc" };
+  return { supported: false, reason: "no_media" };
+}
+
 export function mediaSupported() {
-  return (
-    typeof navigator !== "undefined" &&
-    !!navigator.mediaDevices &&
-    typeof navigator.mediaDevices.getUserMedia === "function"
-  );
+  return callCapability().supported;
+}
+
+// Human-readable copy for each non-ok reason.
+export const CAPABILITY_MESSAGES = {
+  insecure:
+    "Calls need a secure (HTTPS) connection. Open this page over https:// to start a call.",
+  no_webrtc: "This browser doesn’t support video calls. Try Chrome, Edge, Firefox, or Safari.",
+  no_media: "Camera and microphone access isn’t available in this browser.",
+};
+
+/**
+ * useCallCapability — SSR-safe capability. Renders nothing meaningful on
+ * the server (reason "ssr"), then resolves the real capability after mount
+ * so a secure browser is never mislabelled "unsupported".
+ */
+export function useCallCapability() {
+  const [cap, setCap] = useState({ supported: false, reason: "ssr" });
+  useEffect(() => {
+    // Client-only probe: server and first client render both read "ssr"
+    // (identical markup → no hydration mismatch); the real capability is
+    // resolved here after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCap(callCapability());
+  }, []);
+  return cap;
 }
 
 export default function useMediaDevices() {
