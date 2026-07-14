@@ -21,8 +21,9 @@
  *
  * Inputs:
  *   sessionId    CollaborationSession id (required to activate)
- *   tenantId     for the ICE-servers fallback fetch
- *   auth         { jwt } | { orderToken } | { requestToken }
+ *   restAuth     collaborationApi auth descriptor (for the ICE fetch)
+ *   wsAuth       openRealtimeSocket auth ({ jwt } | { orderToken } |
+ *                { bookingToken } | { requestToken }) for signaling
  *   localStream  MediaStream from useMediaDevices (required to activate)
  *   iceServers   optional; if omitted we GET /ice-servers/
  *   active       gate — when false the mesh is torn down
@@ -44,8 +45,8 @@ const DEFAULT_ICE = [{ urls: "stun:stun.l.google.com:19302" }];
 
 export default function useWebRTCSession({
   sessionId,
-  tenantId,
-  auth,
+  restAuth,
+  wsAuth,
   localStream,
   iceServers,
   active = true,
@@ -260,7 +261,7 @@ export default function useWebRTCSession({
       // Ensure ICE servers before creating any peer.
       if (!iceRef.current) {
         try {
-          const res = await getIceServers(tenantId);
+          const res = await getIceServers(restAuth);
           if (!cancelled && res && res.ice_servers) {
             iceRef.current = res.ice_servers;
           }
@@ -275,7 +276,7 @@ export default function useWebRTCSession({
       setStatus("connecting");
       const channel = createSignalingChannel({
         sessionId,
-        auth,
+        auth: wsAuth,
         onSignal: handleSignal,
         onStatus: (s) => {
           if (cancelled) return;
@@ -304,7 +305,7 @@ export default function useWebRTCSession({
       setStatus("closed");
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [active, sessionId, localStream, tenantId]);
+  }, [active, sessionId, localStream]);
 
   const remoteStreams = Object.entries(remoteMap).map(([id, v]) => ({
     id,

@@ -1,15 +1,26 @@
 "use client";
 
 /**
- * CallDock — the drop-in call surface for an order/booking page.
+ * CallDock — the drop-in call surface for an order/booking page. One
+ * component turns a conversation into voice/video/screen-share for BOTH
+ * authenticated staff and tenant-site guest customers.
  *
- * One line wires a whole conversation into voice/video/screen-share:
+ *   // staff / logged-in (JWT)
+ *   <CallDock subjectType="order" subjectId={id} tenantId={t}
+ *             authMode="jwt" jwt={access} selfUserId={u.id}
+ *             selfName={u.name} canStart={collaborable} />
  *
- *   <CallDock
- *     subjectType="order" subjectId={orderId}
- *     tenantId={tenantId} auth={{ jwt }} selfUserId={user.id}
- *     selfName={user.name} canStart={collaborable}
- *   />
+ *   // tenant-site guest (scoped OTP token)
+ *   <CallDock subjectType="booking" subjectId={id} tenantId={t}
+ *             authMode="guest" guestToken={token} selfName={name}
+ *             canStart={collaborable} />
+ *
+ * Auth plumbing (derived from the props):
+ *   restAuth — collaborationApi descriptor. JWT → { tenantId, jwt };
+ *              guest → { tenantId, guestToken, guestHeader } where the
+ *              header is X-Order-Token / X-Booking-Token for the subject.
+ *   wsAuth   — openRealtimeSocket auth. JWT → { jwt }; guest →
+ *              { orderToken } or { bookingToken } for the subject.
  *
  * Responsibilities:
  *   * subscribe to the subject topic (order:<id> / booking:<id>) for
@@ -18,21 +29,14 @@
  *   * render the Start controls, the incoming/ongoing CallCard banner,
  *     and the full CallPanel (in a modal) once we're in a call,
  *   * own the REST entry points (start / join / reject) and hand the
- *     resulting live session to CallPanel, which runs the media + mesh
- *     and leaves on hang-up.
+ *     resulting live session to CallPanel.
  *
- * Guests (order/booking magic-link) can't use the REST session API yet
- * (IsAuthenticated only — guest REST is a later milestone), so pass a
- * real `auth.jwt`. On guest pages, render nothing by leaving canStart
- * false and auth without a jwt.
- *
- * NOTE: this opens its own realtime subscription to the subject topic,
- * independent of the page's existing chat subscription. That keeps
- * wiring to a single component; a later pass can consolidate onto one
- * shared socket if desired.
+ * NOTE: opens its own realtime subscription to the subject topic,
+ * independent of the page's chat subscription — keeps wiring to a single
+ * component. A later pass can consolidate onto one shared socket.
  */
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Phone, Video, PhoneCall } from "lucide-react";
 
 import { useRealtime } from "@/lib/realtime";
@@ -43,6 +47,7 @@ import {
   leaveSession,
   getSessionHistory,
   isSessionLive,
+  guestHeaderFor,
   MEDIA_AUDIO,
   MEDIA_VIDEO,
 } from "@/lib/collaborationApi";
@@ -57,8 +62,10 @@ export default function CallDock({
   subjectType = "order",
   subjectId,
   tenantId,
-  auth,
-  selfUserId,
+  authMode = "jwt", // "jwt" | "guest"
+  jwt = null, // jwt mode
+  guestToken = null, // guest mode
+  selfUserId = null,
   selfName = "You",
   canStart = true,
   className = "",
@@ -71,17 +78,44 @@ export default function CallDock({
   const activeIdRef = useRef(null);
   activeIdRef.current = activeCall?.session?.id || null;
 
-  const subjectQuery =
-    subjectType === "booking" ? { booking: subjectId } : { order: subjectId };
+  const subjectQuery = useMemo(
+    () => (subjectType === "booking" ? { booking: subjectId } : { order: subjectId }),
+    [subjectType, subjectId]
+  );
   const supported = mediaSupported();
+  const isGuest = authMode === "guest";
+
+  // REST auth descriptor for collaborationApi.
+  const restAuth = useMemo(() => {
+    if (isGuest) {
+      return {
+        tenantId,
+        guestToken,
+        guestHeader: guestHeaderFor(subjectType),
+      };
+    }
+    return { tenantId, jwt };
+  }, [isGuest, tenantId, guestToken, subjectType, jwt]);
+
+  // WS auth for openRealtimeSocket (subject topic + signaling).
+  const wsAuth = useMemo(() => {
+    if (isGuest) {
+      return subjectType === "booking"
+        ? { bookingToken: guestToken }
+        : { orderToken: guestToken };
+    }
+    return { jwt };
+  }, [isGuest, subjectType, guestToken, jwt]);
+
+  const hasAuth = isGuest ? !!guestToken : !!jwt;
 
   // ── hydrate an in-progress call on mount ──
   useEffect(() => {
     let cancelled = false;
-    if (!subjectId || !tenantId) return undefined;
+    if (!subjectId || !tenantId || !hasAuth) return undefined;
     (async () => {
       try {
-        const rows = await getSessionHistory(tenantId, subjectQuery);
+        const rows = await getSessionHistory(restAuth, subjectQuery);
         const list = Array.isArray(rows) ? rows : rows?.results || [];
         const live = list.find((s) => isSessionLive(s));
         if (!cancelled && live) setLiveSession(live);
@@ -93,7 +127,7 @@ export default function CallDock({
       cancelled = true;
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [subjectId, tenantId]);
+  }, [subjectId, tenantId, hasAuth]);
 
   // ── realtime: session.* on the subject topic ──
   const handleEnvelope = useCallback((env) => {
@@ -124,12 +158,11 @@ export default function CallDock({
   }, []);
 
   useRealtime({
-    topics: subjectId ? [`${subjectType}:${subjectId}`] : [],
-    auth: auth || {},
+    topics: subjectId && hasAuth ? [`${subjectType}:${subjectId}`] : [],
+    auth: wsAuth,
     onEvent: handleEnvelope,
     onReconnect: () => {
-      // Re-hydrate in case a call started while we were offline.
-      getSessionHistory(tenantId, subjectQuery)
+      getSessionHistory(restAuth, subjectQuery)
         .then((rows) => {
           const list = Array.isArray(rows) ? rows : rows?.results || [];
           const live = list.find((s) => isSessionLive(s));
@@ -146,7 +179,7 @@ export default function CallDock({
       setBusy(true);
       setError(null);
       try {
-        const res = await startSession(tenantId, { ...subjectQuery, mediaType });
+        const res = await startSession(restAuth, { ...subjectQuery, mediaType });
         const session = { ...res.session, ice_servers: res.ice_servers };
         setLiveSession(null);
         setActiveCall({ session, joinOnMount: false });
@@ -156,8 +189,7 @@ export default function CallDock({
         setBusy(false);
       }
     },
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-    [busy, supported, tenantId, subjectType, subjectId]
+    [busy, supported, restAuth, subjectQuery]
   );
 
   const join = useCallback(async () => {
@@ -165,7 +197,7 @@ export default function CallDock({
     setBusy(true);
     setError(null);
     try {
-      const res = await joinSession(tenantId, liveSession.id);
+      const res = await joinSession(restAuth, liveSession.id);
       const session = { ...res.session, ice_servers: res.ice_servers };
       setLiveSession(null);
       // We already joined via REST here, so CallPanel must NOT re-join.
@@ -175,25 +207,25 @@ export default function CallDock({
     } finally {
       setBusy(false);
     }
-  }, [busy, liveSession, supported, tenantId]);
+  }, [busy, liveSession, supported, restAuth]);
 
   const decline = useCallback(async () => {
     if (!liveSession) return;
     const id = liveSession.id;
     setLiveSession(null);
     try {
-      await rejectSession(tenantId, id);
+      await rejectSession(restAuth, id);
     } catch {}
-  }, [liveSession, tenantId]);
+  }, [liveSession, restAuth]);
 
   const cancel = useCallback(async () => {
     if (!liveSession) return;
     const id = liveSession.id;
     setLiveSession(null);
     try {
-      await leaveSession(tenantId, id);
+      await leaveSession(restAuth, id);
     } catch {}
-  }, [liveSession, tenantId]);
+  }, [liveSession, restAuth]);
 
   const closePanel = useCallback(() => setActiveCall(null), []);
 
@@ -203,7 +235,9 @@ export default function CallDock({
     String(liveSession.created_by) === String(selfUserId);
 
   // ── render ──
-  const showStart = canStart && supported && !liveSession && !activeCall;
+  const showStart = canStart && supported && hasAuth && !liveSession && !activeCall;
+
+  if (!hasAuth) return null;
 
   return (
     <div className={className}>
@@ -260,8 +294,8 @@ export default function CallDock({
             <div className="w-full max-w-4xl h-[70vh] max-h-[720px]">
               <CallPanel
                 session={activeCall.session}
-                tenantId={tenantId}
-                auth={auth}
+                restAuth={restAuth}
+                wsAuth={wsAuth}
                 selfName={selfName}
                 joinOnMount={activeCall.joinOnMount}
                 onClose={closePanel}

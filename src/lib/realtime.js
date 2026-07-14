@@ -30,6 +30,7 @@ export function openRealtimeSocket({ auth = {}, onMessage, onOpen, onClose }) {
   if (auth.jwt) params.set("token", auth.jwt);
   if (auth.requestToken) params.set("request_token", auth.requestToken);
   if (auth.orderToken) params.set("order_token", auth.orderToken);
+  if (auth.bookingToken) params.set("booking_token", auth.bookingToken);
   let ws;
   try {
     ws = new WebSocket(`${base}/ws/events/?${params.toString()}`);
@@ -86,7 +87,7 @@ export function useRealtime({
   useEffect(() => {
     const parsedTopics = JSON.parse(topicsKey);
     if (!parsedTopics.length) return undefined;
-    if (!auth || (!auth.jwt && !auth.requestToken && !auth.orderToken)) return undefined;
+    if (!auth || (!auth.jwt && !auth.requestToken && !auth.orderToken && !auth.bookingToken)) return undefined;
 
     let stopped = false;
     let backoff = 1000;
@@ -162,5 +163,5 @@ export function useRealtime({
       try { ws?.close(); } catch {}
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [topicsKey, auth?.jwt, auth?.requestToken, auth?.orderToken]);
+  }, [topicsKey, auth?.jwt, auth?.requestToken, auth?.orderToken, auth?.bookingToken]);
 }

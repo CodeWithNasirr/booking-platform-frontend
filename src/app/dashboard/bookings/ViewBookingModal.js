@@ -1,7 +1,9 @@
 // src/components/bookings/ViewBookingModal.js
 'use client';
 
+import Cookies from 'js-cookie';
 import { useApp } from '@/contexts/AppContext';
+import { CallDock } from '@/components/collaboration';
 import {
   X,
   Clock,
@@ -85,7 +87,8 @@ export default function ViewBookingModal({
   onStatusChange,
   onCancel,
 }) {
-  const { t, isRTL, activeTenant } = useApp();
+  const { t, isRTL, activeTenant, user } = useApp();
+  const tenantId = activeTenant?.id || activeTenant;
   
   const statusConfig = getStatusConfig(t);
   const paymentConfig = getPaymentConfig(t);
@@ -216,6 +219,19 @@ export default function ViewBookingModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+
+          {/* Live voice / video / screen-share call surface */}
+          <CallDock
+            subjectType="booking"
+            subjectId={booking.id}
+            tenantId={tenantId}
+            authMode="jwt"
+            jwt={Cookies.get('access_token') || null}
+            selfUserId={user?.id}
+            selfName={user?.full_name || user?.name || 'You'}
+            canStart={['paid', 'scheduled'].includes(booking.status)}
+          />
+
           {/* Booking Number & Status */}
           <div className={`flex items-center justify-between p-4 bg-gray-50 rounded-xl ${
             isRTL ? 'flex-row-reverse' : ''

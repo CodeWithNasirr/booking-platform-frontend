@@ -5,6 +5,7 @@ import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import LayoutRenderer from "../../LayoutRenderer";
 import { tenantRoutes } from "@/lib/tenantRoutes";
+import { CallDock } from "@/components/collaboration";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -258,7 +259,24 @@ export default function BookingDetailClient({
             </div>
 
             <div className="p-6 space-y-6">
-              
+
+              {/* Live voice / video / screen-share call surface */}
+              {isClient && (() => {
+                const callAuth = resolveToken(tenantId);
+                const rawToken = (callAuth.token || "").replace(/^Bearer /, "");
+                return (
+                  <CallDock
+                    subjectType="booking"
+                    subjectId={bookingId}
+                    tenantId={tenantId}
+                    authMode="guest"
+                    guestToken={rawToken}
+                    selfName={booking.customer_name || "You"}
+                    canStart={["paid", "scheduled"].includes(booking.status)}
+                  />
+                );
+              })()}
+
               {/* Payment Summary */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg">

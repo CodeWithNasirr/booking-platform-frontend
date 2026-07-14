@@ -704,7 +704,8 @@ export default function AdminOrderDetailClient({ orderId }) {
                   subjectType="order"
                   subjectId={orderId}
                   tenantId={tenantId}
-                  auth={{ jwt: Cookies.get("access_token") || null }}
+                  authMode="jwt"
+                  jwt={Cookies.get("access_token") || null}
                   selfUserId={user?.id}
                   selfName={user?.full_name || user?.name || "You"}
                   canStart={
