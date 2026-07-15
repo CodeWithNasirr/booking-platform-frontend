@@ -49,7 +49,9 @@ export function guestHeaderFor(subjectType) {
 }
 
 // ── Core fetch: build headers from the auth descriptor ──
-async function call(auth, endpoint, { method = "GET", body } = {}) {
+// `keepalive` lets a leave request survive a page unload (tab close /
+// navigation) — unlike sendBeacon it can still carry the auth header.
+async function call(auth, endpoint, { method = "GET", body, keepalive = false } = {}) {
   const headers = { "Content-Type": "application/json" };
   if (auth?.tenantId) headers["X-Tenant"] = auth.tenantId;
   if (auth?.jwt) headers["Authorization"] = `Bearer ${auth.jwt}`;
@@ -61,6 +63,7 @@ async function call(auth, endpoint, { method = "GET", body } = {}) {
     headers,
     body: body !== undefined ? JSON.stringify(body) : undefined,
     credentials: "include",
+    keepalive,
   });
   const data = await res.json().catch(() => ({}));
   if (!res.ok) {
@@ -105,8 +108,12 @@ export function joinSession(auth, sessionId) {
   return call(auth, `${BASE}/sessions/${sessionId}/join/`, { method: "POST", body: {} });
 }
 
-export function leaveSession(auth, sessionId) {
-  return call(auth, `${BASE}/sessions/${sessionId}/leave/`, { method: "POST", body: {} });
+export function leaveSession(auth, sessionId, { keepalive = false } = {}) {
+  return call(auth, `${BASE}/sessions/${sessionId}/leave/`, {
+    method: "POST",
+    body: {},
+    keepalive,
+  });
 }
 
 export function rejectSession(auth, sessionId) {
