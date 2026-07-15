@@ -171,16 +171,26 @@ export default function CallPanel({
     onClose?.();
   }, [media, session?.id, restAuth, stopScreenShare, onClose]);
 
-  // Best-effort leave if the component unmounts without an explicit
-  // hang-up (route change, tab close via pagehide handled by browser).
+  // Leave when the TAB/WINDOW actually goes away — never on a React
+  // unmount. Calling leaveSession() in an effect *cleanup* was a bug: React
+  // StrictMode double-invokes effects (mount → cleanup → mount) in dev, so
+  // the cleanup fired leaveSession immediately after start; the backend
+  // then auto-ended the session (last participant left) and the modal
+  // vanished. A call must only end on Hang Up, tab close, expiry, or a
+  // backend end — so we bind the leave to `pagehide` (fires on real
+  // navigation/close) with a keepalive fetch that survives unload.
   useEffect(() => {
-    return () => {
-      if (!leftRef.current && session?.id) {
-        leaveSession(restAuth, session.id).catch(() => {});
-      }
+    if (!session?.id) return undefined;
+    const onPageHide = () => {
+      if (leftRef.current) return;
+      leftRef.current = true;
+      try {
+        leaveSession(restAuth, session.id, { keepalive: true }).catch(() => {});
+      } catch {}
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [session?.id]);
+    window.addEventListener("pagehide", onPageHide);
+    return () => window.removeEventListener("pagehide", onPageHide);
+  }, [session?.id, restAuth]);
 
   // ── render ──
   if (fatal) {

@@ -32,12 +32,96 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 
+/**
+ * callCapability — why a call can or can't run, with a reason so the UI
+ * never shows "unsupported" to a browser that actually supports WebRTC.
+ *
+ * The trap: `navigator.mediaDevices` is undefined in TWO cases unrelated
+ * to browser support —
+ *   1. server-side render (no `navigator`), and
+ *   2. an INSECURE CONTEXT. Browsers only expose getUserMedia over HTTPS
+ *      or localhost; a tenant site opened over plain HTTP (e.g.
+ *      tenant.example.com or a LAN IP) gets `undefined` in full-featured
+ *      Chrome/Edge/Firefox/Safari.
+ *
+ * Returns { supported, reason } where reason ∈
+ *   "ok" | "ssr" | "insecure" | "no_webrtc" | "no_media".
+ * "ssr" is transient — recompute in a client effect (useCallCapability).
+ */
+export function callCapability() {
+  if (typeof window === "undefined" || typeof navigator === "undefined") {
+    return { supported: false, reason: "ssr", diagnostics: null };
+  }
+  const md = navigator.mediaDevices;
+  const diagnostics = {
+    isSecureContext: window.isSecureContext,
+    mediaDevices: !!md,
+    getUserMedia: !!(md && typeof md.getUserMedia === "function"),
+    getDisplayMedia: !!(md && typeof md.getDisplayMedia === "function"),
+    RTCPeerConnection:
+      typeof window.RTCPeerConnection === "function" ||
+      typeof window.webkitRTCPeerConnection === "function",
+    hostname: window.location.hostname,
+    origin: window.location.origin,
+    userAgent: navigator.userAgent,
+  };
+  const hasRTC = diagnostics.RTCPeerConnection;
+  const hasGUM = diagnostics.getUserMedia;
+  // isSecureContext is true on https AND on localhost/127.0.0.1/::1 —
+  // but NOT on lvh.me / *.lvh.me / nip.io over http, even though they
+  // resolve to 127.0.0.1. The browser checks the hostname string, not the
+  // resolved IP, so those hosts need HTTPS for media capture.
+  const secure =
+    typeof window.isSecureContext === "boolean" ? window.isSecureContext : true;
+
+  if (hasGUM && hasRTC) return { supported: true, reason: "ok", diagnostics };
+  // mediaDevices missing on an insecure origin → it's the context, not the browser.
+  if (!secure && !hasGUM) return { supported: false, reason: "insecure", diagnostics };
+  if (!hasRTC) return { supported: false, reason: "no_webrtc", diagnostics };
+  return { supported: false, reason: "no_media", diagnostics };
+}
+
 export function mediaSupported() {
-  return (
-    typeof navigator !== "undefined" &&
-    !!navigator.mediaDevices &&
-    typeof navigator.mediaDevices.getUserMedia === "function"
-  );
+  return callCapability().supported;
+}
+
+// Human-readable copy for each non-ok reason. Written from the user's side
+// of the screen — the "insecure" case is by far the most common in
+// multi-tenant local dev (lvh.me / nip.io over http).
+export const CAPABILITY_MESSAGES = {
+  insecure:
+    "Video calls require a secure (HTTPS) connection. This browser blocks the camera and microphone on plain http:// — open the site over https:// (or use localhost) to start a call.",
+  no_webrtc:
+    "This browser doesn’t support video calls. Try a recent Chrome, Edge, Firefox, or Safari.",
+  no_media:
+    "Camera and microphone access isn’t available in this browser.",
+};
+
+/**
+ * useCallCapability — SSR-safe capability. Renders nothing meaningful on
+ * the server (reason "ssr"), then resolves the real capability after mount
+ * so a secure browser is never mislabelled "unsupported". Logs a one-time
+ * diagnostic so the exact cause (insecure origin, missing API, …) is
+ * visible in the console.
+ */
+export function useCallCapability() {
+  const [cap, setCap] = useState({ supported: false, reason: "ssr" });
+  useEffect(() => {
+    const result = callCapability();
+    if (typeof console !== "undefined" && result.diagnostics) {
+      console.info("[collaboration] call capability", {
+        supported: result.supported,
+        reason: result.reason,
+        ...result.diagnostics,
+      });
+    }
+    // Client-only probe: server and first client render both read "ssr"
+    // (identical markup → no hydration mismatch); the real capability is
+    // resolved here after mount.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    setCap(result);
+  }, []);
+  return cap;
 }
 
 export default function useMediaDevices() {

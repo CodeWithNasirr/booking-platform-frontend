@@ -77,7 +77,10 @@ export default function CallControlBar({
         </CtrlButton>
       )}
 
-      {canScreenShare && (
+      {/* Screen share needs an outgoing video sender to swap onto. An
+          audio-only call has none, so replaceTrack would share locally
+          but transmit nothing — gate it to video calls. */}
+      {canScreenShare && !audioOnly && (
         <CtrlButton
           onClick={onToggleScreenShare}
           active={sharingScreen}

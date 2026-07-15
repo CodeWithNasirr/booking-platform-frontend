@@ -51,7 +51,7 @@ import {
   MEDIA_AUDIO,
   MEDIA_VIDEO,
 } from "@/lib/collaborationApi";
-import { mediaSupported } from "@/hooks/useMediaDevices";
+import { useCallCapability, CAPABILITY_MESSAGES } from "@/hooks/useMediaDevices";
 import Portal from "@/components/ui/Portal";
 import CallCard from "./CallCard";
 import CallPanel from "./CallPanel";
@@ -82,7 +82,8 @@ export default function CallDock({
     () => (subjectType === "booking" ? { booking: subjectId } : { order: subjectId }),
     [subjectType, subjectId]
   );
-  const supported = mediaSupported();
+  const capability = useCallCapability();
+  const supported = capability.supported;
   const isGuest = authMode === "guest";
 
   // REST auth descriptor for collaborationApi.
@@ -282,9 +283,13 @@ export default function CallDock({
         </div>
       )}
 
-      {canStart && !supported && (
-        <p className="text-xs text-gray-400 inline-flex items-center gap-1.5">
-          <PhoneCall className="w-3.5 h-3.5" /> Calls aren’t supported in this browser.
+      {/* Only surface a reason once we've actually probed on the client
+          (reason "ssr" means "not determined yet" — stay silent). */}
+      {canStart && !supported && capability.reason !== "ssr" && (
+        <p className="text-xs text-gray-400 inline-flex items-start gap-1.5">
+          <PhoneCall className="w-3.5 h-3.5 mt-0.5 shrink-0" />
+          {CAPABILITY_MESSAGES[capability.reason] ||
+            "Calls aren’t available in this browser."}
         </p>
       )}
 
