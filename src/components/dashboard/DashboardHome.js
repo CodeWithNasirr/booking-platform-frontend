@@ -32,10 +32,11 @@ import { getTenantWebsiteUrl } from "@/lib/tenantUrl";
 import Cookies from "js-cookie";
 
 import { useTenantPermission } from "@/lib/useTenantPermission";
-
+import useRenderTrace from "@/lib/useRenderTrace";
 
 
 export default function DashboardHome() {
+  useRenderTrace("DashboardHome(tenant)");
   const [stats, setStats] = useState(null);
   const [revenueData, setRevenueData] = useState([]);
   const [recentBookings, setRecentBookings] = useState([]);
@@ -120,8 +121,10 @@ export default function DashboardHome() {
       try {
         setLoading(true);
         setError(null);
+        console.log("[AUTH-TRACE] tenant dashboard fetch START");
 
         const { overview, revenue, recent } = await fetchDashboardData();
+        console.log("[AUTH-TRACE] tenant dashboard fetch SETTLED");
 
         setStats([
           {
