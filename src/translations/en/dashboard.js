@@ -69,10 +69,8 @@ export default{
     "tenant.whatsapp": "Whatsapp",
     "tenant.campaigns": "Campaigns",
     "tenant.schedule":"My Schedule",
-
-
-
-
+    "tenant.customRequests": "Custom Requests",
+    "tenant.subscriptions": "Subscriptions",
     "tenant.calendar": "Calendar",
     "tenant.customers": "Customers",
     "tenant.finance": "Finance",

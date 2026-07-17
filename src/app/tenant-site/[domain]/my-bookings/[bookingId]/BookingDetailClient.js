@@ -85,7 +85,7 @@ export default function BookingDetailClient({
       // Go straight to list endpoint (individual endpoint doesn't exist)
       const res = await fetch(
         `${API_BASE}/api/v1/guest-bookings/by-email/`,
-        { headers: buildHeaders(domain, auth.token) }
+        { headers: buildHeaders(domain, auth.token), credentials: 'include' }
       );
 
       if (!res.ok) {

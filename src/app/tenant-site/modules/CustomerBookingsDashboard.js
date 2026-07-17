@@ -165,7 +165,7 @@ export default function CustomerBookingsDashboard({
 
       const data = await apiCall(
         `${API_BASE}/api/v1/guest-bookings/by-email/`,
-        { headers: apiHeaders(domain, accessToken) }
+        { headers: apiHeaders(domain, accessToken), credentials: 'include' }
       );
 
       setBookings(data.bookings || []);
@@ -205,6 +205,7 @@ export default function CustomerBookingsDashboard({
         method: "POST",
         headers: apiHeaders(domain),
         body: JSON.stringify({ email: emailInput.trim() }),
+        credentials: 'include'
       });
 
       setCustomerEmail(emailInput.trim());
@@ -232,6 +233,7 @@ export default function CustomerBookingsDashboard({
       const data = await apiCall(`${API_BASE}/api/v1/guest-bookings/otp/verify/`, {
         method: "POST",
         headers: apiHeaders(domain),
+        credentials: 'include',
         body: JSON.stringify({
           email: customerEmail,
           otp: otpCode.trim(),

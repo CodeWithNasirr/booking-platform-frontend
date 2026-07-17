@@ -45,6 +45,18 @@ export default function AuthGate({ children }) {
   });
 
   useEffect(() => {
+  console.log("AuthGate", {
+    authReady,
+    user,
+    requiresOnboarding,
+  });
+
+  // Comment everything
+  // if (!user) router.replace(...)
+  // if (requiresOnboarding) router.replace(...)
+}, []);
+
+  useEffect(() => {
     if (!authReady) return; // wait for /auth/me to settle
     if (!user) {
       router.replace("/auth/login");

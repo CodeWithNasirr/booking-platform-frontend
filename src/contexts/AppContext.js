@@ -16,7 +16,7 @@ export function useApp() {
 }
 
 export function AppProvider({ children }) {
-  console.log("APP COntenxt Mount")
+  // console.log("APP COntenxt Mount")
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
   const [language, setLanguage] = useState("en");
@@ -186,7 +186,7 @@ export function AppProvider({ children }) {
           Cookies.get("active_tenant")
         );
 
-        console.log("User data loaded:", data);
+        // console.log("User data loaded:", data);
 
         setUser(data.user || null);
         setTenants(data.tenants || []);

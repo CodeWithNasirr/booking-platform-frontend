@@ -62,6 +62,8 @@ export default {
   "tenant.customers": "صارفین",
   "tenant.finance": "مالیات",
   "tenant.billing": "بلنگ",
+  "tenant.customRequests": "حسبِ ضرورت درخواستیں",
+  "tenant.subscriptions": "سبسکرپشنز",
   "tenant.website": "ویب سائٹ بلڈر",
   "tenant.logs": "لاگز",
   "tenant.refunds": "رقم واپسی",

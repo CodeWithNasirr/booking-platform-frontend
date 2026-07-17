@@ -445,7 +445,7 @@ export default function BillingPlansPage() {
 
   /* ── State ─────────────────────────────── */
   const [stats, setStats] = useState(null);
-
+  console.log(stats,"STATS")
   const [plans, setPlans] = useState([]);
   const [planDetails, setPlanDetails] = useState({}); // id → detail with features
 
@@ -634,7 +634,7 @@ export default function BillingPlansPage() {
         <StatCard
           icon={DollarSign}
           label={t("superadmin.billing.stat_mrr")}
-          value={stats?.monthly_revenue != null ? formatCurrency(stats.monthly_revenue) : "—"}
+          value={stats?.monthly_revenue != null ? formatCurrency(stats.monthly_revenue, stats.currency) : "—"}
           color="from-purple-500 to-purple-600"
         />
         <StatCard
