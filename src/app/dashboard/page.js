@@ -1,15 +1,22 @@
 "use client";
 
-import DashboardHome from "@/components/dashboard/DashboardHome";
+// Mirrors /superadmin/page.js: the segment index is a thin redirect to the
+// content sub-route (/dashboard/home). The superadmin panel works after
+// login precisely because login lands on a content sub-route, not the
+// segment index — this brings the tenant dashboard to the same pattern.
 
-/**
- * The dashboard landing page. Access is already gated by DashboardLayout
- * (auth + onboarding + role). It is NOT wrapped in a permission gate: the
- * home screen is the default authenticated landing, and gating it on a
- * `dashboard.view` permission that non-owner roles don't carry made the
- * index render its access-denied state while child routes (which gate on
- * real permissions like `orders.view`) rendered fine.
- */
-export default function DashboardPage() {
-  return <DashboardHome />;
+import { useEffect } from "react";
+import { useRouter } from "next/navigation";
+
+export default function DashboardIndexPage() {
+  const router = useRouter();
+  useEffect(() => {
+    router.replace("/dashboard/home");
+  }, [router]);
+
+  return (
+    <div className="flex h-screen items-center justify-center bg-background">
+      <div className="h-10 w-10 animate-spin rounded-full border-4 border-gray-300 border-t-[#8B1E3F]" />
+    </div>
+  );
 }

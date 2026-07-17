@@ -127,8 +127,10 @@ export default function TenantLogin() {
         return;
       }
 
-      // Role-based landing — the only place role decides the route.
-      router.replace(active.role === "provider" ? "/provider" : "/dashboard");
+      // Role-based landing — the only place role decides the route. Land on
+      // the content sub-route (like AdminLogin → /superadmin/dashboard), not
+      // the segment index.
+      router.replace(active.role === "provider" ? "/provider/home" : "/dashboard/home");
     }
     catch (err) {
     console.error("Login error:", err);
