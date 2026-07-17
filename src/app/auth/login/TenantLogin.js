@@ -97,43 +97,39 @@ export default function TenantLogin() {
 
       const tenants = data.tenants || [];
 
-      // Routing logic
+      // ── Routing — decided ONCE here (single source), using router.replace
+      // so no /dashboard history entry is left for a layout guard to bounce,
+      // and matching the ACTIVE tenant (not tenants[0]) by string id. ──
       if (!tenants.length) {
-        router.push("/auth/onboarding?step=1");
+        router.replace("/auth/onboarding?step=1");
         return;
       }
+
+      // The tenant the session is actually scoped to (falls back to the
+      // first membership). String-compared so a numeric id vs cookie string
+      // never mismatches.
+      const active =
+        tenants.find(
+          (m) => String(m.id) === String(data.active_tenant)
+        ) || tenants[0];
+
+      Cookies.set("active_tenant", active.id, COOKIE_OPTIONS);
+      selectTenant(active.id);
 
       if (data.requires_onboarding) {
-        const active = tenants.find((t) => t.id === data.active_tenant) || tenants[0];
-        // router.push(`/auth/onboarding?step=${active.onboarding_step || 1}`);
-        window.location.href =  `/auth/onboarding?step=${active.onboarding_step || 1}`;
-        return;
-      }
-    
-      //   PROVIDER: Redirect to provider dashboard
-      const firstMembership = tenants[0];
-      if (firstMembership.role === 'provider') {
-        Cookies.set(
-          "active_tenant",
-          firstMembership.id,
-          COOKIE_OPTIONS
-        );
-        selectTenant(firstMembership.id);
-        router.push("/provider");
-        return;
-      }
-      
-
-      if (tenants.length === 1) {
-        Cookies.set("active_tenant", tenants[0].id,COOKIE_OPTIONS);
-        selectTenant(tenants[0].id);
-        router.push("/dashboard");
+        router.replace(`/auth/onboarding?step=${active.onboarding_step || 1}`);
         return;
       }
 
-      router.push("/tenants/select");
+      // Multiple tenants and none pre-selected → let the user choose.
+      if (tenants.length > 1 && !data.active_tenant) {
+        router.replace("/tenants/select");
+        return;
+      }
 
-    } 
+      // Role-based landing — the only place role decides the route.
+      router.replace(active.role === "provider" ? "/provider" : "/dashboard");
+    }
     catch (err) {
     console.error("Login error:", err);
 
