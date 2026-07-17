@@ -186,22 +186,12 @@ export default function DashboardHome() {
   }, [user, tenantId,language]);
 
 
-  /* ONBOARDING REDIRECT */
-  useEffect(() => {
-    if (!requiresOnboarding) return;
-    if (!tenants || tenants.length === 0) return;
-
-    const active = tenants.find((t) => t.id === activeTenant) || tenants[0];
-
-    router.replace(`/auth/onboarding?step=${active?.onboarding_step || 1}`);
-  }, [requiresOnboarding, tenants, activeTenant, router]);
-
-  /* AUTH GUARD */
-  useEffect(() => {
-    if (!loadingUser && !user) {
-      router.replace("/");
-    }
-  }, [loadingUser, user, router]);
+  // NOTE: auth + onboarding are enforced ONCE by <AuthGate> in the layout.
+  // The old in-page guards here (redirect to "/" on a transient !user, and a
+  // duplicate onboarding redirect) fought AuthGate and produced the
+  // /dashboard → / → /auth/login bounce — DashboardHome mounting on a brief
+  // null-user render fired router.replace("/"). Removed; AuthGate is the
+  // single source of truth.
 
   /* REFRESH HANDLER */
   const handleRefresh = async () => {
@@ -218,8 +208,6 @@ export default function DashboardHome() {
     }
   };
 
-
-  if (requiresOnboarding || loadingUser) return null;
 
   /* DEFAULT STATS FOR LOADING STATE */
  const defaultStats = [
