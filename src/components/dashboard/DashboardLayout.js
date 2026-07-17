@@ -9,6 +9,7 @@ import { PlanProvider } from "@/contexts/PlanContext";
 import { UpgradeProvider } from "@/contexts/UpgradeContext";
 import { TenantRBACProvider } from "@/contexts/TenantRBACContext";
 import AuthGate from "@/components/auth/AuthGate";
+import useRenderTrace from "@/lib/useRenderTrace";
 import Sidebar from "./Sidebar";
 import { Toaster } from "react-hot-toast";
 import Topbar from "./Topbar";
@@ -27,6 +28,7 @@ export default function DashboardLayout({ children }) {
   const router = useRouter();
   const { user, role, authReady, isRTL } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  useRenderTrace("DashboardLayout(tenant)", { role, authReady });
 
   useBlockBackNavigation(!!user);
 

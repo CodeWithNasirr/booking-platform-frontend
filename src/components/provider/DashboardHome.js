@@ -12,8 +12,10 @@ import {
 import Link from 'next/link';
 import Cookies from 'js-cookie';
 import { useApp } from '@/contexts/AppContext';
+import useRenderTrace from "@/lib/useRenderTrace";
 
 export default function ProviderHome() {
+  useRenderTrace("DashboardHome(provider)");
   const [stats, setStats] = useState({
     active_orders: 0,
     upcoming_bookings: 0,
@@ -29,6 +31,7 @@ export default function ProviderHome() {
   }, [activeTenant]);
 
   const fetchDashboardData = async () => {
+    console.log("[AUTH-TRACE] provider dashboard fetch START");
     try {
       const headers = {
         'Authorization': `Bearer ${Cookies.get("access_token")}`,
@@ -44,6 +47,7 @@ export default function ProviderHome() {
       console.error('Failed to fetch dashboard:', err);
     } finally {
       setLoading(false);
+      console.log("[AUTH-TRACE] provider dashboard fetch SETTLED");
     }
   };
 
