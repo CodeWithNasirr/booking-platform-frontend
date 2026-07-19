@@ -399,10 +399,17 @@ export default function BookingsPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-2">
-                      <button 
+                      <button
+                        onClick={() => router.push(`/provider/bookings/${booking.bookingId}`)}
+                        className="bg-[#800020] h-[32px] px-4 rounded-[10px] text-white text-[14px] font-medium hover:bg-[#600018] transition-colors flex items-center gap-2"
+                      >
+                        <Video size={14} />
+                        {t('bookings_open_workspace') || 'Open'}
+                      </button>
+                      <button
                         onClick={() => handleJoinMeeting(booking)}
                         disabled={!booking.meetingUrl || booking.status !== t('bookings_status_upcoming')}
-                        className="bg-[#800020] h-[32px] px-4 rounded-[10px] text-white text-[14px] font-medium hover:bg-[#600018] transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="bg-white border border-[rgba(0,0,0,0.08)] h-[32px] px-4 rounded-[10px] text-[#1a1a1a] text-[14px] font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Video size={14} />
                         {t('bookings_join_meeting')}
