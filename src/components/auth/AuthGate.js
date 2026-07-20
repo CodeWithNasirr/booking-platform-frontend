@@ -21,7 +21,7 @@
 import { useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
-import useRenderTrace from "@/lib/useRenderTrace";
+// import useRenderTrace from "@/lib/useRenderTrace";
 
 function FullScreenSpinner() {
   return (
@@ -38,23 +38,12 @@ function FullScreenSpinner() {
 export default function AuthGate({ children }) {
   const router = useRouter();
   const { authReady, user, requiresOnboarding, activeTenantObj } = useApp();
-  useRenderTrace("AuthGate", {
-    authReady,
-    hasUser: !!user,
-    requiresOnboarding,
-  });
+  // useRenderTrace("AuthGate", {
+  //   authReady,
+  //   hasUser: !!user,
+  //   requiresOnboarding,
+  // });
 
-  useEffect(() => {
-  console.log("AuthGate", {
-    authReady,
-    user,
-    requiresOnboarding,
-  });
-
-  // Comment everything
-  // if (!user) router.replace(...)
-  // if (requiresOnboarding) router.replace(...)
-}, []);
 
   useEffect(() => {
     if (!authReady) return; // wait for /auth/me to settle
@@ -70,14 +59,14 @@ export default function AuthGate({ children }) {
 
   // Render a spinner (not null) whenever we're loading OR mid-redirect.
   if (!authReady || !user || requiresOnboarding) {
-    console.log("[AUTH-TRACE] AuthGate → SPINNER", {
-      authReady,
-      hasUser: !!user,
-      requiresOnboarding,
-    });
+    // console.log("[AUTH-TRACE] AuthGate → SPINNER", {
+    //   authReady,
+    //   hasUser: !!user,
+    //   requiresOnboarding,
+    // });
     return <FullScreenSpinner />;
   }
 
-  console.log("[AUTH-TRACE] AuthGate → children");
+  // console.log("[AUTH-TRACE] AuthGate → children");
   return children;
 }

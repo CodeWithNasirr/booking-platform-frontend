@@ -640,7 +640,7 @@ export default function AdminOrderDetailClient({ orderId }) {
           )}
 
           {/* Order detail card */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          {/* <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
               Order Details
             </h3>
@@ -691,7 +691,7 @@ export default function AdminOrderDetailClient({ orderId }) {
                 </>
               )}
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* ═══ RIGHT COLUMN (4/12) — Conversation ═══ */}

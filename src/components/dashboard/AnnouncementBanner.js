@@ -80,7 +80,7 @@ function addDismissedId(id) {
 export default function AnnouncementBanner() {
   const { activeTenant } = useApp();
   const [announcements, setAnnouncements] = useState([]);
-  console.log("AnnouncementBanner",announcements)
+  // console.log("AnnouncementBanner",announcements)
   const [index, setIndex] = useState(0);
   const [dismissed, setDismissed] = useState([]);
 

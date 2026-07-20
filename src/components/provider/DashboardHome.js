@@ -12,10 +12,10 @@ import {
 import Link from 'next/link';
 import Cookies from 'js-cookie';
 import { useApp } from '@/contexts/AppContext';
-import useRenderTrace from "@/lib/useRenderTrace";
+// import useRenderTrace from "@/lib/useRenderTrace";
 
 export default function ProviderHome() {
-  useRenderTrace("DashboardHome(provider)");
+  // useRenderTrace("DashboardHome(provider)");
   const [stats, setStats] = useState({
     active_orders: 0,
     upcoming_bookings: 0,

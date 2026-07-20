@@ -32,11 +32,11 @@ import { getTenantWebsiteUrl } from "@/lib/tenantUrl";
 import Cookies from "js-cookie";
 
 import { useTenantPermission } from "@/lib/useTenantPermission";
-import useRenderTrace from "@/lib/useRenderTrace";
+// import useRenderTrace from "@/lib/useRenderTrace";
 
 
 export default function DashboardHome() {
-  useRenderTrace("DashboardHome(tenant)");
+  // useRenderTrace("DashboardHome(tenant)");
   const [stats, setStats] = useState(null);
   const [revenueData, setRevenueData] = useState([]);
   const [recentBookings, setRecentBookings] = useState([]);

@@ -68,6 +68,7 @@ export default function BookingsPage() {
       }
 
       const data = await response.json();
+      console.log('Fetched bookings data:', data);
       const bookingsArray = Array.isArray(data) ? data : (data.results || []);
 
       const mappedBookings = bookingsArray.map((booking) => {

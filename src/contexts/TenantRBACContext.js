@@ -70,7 +70,7 @@ async function fetchRBAC() {
         activeTenant
       );
 
-      console.log("TenantRBAC data:", data);
+      // console.log("TenantRBAC data:", data);
 
       if (!cancelled) {
         setMembership(data);
