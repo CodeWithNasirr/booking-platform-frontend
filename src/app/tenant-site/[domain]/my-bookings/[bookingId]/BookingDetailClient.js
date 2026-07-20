@@ -234,6 +234,37 @@ export default function BookingDetailClient({
     onReconnect: () => fetchConversation(),
   });
 
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleCancelBooking = useCallback(async () => {
+    const reason = window.prompt("Why are you cancelling this booking? (optional)", "");
+    // prompt returns null when the customer dismisses the dialog — abort.
+    if (reason === null) return;
+    if (!window.confirm("Cancel this booking? This cannot be undone.")) return;
+
+    const auth = resolveToken(tenantId);
+    setCancelling(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/v1/bookings/${bookingId}/cancel/`,
+        {
+          method: "POST",
+          headers: buildHeaders(domain, auth.token),
+          body: JSON.stringify({ reason: reason || "Cancelled by customer" }),
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || data.error || "Could not cancel this booking.");
+      }
+      await fetchBookingDetail();
+    } catch (e) {
+      alert(e.message || "Could not cancel this booking.");
+    } finally {
+      setCancelling(false);
+    }
+  }, [tenantId, domain, bookingId, fetchBookingDetail]);
+
   const handleBack = () => router.push(tenantRoutes.myBookings());
 
   const getStatusColor = (status) => {
@@ -571,12 +602,13 @@ export default function BookingDetailClient({
                 ← Back to List
               </button>
               
-              {booking.status === "scheduled" && (
+              {["paid", "scheduled"].includes(booking.status) && (
                 <button
-                  onClick={() => alert("Cancel functionality coming soon")}
-                  className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium"
+                  onClick={handleCancelBooking}
+                  disabled={cancelling}
+                  className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium disabled:opacity-50"
                 >
-                  Cancel Booking
+                  {cancelling ? "Cancelling…" : "Cancel Booking"}
                 </button>
               )}
               
