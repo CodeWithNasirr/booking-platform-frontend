@@ -29,6 +29,7 @@ import Cookies from "js-cookie";
 import DashboardLayout from "@/components/provider/DashboardLayout";
 import { useApp } from "@/contexts/AppContext";
 import { CallDock } from "@/components/collaboration";
+import BookingConversationPanel from "@/components/bookings/BookingConversationPanel";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
@@ -192,6 +193,18 @@ function BookingDetailInner() {
             Calls are available once the booking is paid or scheduled.
           </p>
         )}
+      </div>
+
+      {/* ── Conversation — chat + files + timeline ── */}
+      <div className="bg-white border border-gray-200 rounded-2xl p-5">
+        <h2 className="text-sm font-semibold text-gray-900 mb-3">Messages &amp; Files</h2>
+        <BookingConversationPanel
+          bookingId={bookingId}
+          domain={tenantId}
+          auth={{ jwt: Cookies.get("access_token") || null }}
+          viewer="provider"
+          showComposer={!["cancelled", "refunded"].includes(booking.status)}
+        />
       </div>
 
       {/* ── Details ── */}
