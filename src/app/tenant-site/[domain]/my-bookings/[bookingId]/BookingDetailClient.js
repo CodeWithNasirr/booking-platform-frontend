@@ -2,12 +2,33 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import LayoutRenderer from "../../LayoutRenderer";
 import { tenantRoutes } from "@/lib/tenantRoutes";
 import { CallDock } from "@/components/collaboration";
+import { OrderConversation } from "@/components/orders";
+import { useRealtime } from "@/lib/realtime";
+import { uploadWithProgress } from "@/lib/uploadWithProgress";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
+
+// Append a booking:<id> realtime envelope into the conversation
+// {messages, timeline_events} shape OrderConversation consumes.
+function applyBookingEnvelope(convo, env) {
+  const base = convo || { messages: [], timeline_events: [] };
+  const row = env?.payload;
+  if (!row?.id) return base;
+
+  if (env.entity_type === "booking.message") {
+    if (base.messages.some((m) => m.id === row.id)) return base;
+    return { ...base, messages: [...base.messages, row] };
+  }
+  if (env.entity_type === "booking.timeline_event") {
+    if (base.timeline_events.some((e) => e.id === row.id)) return base;
+    return { ...base, timeline_events: [...base.timeline_events, row] };
+  }
+  return base;
+}
 
 function resolveToken(tenantId) {
   try {
@@ -56,16 +77,62 @@ export default function BookingDetailClient({
   bookingId,
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [booking, setBooking] = useState(null);
+  const [conversation, setConversation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isClient, setIsClient] = useState(false);
+  const [tokenReady, setTokenReady] = useState(false);
 
   const tenantId = site?.tenant?.id || site?.id;
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // ── Secure "View Booking" magic link (?t=…) ──
+  // Exchange the single-booking token from a confirmation / reminder /
+  // review email for a guest booking session, store it the same way the
+  // OTP flow does, then strip ?t= from the URL so it isn't re-used.
+  useEffect(() => {
+    if (!isClient) return;
+    const t = searchParams.get("t");
+    if (!t) { setTokenReady(true); return; }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/v1/guest-bookings/access-via-token/`,
+          {
+            method: "POST",
+            headers: buildHeaders(domain, null),
+            body: JSON.stringify({ t }),
+          }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const tid = data.tenant_id || tenantId;
+          if (data.token && tid) {
+            localStorage.setItem(`customer_booking_token_${tid}`, data.token);
+            if (data.email) localStorage.setItem(`customer_booking_email_${tid}`, data.email);
+          }
+        }
+      } catch (e) {
+        console.error("[BookingDetail] magic-link exchange failed:", e);
+      } finally {
+        // Drop ?t= from the URL regardless of outcome.
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("t");
+          window.history.replaceState({}, "", url.toString());
+        } catch {}
+        if (!cancelled) setTokenReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isClient, searchParams, domain, tenantId]);
 
   const fetchBookingDetail = useCallback(async () => {
     if (!isClient) return;
@@ -124,8 +191,48 @@ export default function BookingDetailClient({
   }, [domain, bookingId, tenantId, router, isClient]);
 
   useEffect(() => {
-    if (isClient) fetchBookingDetail();
-  }, [fetchBookingDetail, isClient]);
+    if (isClient && tokenReady) fetchBookingDetail();
+  }, [fetchBookingDetail, isClient, tokenReady]);
+
+  // ── Conversation (chat + files + timeline) ──
+  const guestToken = (() => {
+    if (!isClient) return null;
+    const auth = resolveToken(tenantId);
+    return (auth.token || "").replace(/^Bearer /, "") || null;
+  })();
+
+  const fetchConversation = useCallback(async () => {
+    if (!isClient || !tokenReady) return;
+    const auth = resolveToken(tenantId);
+    if (!auth.token) return;
+    try {
+      const headers = buildHeaders(domain, auth.token);
+      const [mRes, tRes] = await Promise.all([
+        fetch(`${API_BASE}/api/v1/bookings/${bookingId}/messages/`, { headers }),
+        fetch(`${API_BASE}/api/v1/bookings/${bookingId}/timeline/`, { headers }),
+      ]);
+      const messages = mRes.ok ? await mRes.json() : [];
+      const timeline_events = tRes.ok ? await tRes.json() : [];
+      setConversation({
+        messages: Array.isArray(messages) ? messages : [],
+        timeline_events: Array.isArray(timeline_events) ? timeline_events : [],
+      });
+    } catch (e) {
+      console.error("[BookingDetail] conversation load failed:", e);
+    }
+  }, [isClient, tokenReady, tenantId, domain, bookingId]);
+
+  useEffect(() => {
+    if (booking) fetchConversation();
+  }, [booking, fetchConversation]);
+
+  // ── Realtime — append chat + timeline live from booking:<id> ──
+  useRealtime({
+    topics: bookingId && guestToken ? [`booking:${bookingId}`] : [],
+    auth: { bookingToken: guestToken },
+    onEvent: (env) => setConversation((prev) => applyBookingEnvelope(prev, env)),
+    onReconnect: () => fetchConversation(),
+  });
 
   const handleBack = () => router.push(tenantRoutes.myBookings());
 
@@ -276,6 +383,59 @@ export default function BookingDetailClient({
                   />
                 );
               })()}
+
+              {/* Conversation — chat + file sharing + timeline */}
+              <div className="border rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b bg-gray-50">
+                  <h3 className="text-sm font-semibold text-gray-700">Messages & Files</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Chat with your provider, share files, and see everything that happened.
+                  </p>
+                </div>
+                <div className="p-3">
+                  <OrderConversation
+                    order={conversation || { messages: [], timeline_events: [] }}
+                    viewer="customer"
+                    onSendMessage={async (content) => {
+                      const auth = resolveToken(tenantId);
+                      const res = await fetch(
+                        `${API_BASE}/api/v1/bookings/${bookingId}/messages/`,
+                        {
+                          method: "POST",
+                          headers: buildHeaders(domain, auth.token),
+                          body: JSON.stringify({ content }),
+                        }
+                      );
+                      if (!res.ok) throw new Error("Failed to send message");
+                      // Realtime appends the persisted row; refetch as a fallback.
+                      fetchConversation();
+                    }}
+                    onUploadFile={async (file, { onProgress, signal }) => {
+                      const auth = resolveToken(tenantId);
+                      const form = new FormData();
+                      form.append("file", file);
+                      form.append("category", "reference");
+                      await uploadWithProgress(
+                        `${API_BASE}/api/v1/bookings/${bookingId}/upload_file/`,
+                        form,
+                        {
+                          headers: {
+                            ...(domain ? { "X-Tenant": domain } : {}),
+                            ...(auth.token
+                              ? { Authorization: auth.token.startsWith("Bearer ") ? auth.token : `Bearer ${auth.token}` }
+                              : {}),
+                          },
+                          onProgress,
+                          signal,
+                        }
+                      );
+                      fetchConversation();
+                    }}
+                    showComposer={!["cancelled", "refunded"].includes(booking.status)}
+                    composerSticky={false}
+                  />
+                </div>
+              </div>
 
               {/* Payment Summary */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
