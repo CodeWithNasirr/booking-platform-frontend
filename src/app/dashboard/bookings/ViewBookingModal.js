@@ -4,6 +4,7 @@
 import Cookies from 'js-cookie';
 import { useApp } from '@/contexts/AppContext';
 import { CallDock } from '@/components/collaboration';
+import BookingConversationPanel from '@/components/bookings/BookingConversationPanel';
 import {
   X,
   Clock,
@@ -231,6 +232,22 @@ export default function ViewBookingModal({
             selfName={user?.full_name || user?.name || 'You'}
             canStart={['paid', 'scheduled'].includes(booking.status)}
           />
+
+          {/* Conversation — chat + files + timeline */}
+          <div className={`border border-gray-200 rounded-xl overflow-hidden ${isRTL ? 'text-right' : ''}`}>
+            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+              <h3 className="text-sm font-semibold text-gray-700">Messages &amp; Files</h3>
+            </div>
+            <div className="p-3">
+              <BookingConversationPanel
+                bookingId={booking.id}
+                domain={tenantId}
+                auth={{ jwt: Cookies.get('access_token') || null }}
+                viewer="admin"
+                showComposer={!['cancelled', 'refunded'].includes(booking.status)}
+              />
+            </div>
+          </div>
 
           {/* Booking Number & Status */}
           <div className={`flex items-center justify-between p-4 bg-gray-50 rounded-xl ${

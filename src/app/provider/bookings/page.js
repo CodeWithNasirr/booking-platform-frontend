@@ -180,10 +180,6 @@ export default function BookingsPage() {
     }
   };
 
-  const handleReschedule = (booking) => {
-    router.push(`/provider/bookings/${booking.bookingId}/reschedule`);
-  };
-
   const handleCancel = async (booking) => {
     if (!confirm(t('bookings_cancel_confirm'))) return;
 
@@ -415,14 +411,7 @@ export default function BookingsPage() {
                         <Video size={14} />
                         {t('bookings_join_meeting')}
                       </button>
-                      <button 
-                        onClick={() => handleReschedule(booking)}
-                        disabled={booking.status !== t('bookings_status_upcoming')}
-                        className="bg-white border border-[rgba(0,0,0,0.08)] h-[32px] px-4 rounded-[10px] text-[#1a1a1a] text-[14px] font-medium hover:bg-gray-50 transition-colors disabled:opacity-50"
-                      >
-                        {t('bookings_reschedule')}
-                      </button>
-                      <button 
+                      <button
                         onClick={() => handleCancel(booking)}
                         disabled={booking.status !== t('bookings_status_upcoming')}
                         className="bg-white border border-[#ffc9c9] h-[32px] px-4 rounded-[10px] text-[#e7000b] text-[14px] font-medium hover:bg-red-50 transition-colors disabled:opacity-50"

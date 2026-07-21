@@ -6,29 +6,9 @@ import { useRouter, useSearchParams } from "next/navigation";
 import LayoutRenderer from "../../LayoutRenderer";
 import { tenantRoutes } from "@/lib/tenantRoutes";
 import { CallDock } from "@/components/collaboration";
-import { OrderConversation } from "@/components/orders";
-import { useRealtime } from "@/lib/realtime";
-import { uploadWithProgress } from "@/lib/uploadWithProgress";
+import BookingConversationPanel from "@/components/bookings/BookingConversationPanel";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
-
-// Append a booking:<id> realtime envelope into the conversation
-// {messages, timeline_events} shape OrderConversation consumes.
-function applyBookingEnvelope(convo, env) {
-  const base = convo || { messages: [], timeline_events: [] };
-  const row = env?.payload;
-  if (!row?.id) return base;
-
-  if (env.entity_type === "booking.message") {
-    if (base.messages.some((m) => m.id === row.id)) return base;
-    return { ...base, messages: [...base.messages, row] };
-  }
-  if (env.entity_type === "booking.timeline_event") {
-    if (base.timeline_events.some((e) => e.id === row.id)) return base;
-    return { ...base, timeline_events: [...base.timeline_events, row] };
-  }
-  return base;
-}
 
 function resolveToken(tenantId) {
   try {
@@ -69,6 +49,19 @@ function buildHeaders(domain, token) {
   return headers;
 }
 
+// Guest calls to the main BookingViewSet must NOT use Authorization:
+// its SimpleJWT authenticator rejects a guest booking token as an invalid
+// AccessToken (401) before AllowAny is ever consulted. The booking token
+// rides in X-Booking-Token instead — parity with orders' X-Order-Token —
+// which _get_customer_booking reads for the guest path.
+function buildGuestHeaders(domain, token, { json = true } = {}) {
+  const headers = {};
+  if (json) headers["Content-Type"] = "application/json";
+  if (domain) headers["X-Tenant"] = domain;
+  if (token) headers["X-Booking-Token"] = token.replace(/^Bearer /, "");
+  return headers;
+}
+
 export default function BookingDetailClient({
   domain,
   site,
@@ -79,7 +72,6 @@ export default function BookingDetailClient({
   const router = useRouter();
   const searchParams = useSearchParams();
   const [booking, setBooking] = useState(null);
-  const [conversation, setConversation] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isClient, setIsClient] = useState(false);
@@ -194,45 +186,45 @@ export default function BookingDetailClient({
     if (isClient && tokenReady) fetchBookingDetail();
   }, [fetchBookingDetail, isClient, tokenReady]);
 
-  // ── Conversation (chat + files + timeline) ──
+  // Guest booking token for the conversation panel (X-Booking-Token +
+  // realtime), resolved from localStorage once the magic-link exchange
+  // (if any) has settled.
   const guestToken = (() => {
-    if (!isClient) return null;
+    if (!isClient || !tokenReady) return null;
     const auth = resolveToken(tenantId);
     return (auth.token || "").replace(/^Bearer /, "") || null;
   })();
 
-  const fetchConversation = useCallback(async () => {
-    if (!isClient || !tokenReady) return;
+  const [cancelling, setCancelling] = useState(false);
+
+  const handleCancelBooking = useCallback(async () => {
+    const reason = window.prompt("Why are you cancelling this booking? (optional)", "");
+    // prompt returns null when the customer dismisses the dialog — abort.
+    if (reason === null) return;
+    if (!window.confirm("Cancel this booking? This cannot be undone.")) return;
+
     const auth = resolveToken(tenantId);
-    if (!auth.token) return;
+    setCancelling(true);
     try {
-      const headers = buildHeaders(domain, auth.token);
-      const [mRes, tRes] = await Promise.all([
-        fetch(`${API_BASE}/api/v1/bookings/${bookingId}/messages/`, { headers }),
-        fetch(`${API_BASE}/api/v1/bookings/${bookingId}/timeline/`, { headers }),
-      ]);
-      const messages = mRes.ok ? await mRes.json() : [];
-      const timeline_events = tRes.ok ? await tRes.json() : [];
-      setConversation({
-        messages: Array.isArray(messages) ? messages : [],
-        timeline_events: Array.isArray(timeline_events) ? timeline_events : [],
-      });
+      const res = await fetch(
+        `${API_BASE}/api/v1/bookings/${bookingId}/cancel/`,
+        {
+          method: "POST",
+          headers: buildGuestHeaders(domain, auth.token),
+          body: JSON.stringify({ reason: reason || "Cancelled by customer" }),
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || data.error || "Could not cancel this booking.");
+      }
+      await fetchBookingDetail();
     } catch (e) {
-      console.error("[BookingDetail] conversation load failed:", e);
+      alert(e.message || "Could not cancel this booking.");
+    } finally {
+      setCancelling(false);
     }
-  }, [isClient, tokenReady, tenantId, domain, bookingId]);
-
-  useEffect(() => {
-    if (booking) fetchConversation();
-  }, [booking, fetchConversation]);
-
-  // ── Realtime — append chat + timeline live from booking:<id> ──
-  useRealtime({
-    topics: bookingId && guestToken ? [`booking:${bookingId}`] : [],
-    auth: { bookingToken: guestToken },
-    onEvent: (env) => setConversation((prev) => applyBookingEnvelope(prev, env)),
-    onReconnect: () => fetchConversation(),
-  });
+  }, [tenantId, domain, bookingId, fetchBookingDetail]);
 
   const handleBack = () => router.push(tenantRoutes.myBookings());
 
@@ -393,47 +385,15 @@ export default function BookingDetailClient({
                   </p>
                 </div>
                 <div className="p-3">
-                  <OrderConversation
-                    order={conversation || { messages: [], timeline_events: [] }}
-                    viewer="customer"
-                    onSendMessage={async (content) => {
-                      const auth = resolveToken(tenantId);
-                      const res = await fetch(
-                        `${API_BASE}/api/v1/bookings/${bookingId}/messages/`,
-                        {
-                          method: "POST",
-                          headers: buildHeaders(domain, auth.token),
-                          body: JSON.stringify({ content }),
-                        }
-                      );
-                      if (!res.ok) throw new Error("Failed to send message");
-                      // Realtime appends the persisted row; refetch as a fallback.
-                      fetchConversation();
-                    }}
-                    onUploadFile={async (file, { onProgress, signal }) => {
-                      const auth = resolveToken(tenantId);
-                      const form = new FormData();
-                      form.append("file", file);
-                      form.append("category", "reference");
-                      await uploadWithProgress(
-                        `${API_BASE}/api/v1/bookings/${bookingId}/upload_file/`,
-                        form,
-                        {
-                          headers: {
-                            ...(domain ? { "X-Tenant": domain } : {}),
-                            ...(auth.token
-                              ? { Authorization: auth.token.startsWith("Bearer ") ? auth.token : `Bearer ${auth.token}` }
-                              : {}),
-                          },
-                          onProgress,
-                          signal,
-                        }
-                      );
-                      fetchConversation();
-                    }}
-                    showComposer={!["cancelled", "refunded"].includes(booking.status)}
-                    composerSticky={false}
-                  />
+                  {guestToken && (
+                    <BookingConversationPanel
+                      bookingId={bookingId}
+                      domain={domain}
+                      auth={{ guestToken }}
+                      viewer="customer"
+                      showComposer={!["cancelled", "refunded"].includes(booking.status)}
+                    />
+                  )}
                 </div>
               </div>
 
@@ -571,12 +531,13 @@ export default function BookingDetailClient({
                 ← Back to List
               </button>
               
-              {booking.status === "scheduled" && (
+              {["paid", "scheduled"].includes(booking.status) && (
                 <button
-                  onClick={() => alert("Cancel functionality coming soon")}
-                  className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium"
+                  onClick={handleCancelBooking}
+                  disabled={cancelling}
+                  className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium disabled:opacity-50"
                 >
-                  Cancel Booking
+                  {cancelling ? "Cancelling…" : "Cancel Booking"}
                 </button>
               )}
               
