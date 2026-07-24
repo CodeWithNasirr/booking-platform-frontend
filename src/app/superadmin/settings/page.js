@@ -20,7 +20,7 @@ const MAROON = "#8B1E3F";
 export default function SettingsPage() {
   const { hasPermission } = useSuperAdmin();
   const { t } = useTranslation();
-  const canEdit = hasPermission("system.manage_settings");
+  const canEdit = hasPermission("settings.manage");
 
   const [data, setData] = useState(null);
   const [loading, setLoading] = useState(true);

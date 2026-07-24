@@ -30,12 +30,12 @@ export const SUPERADMIN_ACCESS_RULES = [
   { prefix: "/superadmin/billing/analytics", perms: ["analytics.view", "billing.view"], mode: "any" },
   { prefix: "/superadmin/billing", perms: ["billing.view", "plans.view"], mode: "any" },
 
-  // Enterprise + sales
-  { prefix: "/superadmin/enterprise", perms: ["billing.view", "plans.view"], mode: "any" },
-  { prefix: "/superadmin/sales-inquiries", perms: ["billing.view", "plans.view"], mode: "any" },
+  // Enterprise + sales (dedicated module permissions)
+  { prefix: "/superadmin/enterprise", perms: ["enterprise.view"] },
+  { prefix: "/superadmin/sales-inquiries", perms: ["sales.view"] },
 
-  // Content / announcements
-  { prefix: "/superadmin/notifications", perms: ["system.manage_settings"] },
+  // Notifications / announcements
+  { prefix: "/superadmin/notifications", perms: ["notifications.view"] },
   { prefix: "/superadmin/announcements", perms: ["announcements.view"] },
 
   // Templates
@@ -52,14 +52,14 @@ export const SUPERADMIN_ACCESS_RULES = [
 
   // System / observability
   { prefix: "/superadmin/logs", perms: ["system.view_logs"] },
-  { prefix: "/superadmin/health", perms: ["system.view_health", "system.view_logs"], mode: "any" },
+  { prefix: "/superadmin/health", perms: ["health.view"] },
 
-  // Finance operations
-  { prefix: "/superadmin/refunds", perms: ["billing.refund", "billing.view"], mode: "any" },
-  { prefix: "/superadmin/dunning", perms: ["billing.view"] },
+  // Finance operations (dedicated module permissions)
+  { prefix: "/superadmin/refunds", perms: ["refunds.view"] },
+  { prefix: "/superadmin/dunning", perms: ["dunning.view"] },
 
   // Settings
-  { prefix: "/superadmin/settings", perms: ["system.view_settings", "system.manage_settings"], mode: "any" },
+  { prefix: "/superadmin/settings", perms: ["settings.view", "settings.manage"], mode: "any" },
 ];
 
 /**
