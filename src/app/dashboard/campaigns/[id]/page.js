@@ -10,13 +10,14 @@ import {
   Send, Check, X, AlertTriangle, Clock, CheckCircle2, XCircle,
 } from 'lucide-react'
 import useBlockBackNavigation from '@/lib/useBlockBackNavigation'
+import TenantPermissionGate from "@/components/dashboard/TenantPermissionGate";
 
 const STATUS_COLORS = {
   draft: 'text-gray-700', pending: 'text-amber-700', active: 'text-green-700',
   finished: 'text-blue-700', failed: 'text-red-700', suspended: 'text-purple-700'
 }
 
-export default function CampaignDetailPage() {
+function CampaignDetailPageInner() {
   const { user, loadingUser, requiresOnboarding, activeTenant, t } = useApp()
   const router = useRouter()
   const params = useParams()
@@ -252,4 +253,12 @@ function RecipientStatus({ status, t }) {
       <Icon className="w-3 h-3" /> {t(cfg.labelKey)}
     </span>
   )
+}
+
+export default function CampaignDetailPage(props) {
+  return (
+    <TenantPermissionGate permission="campaigns.view">
+      <CampaignDetailPageInner {...props} />
+    </TenantPermissionGate>
+  );
 }

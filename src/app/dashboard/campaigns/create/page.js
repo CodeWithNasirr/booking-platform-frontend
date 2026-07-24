@@ -19,6 +19,7 @@ import {
   ArrowLeft, Image as ImageIcon, Film, Users,
 } from 'lucide-react'
 import useBlockBackNavigation from '@/lib/useBlockBackNavigation'
+import TenantPermissionGate from "@/components/dashboard/TenantPermissionGate";
 
 const AUDIENCE_OPTIONS = [
   { value: 'all_customers', labelKey: 'campaigns.audience.allCustomers' },
@@ -36,7 +37,7 @@ const MESSAGE_TAGS = [
 
 const MAX_CONTENT_LENGTH = 4096
 
-export default function CreateCampaignPage() {
+function CreateCampaignPageInner() {
   const { user, loadingUser, requiresOnboarding, activeTenant, tenants, t } = useApp()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -1263,3 +1264,11 @@ function getDefaultDateTime(tenantTz) {
 // function getDefaultDateTime(tenantTz) {
 //   return dayjs().tz(tenantTz || 'UTC').format('YYYY-MM-DDTHH:mm')
 // }
+
+export default function CreateCampaignPage(props) {
+  return (
+    <TenantPermissionGate permission="campaigns.manage">
+      <CreateCampaignPageInner {...props} />
+    </TenantPermissionGate>
+  );
+}

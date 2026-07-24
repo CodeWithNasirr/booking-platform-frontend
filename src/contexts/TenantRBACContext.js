@@ -148,8 +148,10 @@ async function fetchRBAC() {
         return sidebarMap[menuKey];
       }
 
-      // Fallback: always show if no mapping defined
-      return true;
+      // Default-DENY: an item with no permission mapping must never leak.
+      // Every real menu key is mapped in SIDEBAR_PERMISSION_MAP; anything
+      // unmapped is treated as forbidden rather than shown to everyone.
+      return false;
     },
     [membership, sidebarMap]
   );
