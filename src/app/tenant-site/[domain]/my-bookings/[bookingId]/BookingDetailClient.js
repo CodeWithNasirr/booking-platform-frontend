@@ -196,6 +196,36 @@ export default function BookingDetailClient({
   })();
 
   const [cancelling, setCancelling] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  const submitReview = useCallback(async () => {
+    const auth = resolveToken(tenantId);
+    setReviewSubmitting(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/v1/bookings/${bookingId}/submit_review/`,
+        {
+          method: "POST",
+          headers: buildGuestHeaders(domain, auth.token),
+          body: JSON.stringify({ rating: reviewRating, comment: reviewComment }),
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || data.error || "Could not submit your review.");
+      }
+      setReviewOpen(false);
+      setReviewComment("");
+      await fetchBookingDetail();
+    } catch (e) {
+      alert(e.message || "Could not submit your review.");
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }, [tenantId, domain, bookingId, reviewRating, reviewComment, fetchBookingDetail]);
 
   const handleCancelBooking = useCallback(async () => {
     const reason = window.prompt("Why are you cancelling this booking? (optional)", "");
@@ -541,9 +571,9 @@ export default function BookingDetailClient({
                 </button>
               )}
               
-              {booking.status === "completed" && (
+              {booking.status === "completed" && !booking.has_review && (
                 <button
-                  onClick={() => alert("Review functionality coming soon")}
+                  onClick={() => setReviewOpen(true)}
                   className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium"
                 >
                   Leave Review
@@ -566,6 +596,55 @@ export default function BookingDetailClient({
       </main>
 
       {footer?.length > 0 && <LayoutRenderer sections={[footer]} site={site} />}
+
+      {/* Review modal */}
+      {reviewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setReviewOpen(false)} />
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Leave a review</h3>
+            <p className="text-sm text-gray-500 mb-4">How was your consultation?</p>
+
+            <div className="flex items-center gap-1 mb-4">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setReviewRating(n)}
+                  className={`text-3xl leading-none ${n <= reviewRating ? "text-yellow-400" : "text-gray-300"}`}
+                  aria-label={`${n} star${n > 1 ? "s" : ""}`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              value={reviewComment}
+              onChange={(e) => setReviewComment(e.target.value)}
+              rows={4}
+              placeholder="Share a few words about your experience (optional)"
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setReviewOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitReview}
+                disabled={reviewSubmitting}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+              >
+                {reviewSubmitting ? "Submitting…" : "Submit review"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }
