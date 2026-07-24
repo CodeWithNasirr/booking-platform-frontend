@@ -31,12 +31,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     getWarningsForFeature,
     loading: integrationLoading,
   } = useIntegrationStatus();
-  console.log("[AUTH-TRACE] Sidebar(provider) render", {
-    pathname,
-    isActive,
-    isApproved,
-    integrationLoading,
-  });
+  // console.log("[AUTH-TRACE] Sidebar(provider) render", {
+  //   pathname,
+  //   isActive,
+  //   isApproved,
+  //   integrationLoading,
+  // });
 
   const isDeactivated = !isActive;
   const isPending = !isApproved && isActive;

@@ -38,6 +38,7 @@ export default function NotificationTabs({ rules, onChange }) {
   const [editingRule, setEditingRule] = useState(null)
   const [loading, setLoading] = useState(false)
   const [categories, setCategories] = useState(FALLBACK_CATEGORIES)
+  const [registryEvents, setRegistryEvents] = useState([])
 
   // Category tabs come from the backend registry so the settings
   // screen never drifts from notification_registry.py again.
@@ -45,15 +46,20 @@ export default function NotificationTabs({ rules, onChange }) {
     if (!activeTenant) return
     let cancelled = false
     fetchNotificationRegistry(activeTenant, 'tenant')
-      .then((data) => {
-        if (cancelled || !Array.isArray(data.categories) || data.categories.length === 0) return
+    .then((data) => {
+      if (cancelled) return
+
+      setRegistryEvents(data.events || [])
+
+      if (Array.isArray(data.categories) && data.categories.length > 0) {
         setCategories(
           data.categories.map((key) => ({
             key,
             labelKey: `settings.notifications.categories.${key}`,
           })),
         )
-      })
+      }
+    })
       .catch(() => { /* fallback list stays */ })
     return () => { cancelled = true }
   }, [activeTenant])
@@ -263,12 +269,17 @@ export default function NotificationTabs({ rules, onChange }) {
       )}
 
       {editingRule && (
-        <TemplateModal
+       <TemplateModal
           rule={editingRule}
+          registryEvent={
+              registryEvents.find(
+                  e => e.event === editingRule.event
+              )
+          }
           onClose={() => setEditingRule(null)}
           onSave={handleSaveTemplate}
           activeTenant={activeTenant}
-        />
+      />
       )}
     </div>
   )

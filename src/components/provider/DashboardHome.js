@@ -31,7 +31,7 @@ export default function ProviderHome() {
   }, [activeTenant]);
 
   const fetchDashboardData = async () => {
-    console.log("[AUTH-TRACE] provider dashboard fetch START");
+    // console.log("[AUTH-TRACE] provider dashboard fetch START");
     try {
       const headers = {
         'Authorization': `Bearer ${Cookies.get("access_token")}`,

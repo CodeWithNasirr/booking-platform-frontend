@@ -85,6 +85,7 @@ function BookingDetailInner() {
   const tenantId = activeTenant?.id || activeTenant;
 
   const [booking, setBooking] = useState(null);
+
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
 
@@ -101,6 +102,7 @@ function BookingDetailInner() {
         },
         credentials: "include",
       });
+      console.log(res,"res")
       if (!res.ok) throw new Error(`Failed to load booking (${res.status})`);
       setBooking(await res.json());
     } catch (e) {
@@ -113,6 +115,11 @@ function BookingDetailInner() {
   useEffect(() => {
     fetchBooking();
   }, [fetchBooking]);
+
+  const scheduledDateTime =
+    booking?.scheduled_date && booking?.scheduled_time
+      ? `${booking.scheduled_date}T${booking.scheduled_time}`
+      : null;
 
   if (loading) {
     return (
@@ -215,15 +222,17 @@ function BookingDetailInner() {
           <Row
             icon={Calendar}
             label="Date"
-            value={fmtDate(booking.scheduled_datetime)}
+            value={fmtDate(scheduledDateTime)}
           />
           <Row
             icon={Clock}
             label="Time"
             value={
-              booking.scheduled_datetime
-                ? `${fmtTime(booking.scheduled_datetime)}${
-                    booking.duration_minutes ? ` · ${booking.duration_minutes} min` : ""
+              scheduledDateTime
+                ? `${fmtTime(scheduledDateTime)}${
+                    booking.duration_minutes
+                      ? ` · ${booking.duration_minutes} min`
+                      : ""
                   }`
                 : "—"
             }
