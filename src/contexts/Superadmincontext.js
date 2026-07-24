@@ -89,6 +89,11 @@ export function SuperAdminProvider({ children }) {
     [hasPermission]
   );
 
+  const hasAllPermissions = useCallback(
+    (codes = []) => codes.every((c) => hasPermission(c)),
+    [hasPermission]
+  );
+
   // ── Logout ───────────────────────────────────────────────────
   const logout = useCallback(async () => {
     try {
@@ -121,6 +126,7 @@ export function SuperAdminProvider({ children }) {
         loading,
         hasPermission,
         hasAnyPermission,
+        hasAllPermissions,
         logout,
       }}
     >

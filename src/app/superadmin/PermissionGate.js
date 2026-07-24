@@ -32,7 +32,7 @@ export default function PermissionGate({
   silent = false,
   children,
 }) {
-  const { hasPermission, hasAnyPermission, platform, loading } = useSuperAdmin();
+  const { hasAnyPermission, hasAllPermissions, loading } = useSuperAdmin();
 
   if (loading) return null;
 
@@ -43,12 +43,8 @@ export default function PermissionGate({
   if (codes.length === 0) return <>{children}</>;
 
   // Check permissions
-  let allowed = false;
-  if (mode === "all") {
-    allowed = codes.every((c) => hasPermission(c));
-  } else {
-    allowed = hasAnyPermission(codes);
-  }
+  const allowed =
+    mode === "all" ? hasAllPermissions(codes) : hasAnyPermission(codes);
 
   if (allowed) return <>{children}</>;
 
@@ -62,7 +58,7 @@ export default function PermissionGate({
       <Shield className="w-12 h-12 mb-3 text-gray-300" />
       <p className="text-sm font-medium">Access Denied</p>
       <p className="text-xs text-gray-400 mt-1">
-        You don't have permission to view this content.
+        You don&apos;t have permission to view this content.
       </p>
     </div>
   );

@@ -1,7 +1,12 @@
-// app/superadmin/support/[ticketId]/page.jsx
+"use client";
 
+import SuperAdminLayout from "@/components/superadmin/SuperAdminLayout";
 import ComingSoon from "@/components/ui/ComingSoon";
 
 export default function SupportTicketPage() {
-  return <ComingSoon title="Support Ticket Page" />;
+  return (
+    <SuperAdminLayout>
+      <ComingSoon title="Support Ticket Page" />
+    </SuperAdminLayout>
+  );
 }
