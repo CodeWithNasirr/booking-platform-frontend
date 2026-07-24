@@ -22,6 +22,7 @@ import {
   ChevronDown
 } from 'lucide-react'
 import useBlockBackNavigation from '@/lib/useBlockBackNavigation'
+import TenantPermissionGate from "@/components/dashboard/TenantPermissionGate";
 
 const mockChatThreads = [
   {
@@ -148,7 +149,7 @@ const statusConfig = {
   }
 }
 
-export default function TenantChatPage() {
+function TenantChatPageInner() {
   const { user, loadingUser, requiresOnboarding } = useApp()
   const router = useRouter()
   const messagesEndRef = useRef(null)
@@ -816,4 +817,12 @@ export default function TenantChatPage() {
       </div>
     </div>
   )
+}
+
+export default function TenantChatPage(props) {
+  return (
+    <TenantPermissionGate permission="chat.view">
+      <TenantChatPageInner {...props} />
+    </TenantPermissionGate>
+  );
 }

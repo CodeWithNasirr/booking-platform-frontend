@@ -12,6 +12,7 @@ import {
   ChevronLeft, ChevronRight, MoreHorizontal, FileText,
 } from 'lucide-react'
 import useBlockBackNavigation from '@/lib/useBlockBackNavigation'
+import TenantPermissionGate from "@/components/dashboard/TenantPermissionGate";
 
 const STATUS_TABS = [
   { key: 'all', labelKey: 'campaigns.status.all', color: 'bg-gray-800' },
@@ -23,7 +24,7 @@ const STATUS_TABS = [
   { key: 'failed', labelKey: 'campaigns.status.failed', color: 'bg-red-500' },
 ]
 
-export default function CampaignsPage() {
+function CampaignsPageInner() {
   const { user, loadingUser, requiresOnboarding, activeTenant, t } = useApp()
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -279,4 +280,12 @@ function CampaignStatusBadge({ status, t }) {
       {t(cfg.labelKey)}
     </span>
   )
+}
+
+export default function CampaignsPage(props) {
+  return (
+    <TenantPermissionGate permission="campaigns.view">
+      <CampaignsPageInner {...props} />
+    </TenantPermissionGate>
+  );
 }

@@ -730,7 +730,7 @@ function AuditLogsContent() {
 
 export default function AuditLogsPage() {
   return (
-    <TenantPermissionGate permission="settings.view">
+    <TenantPermissionGate permission="logs.view">
       <AuditLogsContent />
     </TenantPermissionGate>
   );
@@ -1464,7 +1464,7 @@ export default function AuditLogsPage() {
 
 // export default function AuditLogsPage() {
 //   return (
-//     <TenantPermissionGate permission="settings.view">
+//     <TenantPermissionGate permission="logs.view">
 //       <AuditLogsContent />
 //     </TenantPermissionGate>
 //   );

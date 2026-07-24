@@ -6,7 +6,7 @@ import BillingDashboard from "./BillingDashboard";
 
 export default function BillingPage() {
   return (
-    <TenantPermissionGate permission="dashboard.view">
+    <TenantPermissionGate permission="billing.view">
       <BillingDashboard />
     </TenantPermissionGate>
   );
