@@ -172,10 +172,13 @@ export default function BookingsPage() {
   };
 
   const handleJoinMeeting = (booking) => {
+    // External meeting (Google Meet / Zoom) → open the provider's link.
+    // Native consultation → open the in-app workspace where the live
+    // session (voice / video / screen) lives.
     if (booking.meetingUrl) {
       window.open(booking.meetingUrl, '_blank');
     } else {
-      toast.error(t('bookings_error_meeting_link'));
+      router.push(`/provider/bookings/${booking.bookingId}`);
     }
   };
 
@@ -404,11 +407,11 @@ export default function BookingsPage() {
                       </button>
                       <button
                         onClick={() => handleJoinMeeting(booking)}
-                        disabled={!booking.meetingUrl || booking.status !== t('bookings_status_upcoming')}
+                        disabled={booking.status !== t('bookings_status_upcoming')}
                         className="bg-white border border-[rgba(0,0,0,0.08)] h-[32px] px-4 rounded-[10px] text-[#1a1a1a] text-[14px] font-medium hover:bg-gray-50 transition-colors flex items-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         <Video size={14} />
-                        {t('bookings_join_meeting')}
+                        {booking.meetingUrl ? t('bookings_join_meeting') : (t('bookings_live_session') || 'Live session')}
                       </button>
                       <button
                         onClick={() => handleCancel(booking)}
