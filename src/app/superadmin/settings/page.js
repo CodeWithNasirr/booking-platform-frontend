@@ -189,6 +189,7 @@ export default function SettingsPage() {
             >
               <option value="stripe">{t("provider_stripe")}</option>
               <option value="hyperpay">{t("provider_hyperpay")}</option>
+              <option value="moyasar">Moyasar</option>
             </select>
           </FieldRow>
           <FieldRow label={t("settings_hyperpay_sandbox")}>

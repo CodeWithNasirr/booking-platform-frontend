@@ -27,6 +27,10 @@ import {
   disconnectStripeConnect,
   configureHyperPay,
   disconnectHyperPay,
+  configureMoyasar,
+  testMoyasar,
+  disconnectMoyasar,
+  setPreferredGateway,
 } from "@/lib/gatewayApi";
 import { useSearchParams } from "next/navigation";
 
@@ -36,6 +40,7 @@ export default function PaymentGatewaySection({ activeTenant }) {
   const [loading, setLoading] = useState(true);
   const [actionLoading, setActionLoading] = useState(null);
   const [showHyperPayForm, setShowHyperPayForm] = useState(false);
+  const [showMoyasarForm, setShowMoyasarForm] = useState(false);
   const [toast, setToast] = useState(null);
 
   const loadStatus = useCallback(async () => {
@@ -119,6 +124,35 @@ export default function PaymentGatewaySection({ activeTenant }) {
     }
   };
 
+  // ── Moyasar handlers ──
+  const handleMoyasarDisconnect = async () => {
+    if (!confirm("Disconnect Moyasar? Mada and card payments through Moyasar will stop."))
+      return;
+    setActionLoading("moyasar_disconnect");
+    try {
+      await disconnectMoyasar(activeTenant);
+      showToast("Moyasar disconnected");
+      loadStatus();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleSetPreferred = async (provider) => {
+    setActionLoading(`prefer_${provider}`);
+    try {
+      await setPreferredGateway(activeTenant, provider);
+      showToast(`${provider} set as preferred gateway`);
+      loadStatus();
+    } catch (err) {
+      showToast(err.message, "error");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   if (loading) {
     return (
       <div className="bg-white rounded-2xl border border-gray-200 p-8">
@@ -131,7 +165,9 @@ export default function PaymentGatewaySection({ activeTenant }) {
 
   const stripe = status?.gateways?.stripe_connect || {};
   const hyperpay = status?.gateways?.hyperpay || {};
+  const moyasar = status?.gateways?.moyasar || {};
   const anyConnected = status?.connected || false;
+  const activeGateway = status?.active_gateway || null;
 
   return (
     <div className="space-y-4">
@@ -168,7 +204,7 @@ export default function PaymentGatewaySection({ activeTenant }) {
       )}
 
       {/* Gateway Cards */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {/* ═══ STRIPE CONNECT ═══ */}
         <div
           className={`rounded-2xl border p-5 transition-all ${
@@ -361,7 +397,137 @@ export default function PaymentGatewaySection({ activeTenant }) {
             )}
           </div>
         </div>
+
+        {/* ═══ MOYASAR ═══ */}
+        <div
+          className={`rounded-2xl border p-5 transition-all ${
+            moyasar.connected
+              ? "border-green-200 bg-green-50/30"
+              : "border-gray-200 bg-white hover:border-[#8B1E3F]/30"
+          }`}
+        >
+          <div className="flex items-start gap-4 mb-4">
+            <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-sky-600 to-cyan-600 flex items-center justify-center shadow-md">
+              <Globe className="w-6 h-6 text-white" />
+            </div>
+            <div className="flex-1">
+              <div className="flex items-center justify-between">
+                <h3 className="font-bold text-gray-900">Moyasar</h3>
+                <GatewayDot connected={moyasar.connected} />
+              </div>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Mada, Visa, Mastercard, Apple Pay, STC Pay (Saudi Arabia)
+              </p>
+            </div>
+          </div>
+
+          {/* Connected details */}
+          {moyasar.connected && (
+            <div className="mb-4 p-3 rounded-lg bg-green-50 border border-green-100 space-y-1">
+              <div className="flex items-center gap-2 text-sm text-green-700">
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>Payments active</span>
+              </div>
+              {moyasar.test_mode !== null && (
+                <div className="flex items-center gap-2 text-xs">
+                  <span
+                    className={`px-2 py-0.5 rounded-md font-bold ${
+                      moyasar.test_mode
+                        ? "bg-amber-100 text-amber-700"
+                        : "bg-green-100 text-green-700"
+                    }`}
+                  >
+                    {moyasar.test_mode ? "TEST MODE" : "LIVE"}
+                  </span>
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* Supported methods — only what the integration supports */}
+          <div className="flex flex-wrap gap-1.5 mb-4">
+            {(moyasar.connected
+              ? (moyasar.supported_methods || [])
+              : ["mada", "visa", "mastercard", "applepay", "stcpay"]
+            ).map((f) => (
+              <span
+                key={f}
+                className="px-2 py-0.5 text-[11px] font-medium text-gray-600 bg-gray-50 rounded-md border border-gray-100 capitalize"
+              >
+                {f}
+              </span>
+            ))}
+          </div>
+
+          {/* Preferred badge / action */}
+          {moyasar.connected && (
+            <div className="mb-3">
+              {activeGateway === "moyasar" ? (
+                <span className="inline-flex items-center gap-1 text-[11px] font-bold text-[#8B1E3F]">
+                  <CheckCircle2 className="w-3.5 h-3.5" /> Preferred gateway
+                </span>
+              ) : (
+                <button
+                  onClick={() => handleSetPreferred("moyasar")}
+                  disabled={actionLoading === "prefer_moyasar"}
+                  className="text-[11px] font-medium text-gray-500 hover:text-[#8B1E3F] underline"
+                >
+                  {actionLoading === "prefer_moyasar" ? "Setting…" : "Set as preferred"}
+                </button>
+              )}
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-2">
+            {moyasar.connected ? (
+              <>
+                <button
+                  onClick={() => setShowMoyasarForm(true)}
+                  className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl border border-gray-200 text-gray-700 font-medium hover:bg-gray-50 text-sm"
+                >
+                  <CreditCard className="w-4 h-4" />
+                  Configure
+                </button>
+                <button
+                  onClick={handleMoyasarDisconnect}
+                  disabled={actionLoading === "moyasar_disconnect"}
+                  className="px-3 py-2.5 rounded-xl border border-red-200 text-red-500 hover:bg-red-50"
+                >
+                  {actionLoading === "moyasar_disconnect" ? (
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                  ) : (
+                    <Unplug className="w-4 h-4" />
+                  )}
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => setShowMoyasarForm(true)}
+                className="flex-1 flex items-center justify-center gap-2 px-3 py-2.5 rounded-xl text-white bg-gradient-to-br from-[#8B1E3F] to-[#6B1630] hover:opacity-90 shadow-sm font-medium text-sm"
+              >
+                <Zap className="w-4 h-4" />
+                Connect Moyasar
+              </button>
+            )}
+          </div>
+        </div>
       </div>
+
+      {/* ═══ MOYASAR CONFIG MODAL ═══ */}
+      {showMoyasarForm && (
+        <MoyasarConfigModal
+          activeTenant={activeTenant}
+          existing={moyasar}
+          onClose={() => setShowMoyasarForm(false)}
+          onSuccess={() => {
+            setShowMoyasarForm(false);
+            showToast("Moyasar configured successfully!");
+            loadStatus();
+          }}
+          onToast={showToast}
+        />
+      )}
 
       {/* ═══ HYPERPAY CONFIG MODAL ═══ */}
       {showHyperPayForm && (
@@ -409,6 +575,204 @@ function GatewayDot({ connected }) {
       <span className="text-[11px] font-medium text-gray-500">
         {connected ? "Connected" : "Not connected"}
       </span>
+    </div>
+  );
+}
+
+// ── Moyasar Config Modal ───────────────────────────────────────
+
+function MoyasarConfigModal({ activeTenant, existing, onClose, onSuccess, onToast }) {
+  const [form, setForm] = useState({
+    secret_key: "",
+    publishable_key: existing?.publishable_key || "",
+    webhook_secret: "",
+  });
+  const [saving, setSaving] = useState(false);
+  const [testing, setTesting] = useState(false);
+  const [error, setError] = useState(null);
+  const [showSecret, setShowSecret] = useState(false);
+
+  // test/live is derived from the key prefix (never mixed).
+  const env = form.secret_key.startsWith("sk_live_")
+    ? "live"
+    : form.secret_key.startsWith("sk_test_")
+    ? "test"
+    : null;
+
+  const handleTest = async () => {
+    if (!form.secret_key.trim()) {
+      setError("Enter a secret key to test.");
+      return;
+    }
+    setTesting(true);
+    setError(null);
+    try {
+      const res = await testMoyasar(activeTenant, { secret_key: form.secret_key.trim() });
+      onToast?.(
+        `Connection succeeded (${res.test_mode ? "test" : "live"} mode).`,
+        "success"
+      );
+    } catch (err) {
+      setError(err.message || "Connection test failed.");
+    } finally {
+      setTesting(false);
+    }
+  };
+
+  const handleSave = async () => {
+    if (!form.secret_key.trim()) {
+      setError("Secret key is required.");
+      return;
+    }
+    if (!form.secret_key.startsWith("sk_test_") && !form.secret_key.startsWith("sk_live_")) {
+      setError("Secret key must start with sk_test_ or sk_live_.");
+      return;
+    }
+    setSaving(true);
+    setError(null);
+    try {
+      await configureMoyasar(activeTenant, {
+        secret_key: form.secret_key.trim(),
+        publishable_key: form.publishable_key.trim(),
+        webhook_secret: form.webhook_secret.trim(),
+      });
+      onSuccess();
+    } catch (err) {
+      setError(err.message || "Configuration failed. Check your credentials.");
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+      <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl">
+        <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
+          <div>
+            <h2 className="text-lg font-bold text-gray-900">Configure Moyasar</h2>
+            <p className="text-sm text-gray-500 mt-0.5">
+              Enter your Moyasar API keys from the Moyasar Dashboard
+            </p>
+          </div>
+          <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl">
+            <X className="w-5 h-5 text-gray-400" />
+          </button>
+        </div>
+
+        <div className="px-6 py-5 space-y-4">
+          {error && (
+            <div className="p-3 rounded-xl bg-red-50 border border-red-200 text-sm text-red-700">
+              {error}
+            </div>
+          )}
+
+          {env && (
+            <div
+              className={`flex items-center gap-2 p-3 rounded-xl text-sm font-medium ${
+                env === "live"
+                  ? "bg-green-50 border border-green-200 text-green-700"
+                  : "bg-amber-50 border border-amber-200 text-amber-700"
+              }`}
+            >
+              <Globe className="w-4 h-4" />
+              {env === "live"
+                ? "LIVE keys — real charges will be made."
+                : "TEST keys — sandbox mode, no real charges."}
+            </div>
+          )}
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              Secret Key <span className="text-red-500">*</span>
+            </label>
+            <div className="relative">
+              <input
+                type={showSecret ? "text" : "password"}
+                value={form.secret_key}
+                onChange={(e) => setForm({ ...form, secret_key: e.target.value })}
+                placeholder="sk_test_… or sk_live_…"
+                className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none text-sm font-mono"
+              />
+              <button
+                type="button"
+                onClick={() => setShowSecret(!showSecret)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+              >
+                {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+              </button>
+            </div>
+            <p className="text-xs text-gray-500 mt-1">
+              Stored securely on the server. Never shown again after saving.
+            </p>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              Publishable Key <span className="text-gray-400 font-normal">(recommended)</span>
+            </label>
+            <input
+              type="text"
+              value={form.publishable_key}
+              onChange={(e) => setForm({ ...form, publishable_key: e.target.value })}
+              placeholder="pk_test_… or pk_live_…"
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none text-sm font-mono"
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-gray-700 mb-2">
+              Webhook Secret <span className="text-gray-400 font-normal">(optional)</span>
+            </label>
+            <input
+              type="text"
+              value={form.webhook_secret}
+              onChange={(e) => setForm({ ...form, webhook_secret: e.target.value })}
+              placeholder="Shared secret token for webhook verification"
+              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none text-sm font-mono"
+            />
+          </div>
+
+          <div className="p-4 rounded-xl bg-blue-50 border border-blue-200">
+            <p className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-1">
+              Where to find these
+            </p>
+            <ol className="text-xs text-blue-700 space-y-1 list-decimal list-inside">
+              <li>Log in to your Moyasar Dashboard</li>
+              <li>Open Settings → API Keys</li>
+              <li>Copy the Publishable and Secret keys</li>
+              <li>Webhook secret: Settings → Webhooks (the shared secret token)</li>
+            </ol>
+          </div>
+        </div>
+
+        <div className="px-6 py-4 border-t border-gray-200 flex justify-between gap-3">
+          <button
+            onClick={handleTest}
+            disabled={testing || !form.secret_key.trim()}
+            className="px-4 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 text-sm flex items-center gap-2 disabled:opacity-50"
+          >
+            {testing ? <Loader2 className="w-4 h-4 animate-spin" /> : <Zap className="w-4 h-4" />}
+            Test Connection
+          </button>
+          <div className="flex gap-3">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-gray-50 text-sm"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={saving || !form.secret_key.trim()}
+              className="px-5 py-2.5 rounded-xl text-white bg-gradient-to-br from-[#8B1E3F] to-[#6B1630] hover:opacity-90 shadow-md font-medium text-sm flex items-center gap-2 disabled:opacity-50"
+            >
+              {saving ? <Loader2 className="w-4 h-4 animate-spin" /> : <Check className="w-4 h-4" />}
+              {saving ? "Validating..." : "Save & Verify"}
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
   );
 }
