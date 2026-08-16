@@ -1180,7 +1180,7 @@ function ConfirmAndPay({
                 {resolveTranslated({ en: "Booking ID", ar: "رقم الحجز", ur: "بکنگ آئی ڈی" }, lang)}
               </span>
               <span className="font-semibold text-gray-900">
-                {bookingResult.booking_id || bookingResult.id || "#" + Date.now().toString(36).toUpperCase()}
+                {bookingResult.booking_id || bookingResult.id || bookingResult.booking_number || "—"}
               </span>
             </div>
             

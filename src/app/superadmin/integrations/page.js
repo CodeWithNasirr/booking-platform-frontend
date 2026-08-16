@@ -51,6 +51,32 @@ export default function IntegrationsPage() {
         ],
       },
       {
+        id: 'hyperpay',
+        name: 'HyperPay',
+        icon: CreditCard,
+        color: 'from-green-500 to-emerald-500',
+        status: 'active',
+        description: 'MADA, Visa, Mastercard, Apple Pay (Saudi Arabia)',
+        fields: [
+          { key: 'entity_id', label: 'Entity ID', value: '' },
+          { key: 'access_token', label: 'Access Token', value: '' },
+          { key: 'mada_entity_id', label: 'MADA Entity ID', value: '' },
+        ],
+      },
+      {
+        id: 'moyasar',
+        name: 'Moyasar',
+        icon: CreditCard,
+        color: 'from-sky-500 to-cyan-500',
+        status: 'active',
+        description: 'Mada, Visa, Mastercard, Apple Pay, STC Pay (Saudi Arabia)',
+        fields: [
+          { key: 'publishable_key', label: 'Publishable Key', value: 'pk_live_...' },
+          { key: 'secret_key', label: 'Secret Key', value: 'sk_live_...' },
+          { key: 'webhook_secret', label: 'Webhook Secret (secret_token)', value: '' },
+        ],
+      },
+      {
         id: 'paypal',
         name: 'PayPal',
         icon: CreditCard,
