@@ -188,6 +188,14 @@ export default function OrderCheckout({ service, domain }) {
 
       const result = await initiateOrderPayment(domain, payload);
       console.log("PAYMENT RESPONSE:", result);
+
+      // Moyasar hosted-invoice flow: redirect the customer to the hosted
+      // payment page. Backend verifies the real status on callback/webhook.
+      if (result.gateway === "moyasar" && result.redirect_url) {
+        window.location.href = result.redirect_url;
+        return;
+      }
+
       const gateway = detectGateway(result);
  
       // Persist payment state (survives refresh)

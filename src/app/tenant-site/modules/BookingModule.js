@@ -399,9 +399,15 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
                   }),
                 }
               );
+              // Moyasar hosted-invoice flow: redirect to the hosted page.
+              if (data.gateway === "moyasar" && data.redirect_url) {
+                window.location.href = data.redirect_url;
+                return;
+              }
+
               const gateway = detectGateway(data);
               setActiveGateway(gateway);
- 
+
               if (gateway === GATEWAY.HYPERPAY) {
                 // HyperPay: store checkout data for widget
                 setHyperPayData({
