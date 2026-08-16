@@ -90,17 +90,25 @@ export default function BillingDashboard() {
       const url = new URL(window.location);
       url.searchParams.delete("checkout");
       window.history.replaceState(null, "", url.toString());
-      // Reload data after Stripe webhook processes (give it a moment)
-      setTimeout(() => loadData(), 2000);
+      // The subscription is activated server-side by the payment callback +
+      // webhook, which may land a moment after this redirect. Poll silently a
+      // few times so the UI reflects the new plan without a manual refresh.
+      let attempts = 0;
+      const poll = () => {
+        attempts += 1;
+        loadData(true);
+        if (attempts < 6) setTimeout(poll, 2500);
+      };
+      setTimeout(poll, 1500);
     } else if (checkout === "cancelled") {
       setCheckoutBanner("cancelled");
     }
   }, [searchParams]);
 
-  const loadData = useCallback(async () => {
+  const loadData = useCallback(async (silent = false) => {
     if (!activeTenant) return;
     try {
-      setLoading(true);
+      if (!silent) setLoading(true);
       const [dashData, plansData, entData] = await Promise.all([
         fetchBillingDashboard(activeTenant),
         fetchPlans(),
@@ -115,7 +123,7 @@ export default function BillingDashboard() {
     } catch (err) {
       console.error("Failed to load billing:", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [activeTenant]);
 
