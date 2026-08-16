@@ -172,6 +172,14 @@ export async function disconnectMoyasar(tenantId) {
   });
 }
 
+// Regenerate the tenant's Moyasar webhook secret (returns it once).
+export async function rotateMoyasarWebhook(tenantId) {
+  return apiCall(`${API}/api/v1/payments/gateway/moyasar/webhook/rotate/`, {
+    method: "POST",
+    headers: headers(tenantId),
+  });
+}
+
 // ── Preferred gateway (provider-agnostic) ────────────────────
 export async function setPreferredGateway(tenantId, provider) {
   // provider = "moyasar" | "stripe" | "hyperpay"

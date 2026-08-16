@@ -18,7 +18,7 @@ import { useState, useEffect, useCallback } from "react";
 import {
   CreditCard, Shield, Check, X, Loader2, ExternalLink,
   Unplug, ArrowRight, AlertTriangle, Eye, EyeOff, ChevronDown,
-  ChevronUp, Zap, Globe, CheckCircle2,
+  ChevronUp, Zap, Globe, CheckCircle2, Copy, RefreshCw, ShieldCheck,
 } from "lucide-react";
 import {
   fetchGatewayStatus,
@@ -31,6 +31,7 @@ import {
   testMoyasar,
   disconnectMoyasar,
   setPreferredGateway,
+  rotateMoyasarWebhook,
 } from "@/lib/gatewayApi";
 import { useSearchParams } from "next/navigation";
 
@@ -520,8 +521,8 @@ export default function PaymentGatewaySection({ activeTenant }) {
           activeTenant={activeTenant}
           existing={moyasar}
           onClose={() => setShowMoyasarForm(false)}
-          onSuccess={() => {
-            setShowMoyasarForm(false);
+          onSaved={() => {
+            // Reload status but keep the modal open to show the webhook secret.
             showToast("Moyasar configured successfully!");
             loadStatus();
           }}
@@ -581,23 +582,33 @@ function GatewayDot({ connected }) {
 
 // ── Moyasar Config Modal ───────────────────────────────────────
 
-function MoyasarConfigModal({ activeTenant, existing, onClose, onSuccess, onToast }) {
+function MoyasarConfigModal({ activeTenant, existing, onClose, onSaved, onToast }) {
   const [form, setForm] = useState({
     secret_key: "",
     publishable_key: existing?.publishable_key || "",
-    webhook_secret: "",
   });
   const [saving, setSaving] = useState(false);
   const [testing, setTesting] = useState(false);
+  const [rotating, setRotating] = useState(false);
   const [error, setError] = useState(null);
-  const [showSecret, setShowSecret] = useState(false);
+  const [showSecretInput, setShowSecretInput] = useState(false);
+  // After a successful save, the backend returns the tenant webhook URL +
+  // the freshly-generated webhook secret (shown ONCE). This drives step 2.
+  const [webhook, setWebhook] = useState(null); // { url, secret }
+  const [showWebhookSecret, setShowWebhookSecret] = useState(false);
 
-  // test/live is derived from the key prefix (never mixed).
   const env = form.secret_key.startsWith("sk_live_")
     ? "live"
     : form.secret_key.startsWith("sk_test_")
     ? "test"
     : null;
+
+  const copy = (val, label) => {
+    if (val) {
+      navigator.clipboard?.writeText(val);
+      onToast?.(`${label} copied`);
+    }
+  };
 
   const handleTest = async () => {
     if (!form.secret_key.trim()) {
@@ -608,10 +619,7 @@ function MoyasarConfigModal({ activeTenant, existing, onClose, onSuccess, onToas
     setError(null);
     try {
       const res = await testMoyasar(activeTenant, { secret_key: form.secret_key.trim() });
-      onToast?.(
-        `Connection succeeded (${res.test_mode ? "test" : "live"} mode).`,
-        "success"
-      );
+      onToast?.(`Connection succeeded (${res.test_mode ? "test" : "live"} mode).`, "success");
     } catch (err) {
       setError(err.message || "Connection test failed.");
     } finally {
@@ -631,12 +639,14 @@ function MoyasarConfigModal({ activeTenant, existing, onClose, onSuccess, onToas
     setSaving(true);
     setError(null);
     try {
-      await configureMoyasar(activeTenant, {
+      // Note: the tenant does NOT enter a webhook secret — the backend
+      // generates it and returns it once here.
+      const res = await configureMoyasar(activeTenant, {
         secret_key: form.secret_key.trim(),
         publishable_key: form.publishable_key.trim(),
-        webhook_secret: form.webhook_secret.trim(),
       });
-      onSuccess();
+      setWebhook({ url: res.webhook_url, secret: res.webhook_secret });
+      onSaved?.();
     } catch (err) {
       setError(err.message || "Configuration failed. Check your credentials.");
     } finally {
@@ -644,6 +654,99 @@ function MoyasarConfigModal({ activeTenant, existing, onClose, onSuccess, onToas
     }
   };
 
+  const handleRotate = async () => {
+    if (!confirm("Generate a new webhook secret? You must update it in your Moyasar dashboard afterwards."))
+      return;
+    setRotating(true);
+    try {
+      const res = await rotateMoyasarWebhook(activeTenant);
+      setWebhook({ url: res.webhook_url, secret: res.webhook_secret });
+      setShowWebhookSecret(true);
+      onToast?.("Webhook secret regenerated — update it in Moyasar.");
+    } catch (err) {
+      onToast?.(err.message || "Could not regenerate secret", "error");
+    } finally {
+      setRotating(false);
+    }
+  };
+
+  // ── STEP 2: webhook configuration (URL + generated secret) ──
+  if (webhook) {
+    return (
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+        <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
+        <div className="relative w-full max-w-lg bg-white rounded-2xl shadow-2xl">
+          <div className="px-6 py-5 border-b border-gray-200 flex items-center justify-between">
+            <div>
+              <h2 className="text-lg font-bold text-gray-900 flex items-center gap-2">
+                <ShieldCheck className="w-5 h-5 text-green-600" /> Moyasar Webhook Configuration
+              </h2>
+              <p className="text-sm text-gray-500 mt-0.5">
+                Copy these into your Moyasar dashboard → Settings → Webhooks
+              </p>
+            </div>
+            <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl">
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
+
+          <div className="px-6 py-5 space-y-4">
+            <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
+              The webhook secret is shown <strong>once</strong>. Copy it now — later it is masked.
+              You can regenerate it if lost.
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 mb-1">Webhook URL</label>
+              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <code className="text-xs text-gray-700 truncate flex-1">
+                  {webhook.url || "Set BACKEND_URL on the server to generate this."}
+                </code>
+                <button onClick={() => copy(webhook.url, "Webhook URL")} className="text-gray-400 hover:text-gray-700">
+                  <Copy className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-bold text-gray-600 mb-1">Webhook Secret</label>
+              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                <code className="text-xs text-gray-700 truncate flex-1 font-mono">
+                  {showWebhookSecret ? webhook.secret : "•".repeat(28)}
+                </code>
+                <button onClick={() => setShowWebhookSecret((v) => !v)} className="text-gray-400 hover:text-gray-700">
+                  {showWebhookSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+                <button onClick={() => copy(webhook.secret, "Webhook secret")} className="text-gray-400 hover:text-gray-700">
+                  <Copy className="w-4 h-4" />
+                </button>
+              </div>
+            </div>
+
+            <button
+              onClick={handleRotate}
+              disabled={rotating}
+              className="inline-flex items-center gap-2 text-xs font-medium text-gray-500 hover:text-[#8B1E3F] disabled:opacity-50"
+            >
+              {rotating ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <RefreshCw className="w-3.5 h-3.5" />}
+              Regenerate webhook secret
+            </button>
+          </div>
+
+          <div className="px-6 py-4 border-t border-gray-200 flex justify-end">
+            <button
+              onClick={onClose}
+              className="px-5 py-2.5 rounded-xl text-white bg-gradient-to-br from-[#8B1E3F] to-[#6B1630] hover:opacity-90 shadow-md font-medium text-sm"
+            >
+              Done
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // ── STEP 1: enter API keys ──
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={onClose} />
@@ -652,7 +755,7 @@ function MoyasarConfigModal({ activeTenant, existing, onClose, onSuccess, onToas
           <div>
             <h2 className="text-lg font-bold text-gray-900">Configure Moyasar</h2>
             <p className="text-sm text-gray-500 mt-0.5">
-              Enter your Moyasar API keys from the Moyasar Dashboard
+              Enter your Moyasar API keys — we generate the webhook secret for you
             </p>
           </div>
           <button onClick={onClose} className="p-2 hover:bg-gray-100 rounded-xl">
@@ -688,7 +791,7 @@ function MoyasarConfigModal({ activeTenant, existing, onClose, onSuccess, onToas
             </label>
             <div className="relative">
               <input
-                type={showSecret ? "text" : "password"}
+                type={showSecretInput ? "text" : "password"}
                 value={form.secret_key}
                 onChange={(e) => setForm({ ...form, secret_key: e.target.value })}
                 placeholder="sk_test_… or sk_live_…"
@@ -696,10 +799,10 @@ function MoyasarConfigModal({ activeTenant, existing, onClose, onSuccess, onToas
               />
               <button
                 type="button"
-                onClick={() => setShowSecret(!showSecret)}
+                onClick={() => setShowSecretInput(!showSecretInput)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
               >
-                {showSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                {showSecretInput ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
             <p className="text-xs text-gray-500 mt-1">
@@ -720,19 +823,6 @@ function MoyasarConfigModal({ activeTenant, existing, onClose, onSuccess, onToas
             />
           </div>
 
-          <div>
-            <label className="block text-sm font-bold text-gray-700 mb-2">
-              Webhook Secret <span className="text-gray-400 font-normal">(optional)</span>
-            </label>
-            <input
-              type="text"
-              value={form.webhook_secret}
-              onChange={(e) => setForm({ ...form, webhook_secret: e.target.value })}
-              placeholder="Shared secret token for webhook verification"
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:border-[#8B1E3F] focus:ring-2 focus:ring-[#8B1E3F]/20 outline-none text-sm font-mono"
-            />
-          </div>
-
           <div className="p-4 rounded-xl bg-blue-50 border border-blue-200">
             <p className="text-xs font-bold text-blue-800 uppercase tracking-wider mb-1">
               Where to find these
@@ -741,7 +831,7 @@ function MoyasarConfigModal({ activeTenant, existing, onClose, onSuccess, onToas
               <li>Log in to your Moyasar Dashboard</li>
               <li>Open Settings → API Keys</li>
               <li>Copy the Publishable and Secret keys</li>
-              <li>Webhook secret: Settings → Webhooks (the shared secret token)</li>
+              <li>After you save, we&apos;ll give you the Webhook URL + Secret to paste into Moyasar</li>
             </ol>
           </div>
         </div>
