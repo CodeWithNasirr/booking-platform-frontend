@@ -44,16 +44,18 @@ export default function PaymentGatewaySection({ activeTenant }) {
   const [showMoyasarForm, setShowMoyasarForm] = useState(false);
   const [toast, setToast] = useState(null);
 
-  const loadStatus = useCallback(async () => {
+  const loadStatus = useCallback(async (silent = false) => {
     if (!activeTenant) return;
     try {
-      setLoading(true);
+      // `silent` avoids flipping the top-level loading flag (which would
+      // unmount the config modal mid-flow and wipe its local state).
+      if (!silent) setLoading(true);
       const data = await fetchGatewayStatus(activeTenant);
       setStatus(data);
     } catch (err) {
       console.error("Failed to load gateway status:", err);
     } finally {
-      setLoading(false);
+      if (!silent) setLoading(false);
     }
   }, [activeTenant]);
 
@@ -522,9 +524,10 @@ export default function PaymentGatewaySection({ activeTenant }) {
           existing={moyasar}
           onClose={() => setShowMoyasarForm(false)}
           onSaved={() => {
-            // Reload status but keep the modal open to show the webhook secret.
+            // Reload status SILENTLY so the modal stays mounted and can show
+            // the webhook step (a non-silent reload would unmount it).
             showToast("Moyasar configured successfully!");
-            loadStatus();
+            loadStatus(true);
           }}
           onToast={showToast}
         />
@@ -645,7 +648,17 @@ function MoyasarConfigModal({ activeTenant, existing, onClose, onSaved, onToast 
         secret_key: form.secret_key.trim(),
         publishable_key: form.publishable_key.trim(),
       });
-      setWebhook({ url: res.webhook_url, secret: res.webhook_secret });
+      console.log(res);
+      console.log(res.webhook_url);
+      console.log(res.webhook_secret);
+      // Always advance to the webhook step (webhook !== null). The secret is
+      // only present when freshly generated; on re-configure it's intentionally
+      // empty (already stored, never re-exposed) → we show the URL + a rotate CTA.
+      setWebhook({
+        url: res.webhook_url || "",
+        secret: res.webhook_secret || "",
+        alreadyConfigured: res.webhook_secret_generated === false,
+      });
       onSaved?.();
     } catch (err) {
       setError(err.message || "Configuration failed. Check your credentials.");
@@ -692,8 +705,14 @@ function MoyasarConfigModal({ activeTenant, existing, onClose, onSaved, onToast 
 
           <div className="px-6 py-5 space-y-4">
             <div className="p-3 rounded-xl bg-amber-50 border border-amber-200 text-xs text-amber-800">
-              The webhook secret is shown <strong>once</strong>. Copy it now — later it is masked.
-              You can regenerate it if lost.
+              {webhook.secret ? (
+                <>The webhook secret is shown <strong>once</strong>. Copy it now — afterwards it
+                is stored securely and never shown again. Regenerate if lost.</>
+              ) : (
+                <>Moyasar is already configured. For security the existing webhook secret is
+                <strong> not shown again</strong>. If you no longer have it, regenerate a new one
+                below and update it in your Moyasar dashboard.</>
+              )}
             </div>
 
             <div>
@@ -710,17 +729,25 @@ function MoyasarConfigModal({ activeTenant, existing, onClose, onSaved, onToast 
 
             <div>
               <label className="block text-xs font-bold text-gray-600 mb-1">Webhook Secret</label>
-              <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
-                <code className="text-xs text-gray-700 truncate flex-1 font-mono">
-                  {showWebhookSecret ? webhook.secret : "•".repeat(28)}
-                </code>
-                <button onClick={() => setShowWebhookSecret((v) => !v)} className="text-gray-400 hover:text-gray-700">
-                  {showWebhookSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-                </button>
-                <button onClick={() => copy(webhook.secret, "Webhook secret")} className="text-gray-400 hover:text-gray-700">
-                  <Copy className="w-4 h-4" />
-                </button>
-              </div>
+              {webhook.secret ? (
+                <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  <code className="text-xs text-gray-700 truncate flex-1 font-mono">
+                    {showWebhookSecret ? webhook.secret : "•".repeat(28)}
+                  </code>
+                  <button onClick={() => setShowWebhookSecret((v) => !v)} className="text-gray-400 hover:text-gray-700">
+                    {showWebhookSecret ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                  </button>
+                  <button onClick={() => copy(webhook.secret, "Webhook secret")} className="text-gray-400 hover:text-gray-700">
+                    <Copy className="w-4 h-4" />
+                  </button>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+                  <code className="text-xs text-gray-400 truncate flex-1 font-mono">
+                    •••••••••••••••••••••••• (hidden — configured)
+                  </code>
+                </div>
+              )}
             </div>
 
             <button
