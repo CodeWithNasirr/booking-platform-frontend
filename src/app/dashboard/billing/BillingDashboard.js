@@ -129,15 +129,41 @@ export default function BillingDashboard() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
+  const TIER_ORDER = { free: 0, starter: 1, professional: 2, enterprise: 3 };
+
   const handleUpgrade = async (planTier) => {
+    const currentTier = dashboard?.current_plan?.tier || "free";
+    const isDowngrade = (TIER_ORDER[planTier] ?? 0) < (TIER_ORDER[currentTier] ?? 0);
+
+    // Downgrades are scheduled for the next billing cycle — confirm, don't
+    // change the plan immediately, and never open a Moyasar checkout.
+    if (isDowngrade) {
+      const ok = window.confirm(
+        `Downgrade to ${planTier}? Your current plan stays active until the end of your ` +
+        `billing period, then the downgrade takes effect. You won't be charged now.`
+      );
+      if (!ok) return;
+    }
+
     setActionLoading(planTier);
     try {
       const result = await createCheckout(activeTenant, planTier, billingInterval);
+      // Scheduled downgrade — no payment, current plan kept until effective date.
+      if (result.scheduled) {
+        setCheckoutBanner("scheduled");
+        setTimeout(() => loadData(true), 800);
+        return;
+      }
+      if (result.no_change) {
+        window.alert("You're already on this plan.");
+        return;
+      }
       if (result.free_plan || result.upgraded) {
         setCheckoutBanner(result.upgraded ? "upgraded" : "success");
         setTimeout(() => loadData(), 1500);
         return;
       }
+      // Upgrade → pay via Moyasar hosted checkout.
       if (result.checkout_url) window.location.href = result.checkout_url;
     } catch (err) {
       alert(err.message || "Something went wrong");
@@ -222,6 +248,18 @@ export default function BillingDashboard() {
       )}
       {checkoutBanner === "cancelled" && (
         <Banner type="warning" icon={AlertTriangle} title={t("billing.checkoutCancelled")} message={t("billing.checkoutCancelledDesc")} onDismiss={() => setCheckoutBanner(null)} />
+      )}
+      {checkoutBanner === "scheduled" && (
+        <Banner
+          type="warning"
+          icon={AlertTriangle}
+          title={t("billing.downgradeScheduled") || "Downgrade scheduled"}
+          message={
+            t("billing.downgradeScheduledDesc") ||
+            "Your current plan stays active until the end of this billing period, then the downgrade takes effect. You were not charged."
+          }
+          onDismiss={() => setCheckoutBanner(null)}
+        />
       )}
       {checkoutBanner === "enterprise_submitted" && (
         <Banner type="success" icon={Building2} title={t("billing.enterprise.submittedTitle") || "Request received"} message={t("billing.enterprise.submittedDesc") || "Our sales team will reach out shortly."} onDismiss={() => setCheckoutBanner(null)} />
