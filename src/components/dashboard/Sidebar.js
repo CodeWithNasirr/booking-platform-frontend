@@ -6,6 +6,7 @@ import { useApp } from "@/contexts/AppContext";
 import { usePlan } from "@/contexts/PlanContext";
 import { useTenantRBAC } from "@/contexts/TenantRBACContext";
 import { useIntegrationStatus } from "@/app/dashboard/integrations/hooks/useIntegrationStatus";
+import { useNotifications } from "@/contexts/NotificationsContext";
 import SidebarIntegrationDot from "../shared/SidebarIntegrationDot";
 import {
   LayoutDashboard,
@@ -42,7 +43,26 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     loading: integrationLoading,
   } = useIntegrationStatus();
 
+  // In-app unread counts (per sidebar category). Separate concept from the
+  // integration warning dots above — both can show on the same menu item.
+  const { byCategory, markCategoryRead } = useNotifications();
+
+  // Sidebar menu key → notification category.
+  const NOTIF_CATEGORY = {
+    "tenant-bookings": "bookings",
+    "tenant-orders": "orders",
+    "tenant-custom-requests": "custom_requests",
+    "tenant-support": "support",
+  };
+
   const go = (page) => {
+    // Deliberately opening a section clears ONLY that section's unread dot
+    // (backend mark-read). A plain dashboard load never clears anything.
+    const category = NOTIF_CATEGORY[page];
+    if (category && (byCategory?.[category] || 0) > 0) {
+      markCategoryRead(category);
+    }
+
     if (page === "tenant-dashboard") {
       router.push("/dashboard");
       return;
@@ -217,6 +237,24 @@ const menuItems = [
     );
   };
 
+  // ── Resolve unread notification badge for a menu item ──
+  // Distinct from the integration dot: this reflects new/unread items
+  // (bookings, orders, custom requests, support) from the backend feed.
+  const getNotificationBadge = (item) => {
+    const category = NOTIF_CATEGORY[item.key];
+    if (!category) return null;
+    const count = byCategory?.[category] || 0;
+    if (count <= 0) return null;
+    return (
+      <span
+        className="flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full bg-[#8B1E3F] text-white text-[10px] font-semibold flex items-center justify-center"
+        title={`${count} new`}
+      >
+        {count > 99 ? "99+" : count}
+      </span>
+    );
+  };
+
   const closedTransform = isRTL
   ? "translate-x-full"
   : "-translate-x-full";
@@ -300,6 +338,7 @@ const menuItems = [
                 : pathname === route || pathname.startsWith(route + "/");
 
             const dot = getIntegrationDot(item);
+            const badge = getNotificationBadge(item);
 
             return (
               <button
@@ -323,7 +362,12 @@ const menuItems = [
                 <span className="flex-1 font-medium whitespace-nowrap overflow-hidden text-ellipsis min-w-0">
                   {item.label}
                 </span>
-                {dot}
+                {(badge || dot) && (
+                  <span className={`flex items-center gap-1.5 ${isRTL ? "mr-auto" : "ml-auto"}`}>
+                    {badge}
+                    {dot}
+                  </span>
+                )}
               </button>
             );
           })}

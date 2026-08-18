@@ -1,9 +1,10 @@
 // src/components/dashboard/Topbar.js
 "use client";
 
-import { Menu, Bell } from "lucide-react";
+import { Menu } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
+import NotificationBell from "@/components/dashboard/NotificationBell";
 import IntegrationWarningBanner from "@/components/shared/IntegrationWarningBanner";
 import { useIntegrationStatus } from "@/app/dashboard/integrations/hooks/useIntegrationStatus";
 import { useTenantRBAC } from "@/contexts/TenantRBACContext";
@@ -40,7 +41,7 @@ export default function Topbar({ setSidebarOpen }) {
           }`}
         >
           <LanguageSwitcher />
-          <Bell className="w-5 h-5 text-muted-foreground" />
+          <NotificationBell />
 
           <div
             className={`flex items-center gap-2 border border-border rounded-xl px-3 py-2 ${

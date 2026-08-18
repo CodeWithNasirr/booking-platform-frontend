@@ -8,6 +8,7 @@ import useBlockBackNavigation from "@/lib/useBlockBackNavigation";
 import { PlanProvider } from "@/contexts/PlanContext";
 import { UpgradeProvider } from "@/contexts/UpgradeContext";
 import { TenantRBACProvider } from "@/contexts/TenantRBACContext";
+import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import AuthGate from "@/components/auth/AuthGate";
 import useRenderTrace from "@/lib/useRenderTrace";
 import Sidebar from "./Sidebar";
@@ -50,30 +51,32 @@ export default function DashboardLayout({ children }) {
                 <div className="h-8 w-8 animate-spin rounded-full border-b-2 border-[color:var(--brand-primary,#800020)]" />
               </div>
             ) : (
-              <div
-                className={`flex h-screen bg-background ${
-                  isRTL ? "flex-row-reverse" : ""
-                }`}
-              >
-                <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
+              <NotificationsProvider>
+                <div
+                  className={`flex h-screen bg-background ${
+                    isRTL ? "flex-row-reverse" : ""
+                  }`}
+                >
+                  <Sidebar sidebarOpen={sidebarOpen} setSidebarOpen={setSidebarOpen} />
 
-                <div className="flex-1 flex flex-col overflow-hidden">
-                  <ImpersonationBanner />
-                  <AnnouncementBanner />
-                  <Topbar setSidebarOpen={setSidebarOpen} />
-                  <main className="flex-1 overflow-y-auto p-6 space-y-6">
-                    {children}
-                    <Toaster position="top-right" />
-                  </main>
+                  <div className="flex-1 flex flex-col overflow-hidden">
+                    <ImpersonationBanner />
+                    <AnnouncementBanner />
+                    <Topbar setSidebarOpen={setSidebarOpen} />
+                    <main className="flex-1 overflow-y-auto p-6 space-y-6">
+                      {children}
+                      <Toaster position="top-right" />
+                    </main>
+                  </div>
+
+                  {sidebarOpen && (
+                    <div
+                      className="fixed inset-0 bg-black/50 lg:hidden"
+                      onClick={() => setSidebarOpen(false)}
+                    />
+                  )}
                 </div>
-
-                {sidebarOpen && (
-                  <div
-                    className="fixed inset-0 bg-black/50 lg:hidden"
-                    onClick={() => setSidebarOpen(false)}
-                  />
-                )}
-              </div>
+              </NotificationsProvider>
             )}
           </UpgradeProvider>
         </TenantRBACProvider>
