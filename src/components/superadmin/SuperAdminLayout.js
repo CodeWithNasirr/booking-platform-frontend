@@ -21,6 +21,9 @@ import {
   RotateCcw,
   Megaphone,
   AlertCircle,
+  Crown,
+  Inbox,
+  Lock,
 } from "lucide-react";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -28,9 +31,14 @@ import Link from "next/link";
 import { useSuperAdmin } from "@/contexts/Superadmincontext";
 import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
 import { useTranslation } from "@/lib/t";
+import {
+  matchAccessRule,
+  canAccessRule,
+  canAccessPath,
+} from "@/lib/superadminAccess";
 
 const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) => {
-  const { user, platform, loading, hasPermission, hasAnyPermission, logout } = useSuperAdmin();
+  const { user, platform, loading, hasPermission, logout } = useSuperAdmin();
   const { t, isRTL } = useTranslation();
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
@@ -46,101 +54,40 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
     primaryHover: "#FCE8EC",
   };
 
-  // ── Menu items with permission gating ────────────────────────
-  const menuItems = [
-    {
-      key: "/superadmin/dashboard",
-      label: t("superadmin.nav.dashboard"),
-      icon: LayoutDashboard,
-      visible: true,
-    },
-    {
-      key: "/superadmin/tenants",
-      label: t("superadmin.nav.tenants"),
-      icon: Users,
-      visible: hasPermission("tenants.view"),
-    },
-    {
-      key: "/superadmin/documents",
-      label: t("superadmin.nav.documents"),
-      icon: FileText,
-      visible: hasPermission("tenants.view"),
-    },
-    {
-      key: "/superadmin/billing",
-      label: t("superadmin.nav.billing"),
-      icon: CreditCard,
-      visible: hasAnyPermission(["billing.view", "plans.view"]),
-    },
-    {
-      key: "/superadmin/notifications",
-      label: t("superadmin.nav.notifications"),
-      icon: Megaphone,
-      visible: hasPermission("system.manage_settings"),
-    },
-    {
-      key: "/superadmin/announcements",
-      label: t("superadmin.nav.announcements"),
-      icon: Megaphone,
-      visible: hasPermission("system.manage_settings"),
-    },
-    {
-      key: "/superadmin/templates",
-      label: t("superadmin.nav.templates"),
-      icon: FileText,
-      visible: hasPermission("templates.view"),
-    },
-    {
-      key: "/superadmin/integrations",
-      label: t("superadmin.nav.integrations"),
-      icon: Settings,
-      visible: hasPermission("system.manage_integrations"),
-    },
-    {
-      key: "/superadmin/support",
-      label: t("superadmin.nav.support"),
-      icon: LifeBuoy,
-      visible: hasPermission("tickets.view"),
-    },
-    {
-      key: "/superadmin/sub-admins",
-      label: t("superadmin.nav.subadmins"),
-      icon: ShieldCheck,
-      visible: hasPermission("employees.view"),
-    },
-    {
-      key: "/superadmin/logs",
-      label: t("superadmin.nav.logs"),
-      icon: ScrollText,
-      visible: hasPermission("system.view_logs"),
-    },
-    {
-      key: "/superadmin/refunds",
-      label: t("superadmin.nav.refunds"),
-      icon: RotateCcw,
-      visible: hasPermission("billing.view"),
-    },
-    {
-      key: "/superadmin/health",
-      label: t("superadmin.nav.health"),
-      icon: Activity,
-      visible: hasPermission("system.view_logs"),
-    },
-    {
-      key: "/superadmin/dunning",
-      label: t("superadmin.nav.dunning"),
-      icon: AlertTriangle,
-      visible: hasPermission("billing.view"),
-    },
-    {
-      key: "/superadmin/settings",
-      label: t("superadmin.nav.settings"),
-      icon: Settings,
-      visible: hasAnyPermission(["system.view_settings", "system.manage_settings"]),
-    },
+  // ── Menu items ───────────────────────────────────────────────
+  // Visibility is derived from the SAME access map the route guard uses
+  // (src/lib/superadminAccess.js), so a hidden menu item and a blocked route
+  // can never disagree. Add a permission rule there, not here.
+  const menuDefs = [
+    { key: "/superadmin/dashboard", label: t("superadmin.nav.dashboard"), icon: LayoutDashboard },
+    { key: "/superadmin/tenants", label: t("superadmin.nav.tenants"), icon: Users },
+    { key: "/superadmin/documents", label: t("superadmin.nav.documents"), icon: FileText },
+    { key: "/superadmin/billing", label: t("superadmin.nav.billing"), icon: CreditCard },
+    { key: "/superadmin/enterprise", label: t("superadmin.nav.enterprise"), icon: Crown },
+    { key: "/superadmin/sales-inquiries", label: t("superadmin.nav.salesInquiries"), icon: Inbox },
+    { key: "/superadmin/notifications", label: t("superadmin.nav.notifications"), icon: Megaphone },
+    { key: "/superadmin/announcements", label: t("superadmin.nav.announcements"), icon: Megaphone },
+    { key: "/superadmin/templates", label: t("superadmin.nav.templates"), icon: FileText },
+    { key: "/superadmin/integrations", label: t("superadmin.nav.integrations"), icon: Settings },
+    { key: "/superadmin/support", label: t("superadmin.nav.support"), icon: LifeBuoy },
+    { key: "/superadmin/sub-admins", label: t("superadmin.nav.subadmins"), icon: ShieldCheck },
+    { key: "/superadmin/logs", label: t("superadmin.nav.logs"), icon: ScrollText },
+    { key: "/superadmin/refunds", label: t("superadmin.nav.refunds"), icon: RotateCcw },
+    { key: "/superadmin/health", label: t("superadmin.nav.health"), icon: Activity },
+    { key: "/superadmin/dunning", label: t("superadmin.nav.dunning"), icon: AlertTriangle },
+    { key: "/superadmin/settings", label: t("superadmin.nav.settings"), icon: Settings },
   ];
+  const menuItems = menuDefs.map((item) => ({
+    ...item,
+    visible: canAccessPath(item.key, hasPermission),
+  }));
 
   const isActive = (key) => pathname === key || pathname.startsWith(key + "/");
+
+  // ── Route guard: does this employee hold the permission for the
+  // page currently being rendered? Evaluated only after permissions
+  // have loaded, so it never flashes a denial during hydration.
+  const routeAllowed = canAccessRule(matchAccessRule(pathname), hasPermission);
 
   const handleNavigation = (path) => {
     router.push(path);
@@ -394,8 +341,35 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
           </div>
         )}
 
-        {/* Page Content */}
-        <main className="flex-1 overflow-y-auto p-6">{children}</main>
+        {/* Page Content — gated by the centralized route guard so that
+            typing a URL for a module you lack permission for shows an
+            access-denied panel instead of the page. */}
+        <main className="flex-1 overflow-y-auto p-6">
+          {routeAllowed ? (
+            children
+          ) : (
+            <div className="flex h-full items-center justify-center">
+              <div className="max-w-md text-center">
+                <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-red-50">
+                  <Lock className="h-7 w-7 text-red-500" />
+                </div>
+                <h2 className="mb-2 text-xl font-semibold text-gray-900">
+                  {t("superadmin.access.denied_title")}
+                </h2>
+                <p className="mb-6 text-sm text-gray-600">
+                  {t("superadmin.access.denied_body")}
+                </p>
+                <button
+                  onClick={() => handleNavigation("/superadmin/dashboard")}
+                  className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-medium text-white"
+                  style={{ backgroundColor: colors.primary }}
+                >
+                  {t("superadmin.access.back_to_dashboard")}
+                </button>
+              </div>
+            </div>
+          )}
+        </main>
       </div>
 
       {/* Mobile Overlay */}

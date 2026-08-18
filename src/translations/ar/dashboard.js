@@ -61,6 +61,8 @@ export default {
   "tenant.customers": "العملاء",
   "tenant.finance": "المالية",
   "tenant.billing": "الفواتير",
+  "tenant.customRequests": "الطلبات المخصصة",
+  "tenant.subscriptions": "الاشتراكات",
   "tenant.website": "منشئ الموقع",
   "tenant.logs": "السجلات",
   "tenant.refunds": "المبالغ المستردة",

@@ -1,7 +1,10 @@
 // src/components/bookings/ViewBookingModal.js
 'use client';
 
+import Cookies from 'js-cookie';
 import { useApp } from '@/contexts/AppContext';
+import { CallDock } from '@/components/collaboration';
+import BookingConversationPanel from '@/components/bookings/BookingConversationPanel';
 import {
   X,
   Clock,
@@ -85,7 +88,8 @@ export default function ViewBookingModal({
   onStatusChange,
   onCancel,
 }) {
-  const { t, isRTL, activeTenant } = useApp();
+  const { t, isRTL, activeTenant, user } = useApp();
+  const tenantId = activeTenant?.id || activeTenant;
   
   const statusConfig = getStatusConfig(t);
   const paymentConfig = getPaymentConfig(t);
@@ -216,6 +220,35 @@ export default function ViewBookingModal({
 
         {/* Content */}
         <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
+
+          {/* Live voice / video / screen-share call surface */}
+          <CallDock
+            subjectType="booking"
+            subjectId={booking.id}
+            tenantId={tenantId}
+            authMode="jwt"
+            jwt={Cookies.get('access_token') || null}
+            selfUserId={user?.id}
+            selfName={user?.full_name || user?.name || 'You'}
+            canStart={['paid', 'scheduled'].includes(booking.status)}
+          />
+
+          {/* Conversation — chat + files + timeline */}
+          <div className={`border border-gray-200 rounded-xl overflow-hidden ${isRTL ? 'text-right' : ''}`}>
+            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
+              <h3 className="text-sm font-semibold text-gray-700">Messages &amp; Files</h3>
+            </div>
+            <div className="p-3">
+              <BookingConversationPanel
+                bookingId={booking.id}
+                domain={tenantId}
+                auth={{ jwt: Cookies.get('access_token') || null }}
+                viewer="admin"
+                showComposer={!['cancelled', 'refunded'].includes(booking.status)}
+              />
+            </div>
+          </div>
+
           {/* Booking Number & Status */}
           <div className={`flex items-center justify-between p-4 bg-gray-50 rounded-xl ${
             isRTL ? 'flex-row-reverse' : ''

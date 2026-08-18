@@ -17,6 +17,7 @@ export default {
 "sidebar_orders": "Orders",
 "sidebar_bookings": "Bookings",
 "sidebar_availability": "Availability",
+"sidebar_custom_requests": "Custom Requests",
 "sidebar_work": "Work",
 "sidebar_profile": "Profile",
 "sidebar_logout": "Logout",

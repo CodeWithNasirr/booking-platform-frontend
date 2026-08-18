@@ -33,6 +33,7 @@ import {
   OrderTimelineFeed, OrderConversation,
 } from "@/components/orders";
 import { useRealtime } from "@/lib/realtime";
+import { CallDock } from "@/components/collaboration";
 import { applyOrderEnvelope } from "@/lib/realtimePatches";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
 import Cookies from "js-cookie";
@@ -639,7 +640,7 @@ export default function AdminOrderDetailClient({ orderId }) {
           )}
 
           {/* Order detail card */}
-          <div className="bg-white rounded-xl border border-gray-200 p-5">
+          {/* <div className="bg-white rounded-xl border border-gray-200 p-5">
             <h3 className="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">
               Order Details
             </h3>
@@ -690,7 +691,7 @@ export default function AdminOrderDetailClient({ orderId }) {
                 </>
               )}
             </div>
-          </div>
+          </div> */}
         </div>
 
         {/* ═══ RIGHT COLUMN (4/12) — Conversation ═══ */}
@@ -698,6 +699,21 @@ export default function AdminOrderDetailClient({ orderId }) {
           <div className="lg:sticky lg:top-6">
             <Card padding="none" className="overflow-hidden">
               <div className="p-4 sm:p-5">
+                {/* Live voice / video / screen-share call surface */}
+                <CallDock
+                  subjectType="order"
+                  subjectId={orderId}
+                  tenantId={tenantId}
+                  authMode="jwt"
+                  jwt={Cookies.get("access_token") || null}
+                  selfUserId={user?.id}
+                  selfName={user?.full_name || user?.name || "You"}
+                  canStart={
+                    !!(order.provider || order.provider_id) &&
+                    ["accepted", "in_progress", "delivered", "revision_requested"].includes(order.status)
+                  }
+                  className="mb-3"
+                />
                 <OrderConversation
                   order={order}
                   viewer="admin"

@@ -2,6 +2,7 @@
 // src/app/dashboard/support/page.js
 "use client";
 
+import TenantPermissionGate from "@/components/dashboard/TenantPermissionGate";
 /**
  * Full Support Page — Tenant Side
  * ─────────────────────────────────────────────────────
@@ -54,7 +55,7 @@ const CATEGORY_OPTIONS = [
   { value: "feature_request", labelKey: "support.category.featureRequest" },
 ];
 
-export default function SupportPage() {
+function SupportPageInner() {
   const { activeTenant, t } = useApp();
 
   const [tickets, setTickets] = useState([]);
@@ -813,3 +814,11 @@ export default function SupportPage() {
 //     </div>
 //   );
 // }
+
+export default function SupportPage(props) {
+  return (
+    <TenantPermissionGate permission="support.view">
+      <SupportPageInner {...props} />
+    </TenantPermissionGate>
+  );
+}

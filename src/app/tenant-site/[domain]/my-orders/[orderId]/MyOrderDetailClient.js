@@ -30,6 +30,7 @@ import {
   OrderTimelineFeed, OrderConversation,
 } from "@/components/orders";
 import { useRealtime } from "@/lib/realtime";
+import { CallDock } from "@/components/collaboration";
 import { applyOrderEnvelope } from "@/lib/realtimePatches";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
 
@@ -546,6 +547,21 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
       {/* Conversation — feed + composer + upload queue tray */}
       <Card padding="none" className="mb-6 overflow-hidden">
         <div className="p-4 sm:p-5">
+          {/* Live voice / video / screen-share call surface */}
+          <CallDock
+            subjectType="order"
+            subjectId={orderId}
+            tenantId={order?.tenant || order?.tenant_id}
+            authMode={auth.type === "guest" ? "guest" : "jwt"}
+            jwt={auth.type === "jwt" ? auth.token : null}
+            guestToken={auth.type === "guest" ? auth.token : null}
+            selfName={order?.customer_name || "You"}
+            canStart={
+              !!(order.provider || order.provider_id) &&
+              ["accepted", "in_progress", "delivered", "revision_requested"].includes(order.status)
+            }
+            className="mb-3"
+          />
           <OrderConversation
             order={order}
             viewer="customer"

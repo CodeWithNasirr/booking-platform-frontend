@@ -632,7 +632,7 @@ function RefundsContent() {
 
 export default function RefundsPage() {
   return (
-    <TenantPermissionGate permission="finance.view">
+    <TenantPermissionGate permission="refunds.view">
       <RefundsContent />
     </TenantPermissionGate>
   );
@@ -1281,7 +1281,7 @@ export default function RefundsPage() {
 
 // export default function RefundsPage() {
 //   return (
-//     <TenantPermissionGate permission="finance.view">
+//     <TenantPermissionGate permission="refunds.view">
 //       <RefundsContent />
 //     </TenantPermissionGate>
 //   );

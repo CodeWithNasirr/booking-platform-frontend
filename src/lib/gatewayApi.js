@@ -146,3 +146,79 @@ export async function disconnectHyperPay(tenantId) {
     headers: headers(tenantId),
   });
 }
+
+// ── Moyasar Config ───────────────────────────────────────────
+export async function configureMoyasar(tenantId, config) {
+  // config = { secret_key, publishable_key?, webhook_secret? }
+  return apiCall(`${API}/api/v1/payments/gateway/moyasar/configure/`, {
+    method: "POST",
+    headers: headers(tenantId),
+    body: JSON.stringify(config),
+  });
+}
+
+export async function testMoyasar(tenantId, config = {}) {
+  return apiCall(`${API}/api/v1/payments/gateway/moyasar/test/`, {
+    method: "POST",
+    headers: headers(tenantId),
+    body: JSON.stringify(config),
+  });
+}
+
+export async function disconnectMoyasar(tenantId) {
+  return apiCall(`${API}/api/v1/payments/gateway/moyasar/disconnect/`, {
+    method: "POST",
+    headers: headers(tenantId),
+  });
+}
+
+// Regenerate the tenant's Moyasar webhook secret (returns it once).
+export async function rotateMoyasarWebhook(tenantId) {
+  return apiCall(`${API}/api/v1/payments/gateway/moyasar/webhook/rotate/`, {
+    method: "POST",
+    headers: headers(tenantId),
+  });
+}
+
+// ── Preferred gateway (provider-agnostic) ────────────────────
+export async function setPreferredGateway(tenantId, provider) {
+  // provider = "moyasar" | "stripe" | "hyperpay"
+  return apiCall(`${API}/api/v1/payments/gateway/preferred/`, {
+    method: "POST",
+    headers: headers(tenantId),
+    body: JSON.stringify({ provider }),
+  });
+}
+
+// ══════════════════════════════════════════════════════════════
+// Moyasar hosted-invoice checkout (booking / order / subscription)
+// ══════════════════════════════════════════════════════════════
+
+/**
+ * Create a Moyasar hosted-invoice checkout. Returns { url } — the caller
+ * redirects the browser to that hosted payment page. Raw card data never
+ * touches our frontend or backend.
+ *
+ * @param {string} domain
+ * @param {Object} payload — { payment_for, reference_id, success_url?, cancel_url? }
+ * @returns {{ provider, invoice_id, url, amount, currency, callback_url }}
+ */
+export async function createMoyasarCheckout(domain, payload) {
+  return apiCall(`${API}/api/v1/payments/moyasar/checkout/`, {
+    method: "POST",
+    headers: headers(domain),
+    body: JSON.stringify(payload),
+  });
+}
+
+export async function checkMoyasarStatus(domain, paymentId) {
+  return apiCall(`${API}/api/v1/payments/moyasar/status/${paymentId}/`, {
+    headers: headers(domain),
+  });
+}
+
+export async function fetchMoyasarConfig(domain) {
+  return apiCall(`${API}/api/v1/payments/moyasar/config/`, {
+    headers: headers(domain),
+  });
+}

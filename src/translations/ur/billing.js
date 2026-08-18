@@ -19,12 +19,12 @@ export default {
   "billing.upcomingSubscriptionsDesc": "وہ سبسکرپشنز جن کی ادائیگی ہو چکی ہے اور جلد شروع ہوں گی۔",
 
   "billing.addons": "ایڈ آنز",
-  "billing.addonsDesc": "اضافی وسائل کے ذریعے اپنے پلان کو بہتر بنائیں۔",
+  "billing.addonsDesc": "اضافی وسائل کے ذریعے اپنے پلان کو بہتر بنائیں.",
 
   "billing.noAddons": "پلان خریدنے کے بعد ایڈ آنز حاصل کیے جا سکتے ہیں۔",
 
   "billing.currentUsage": "موجودہ استعمال",
-  "billing.currentUsageDesc": "اس بلنگ مدت کے دوران آپ کا وسائل کا استعمال۔",
+  "billing.currentUsageDesc": "اس بلنگ مدت کے دوران آپ کے وسائل کا استعمال۔",
 
   "billing.providers": "پرووائیڈرز",
   "billing.services": "سروسز",
@@ -91,5 +91,39 @@ export default {
   "billing.status.pending": "زیر التواء",
   "billing.status.completed": "مکمل",
   "billing.status.rejected": "مسترد",
-  "billing.status.approved": "منظور شدہ"
+  "billing.status.approved": "منظور شدہ",
+
+  // Enterprise
+  "billing.enterprise.badge": "انٹرپرائز",
+  "billing.enterprise.customPrice": "حسبِ ضرورت",
+  "billing.enterprise.contactSales": "سیلز سے رابطہ کریں",
+
+  "billing.enterprise.submittedTitle": "درخواست موصول ہو گئی",
+  "billing.enterprise.submittedDesc": "ہماری سیلز ٹیم جلد آپ سے رابطہ کرے گی۔",
+
+  "billing.enterprise.requestTitle": "انٹرپرائز درخواست",
+  "billing.enterprise.statusPending": "جائزے کے منتظر",
+  "billing.enterprise.statusUnderReview": "جائزے میں",
+  "billing.enterprise.requestPendingDesc": "ہماری سیلز ٹیم آپ کی درخواست کا جائزہ لے رہی ہے اور جلد آپ سے رابطہ کرے گی۔ منظوری سے پہلے آپ کسی بھی وقت درخواست واپس لے سکتے ہیں۔",
+  "billing.enterprise.submittedOn": "جمع کرائی گئی",
+  "billing.enterprise.withdraw": "درخواست واپس لیں",
+  "billing.enterprise.cancelConfirm": "کیا آپ یہ انٹرپرائز درخواست واپس لینا چاہتے ہیں؟",
+  "billing.enterprise.requestPending": "درخواست زیرِ جائزہ",
+
+  "billing.enterprise.modalIntro": "اپنی ضروریات کے بارے میں ہمیں بتائیں۔ ہماری سیلز ٹیم آپ کے لیے ایک حسبِ ضرورت انٹرپرائز کوٹ تیار کرے گی۔",
+
+  "billing.enterprise.contactName": "رابطہ کرنے والے کا نام",
+  "billing.enterprise.contactEmail": "کام کی ای میل",
+  "billing.enterprise.contactPhone": "فون نمبر",
+  "billing.enterprise.companySize": "کمپنی کا حجم",
+  "billing.enterprise.expectedVolume": "متوقع ماہانہ حجم",
+  "billing.enterprise.message": "کیا آپ کچھ اور بتانا چاہتے ہیں؟",
+  "billing.enterprise.sendRequest": "درخواست بھیجیں",
+
+  "billing.downgradeScheduled": "ڈاؤن گریڈ شیڈول کر دیا گیا",
+  "billing.downgradeScheduledDesc": "آپ کا موجودہ پلان اس بلنگ مدت کے اختتام تک فعال رہے گا، اس کے بعد ڈاؤن گریڈ لاگو ہو جائے گا۔ آپ سے کوئی رقم وصول نہیں کی گئی۔",
+  "billing.status.scheduled": "شیڈول شدہ",
+  
+  // Common
+  "common.cancel": "منسوخ کریں"
 };

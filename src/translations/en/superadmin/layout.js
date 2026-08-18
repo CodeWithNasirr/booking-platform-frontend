@@ -9,4 +9,10 @@ export default {
   'superadmin.layout.super_admin': 'Super Admin',
   'superadmin.layout.admin_fallback': 'Admin',
   'superadmin.layout.employee_fallback': 'Employee',
+
+  // ── Access denied (route guard) ──
+  'superadmin.access.denied_title': 'Access restricted',
+  'superadmin.access.denied_body':
+    "You don't have permission to view this page. If you think this is a mistake, contact a platform owner.",
+  'superadmin.access.back_to_dashboard': 'Back to dashboard',
 };

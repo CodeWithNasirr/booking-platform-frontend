@@ -17,6 +17,7 @@ export default {
 "sidebar_orders": "الطلبات",
 "sidebar_bookings": "الحجوزات",
 "sidebar_availability": "التوفر",
+"sidebar_custom_requests": "الطلبات المخصصة",
 "sidebar_work": "العمل",
 "sidebar_profile": "الملف الشخصي",
 "sidebar_logout": "تسجيل الخروج",

@@ -3,6 +3,8 @@ export default {
   'superadmin.nav.tenants': 'المستأجرون',
   'superadmin.nav.documents': 'المستندات',
   'superadmin.nav.billing': 'الفوترة والخطط',
+  'superadmin.nav.enterprise': 'المؤسسات',
+  'superadmin.nav.salesInquiries': 'طلبات المبيعات',
   'superadmin.nav.notifications': 'الإشعارات',
   'superadmin.nav.announcements': 'الإعلانات',
   'superadmin.nav.templates': 'القوالب',

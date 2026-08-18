@@ -12,8 +12,10 @@ import {
   Search,
   Play,
   Send,
-  Check
+  Check,
+  Video
 } from 'lucide-react';
+import Link from 'next/link';
 import DashboardLayout from '@/components/provider/DashboardLayout';
 import { useApp } from '@/contexts/AppContext';
 import Cookies from 'js-cookie';
@@ -498,6 +500,18 @@ function BookingsTable({ bookings, getStatusBadge, getLocalizedStatus, onAction,
                 </td>
                 <td className="px-6 py-4">
                   <div className="flex gap-2">
+                    {/* Live session — native collaboration workspace (voice/
+                        video/screen/chat). Always available for a booking. */}
+                    {['paid', 'scheduled'].includes(booking.status) && (
+                      <Link
+                        href={`/provider/bookings/${booking.id}`}
+                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-[8px] bg-purple-50 text-purple-700 text-xs font-medium hover:bg-purple-100"
+                      >
+                        <Video size={14} />
+                        {t('work_action_live_session') || 'Live session'}
+                      </Link>
+                    )}
+                    {/* External Google Meet / Zoom link, when scheduled. */}
                     {booking.meeting_url && (
                       <a
                         href={booking.meeting_url}

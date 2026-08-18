@@ -31,6 +31,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
     getWarningsForFeature,
     loading: integrationLoading,
   } = useIntegrationStatus();
+  // console.log("[AUTH-TRACE] Sidebar(provider) render", {
+  //   pathname,
+  //   isActive,
+  //   isApproved,
+  //   integrationLoading,
+  // });
 
   const isDeactivated = !isActive;
   const isPending = !isApproved && isActive;
@@ -58,14 +64,12 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       key: "/provider/orders",
       label: t("sidebar_orders"),
       icon: Package,
-      badge: "2",
       disabled: isDeactivated,
     },
     {
       key: "/provider/bookings",
       label: t("sidebar_bookings"),
       icon: Calendar,
-      badge: "3",
       disabled: isDeactivated,
       integrationFeature: "online_booking",
     },

@@ -71,6 +71,7 @@ export default function MyBookingsClient({
 
       const res = await fetch(`${API_BASE}/api/v1/guest-bookings/by-email/`, {
         headers: buildHeaders(domain, auth.token),
+        credentials: 'include',
       });
 
       if (!res.ok) {

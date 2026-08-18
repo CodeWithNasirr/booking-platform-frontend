@@ -17,6 +17,7 @@ export default {
 "sidebar_orders": "آرڈرز",
 "sidebar_bookings": "بکنگز",
 "sidebar_availability": "دستیابی",
+"sidebar_custom_requests": "حسبِ ضرورت درخواستیں",
 "sidebar_work": "کام",
 "sidebar_profile": "پروفائل",
 "sidebar_logout": "لاگ آؤٹ",

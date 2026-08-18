@@ -9,6 +9,7 @@ import { Save, Calendar } from 'lucide-react'
 // Change your import to:
 import { authFetch } from '../providers/lib/api'
 import { updateAvailability } from '../providers/lib/api'
+import TenantPermissionGate from "@/components/dashboard/TenantPermissionGate";
 
 const defaultAvailability = {
   monday: { enabled: true, start: '09:00', end: '17:00' },
@@ -20,7 +21,7 @@ const defaultAvailability = {
   sunday: { enabled: false, start: '', end: '' },
 }
 
-export default function SchedulePage() {
+function SchedulePageInner() {
   const { activeTenant, t, user } = useApp()
   const router = useRouter()
   const [provider, setProvider] = useState(null)
@@ -177,4 +178,12 @@ export default function SchedulePage() {
       )}
     </div>
   )
+}
+
+export default function SchedulePage(props) {
+  return (
+    <TenantPermissionGate permission="calendar.view">
+      <SchedulePageInner {...props} />
+    </TenantPermissionGate>
+  );
 }

@@ -187,7 +187,7 @@ export default function AdminOrdersClient() {
         <div>
           <h1 className="text-2xl font-bold">{t("orders.title")}</h1>
           <p className="text-sm text-gray-500 mt-1">
-            {orders.length} {t("orders.total")} · ${totalRevenue.toFixed(2)} {t("orders.revenue")}
+            {orders.length} {t("orders.total")} · {orders.currency || "USD"} {totalRevenue.toFixed(2)} {t("orders.revenue")}
           </p>
         </div>
         <button

@@ -103,6 +103,12 @@ export default function SubscribeClient({ domain, site, header, footer, service 
 
       const data = await res.json();
 
+      // Moyasar hosted-invoice path: redirect to the hosted payment page.
+      if ((data.gateway === "moyasar" || data.provider === "moyasar") && (data.redirect_url || data.url)) {
+        window.location.href = data.redirect_url || data.url;
+        return;
+      }
+
       // HyperPay path: backend returns { checkout_id, widget_url,
       // brands, callback_url, subscription_id }. Render the widget
       // below the form so the customer enters card details.

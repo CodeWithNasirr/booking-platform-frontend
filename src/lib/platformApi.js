@@ -65,7 +65,7 @@ function authHeaders() {
 
 // ─── Core fetch wrapper ─────────────────────────────────────────
 
-async function platformFetch(endpoint, options = {}) {
+export async function platformFetch(endpoint, options = {}) {
   const url = `${API}${endpoint}`;
 
   const makeReq = (token) =>
@@ -217,6 +217,51 @@ export async function updatePlatformSettingsSection(section, data) {
   return platformFetch(`/api/v1/platform/settings/${section}/`, {
     method: "PATCH",
     body: JSON.stringify(data),
+  });
+}
+
+// ═══════════════════════════════════════════════════════════════
+// PAYMENT INTEGRATIONS (real, API-driven — Moyasar/Stripe/HyperPay)
+// ═══════════════════════════════════════════════════════════════
+
+/** Real state of all platform gateways (enabled, configured, masked creds…). */
+export async function fetchPaymentIntegrations() {
+  return platformFetch("/api/v1/platform/payment-integrations/");
+}
+
+/**
+ * Save one gateway's credentials/config/enabled.
+ * payload = { provider, credentials?:{secret_key,publishable_key,webhook_secret},
+ *             base_url?, enabled?, set_default? }
+ */
+export async function savePaymentIntegration(payload) {
+  return platformFetch("/api/v1/platform/payment-integrations/", {
+    method: "PATCH",
+    body: JSON.stringify(payload),
+  });
+}
+
+/** Live credential test. Pass credentials to validate BEFORE saving, or omit to test stored. */
+export async function testPaymentIntegration(provider, credentials = null) {
+  return platformFetch("/api/v1/platform/payment-integrations/test/", {
+    method: "POST",
+    body: JSON.stringify(credentials ? { provider, credentials } : { provider }),
+  });
+}
+
+/** Live health of all gateways. */
+export async function checkPaymentIntegrationsHealth() {
+  return platformFetch("/api/v1/platform/payment-integrations/health/", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+/** Webhook configuration status + URL to paste into the provider dashboard. */
+export async function testPaymentWebhook(provider) {
+  return platformFetch("/api/v1/platform/payment-integrations/webhook/test/", {
+    method: "POST",
+    body: JSON.stringify({ provider }),
   });
 }
 

@@ -2,9 +2,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import LayoutRenderer from "../../LayoutRenderer";
 import { tenantRoutes } from "@/lib/tenantRoutes";
+import { CallDock } from "@/components/collaboration";
+import BookingConversationPanel from "@/components/bookings/BookingConversationPanel";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -47,6 +49,19 @@ function buildHeaders(domain, token) {
   return headers;
 }
 
+// Guest calls to the main BookingViewSet must NOT use Authorization:
+// its SimpleJWT authenticator rejects a guest booking token as an invalid
+// AccessToken (401) before AllowAny is ever consulted. The booking token
+// rides in X-Booking-Token instead — parity with orders' X-Order-Token —
+// which _get_customer_booking reads for the guest path.
+function buildGuestHeaders(domain, token, { json = true } = {}) {
+  const headers = {};
+  if (json) headers["Content-Type"] = "application/json";
+  if (domain) headers["X-Tenant"] = domain;
+  if (token) headers["X-Booking-Token"] = token.replace(/^Bearer /, "");
+  return headers;
+}
+
 export default function BookingDetailClient({
   domain,
   site,
@@ -55,16 +70,61 @@ export default function BookingDetailClient({
   bookingId,
 }) {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const [booking, setBooking] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState(null);
   const [isClient, setIsClient] = useState(false);
+  const [tokenReady, setTokenReady] = useState(false);
 
   const tenantId = site?.tenant?.id || site?.id;
 
   useEffect(() => {
     setIsClient(true);
   }, []);
+
+  // ── Secure "View Booking" magic link (?t=…) ──
+  // Exchange the single-booking token from a confirmation / reminder /
+  // review email for a guest booking session, store it the same way the
+  // OTP flow does, then strip ?t= from the URL so it isn't re-used.
+  useEffect(() => {
+    if (!isClient) return;
+    const t = searchParams.get("t");
+    if (!t) { setTokenReady(true); return; }
+
+    let cancelled = false;
+    (async () => {
+      try {
+        const res = await fetch(
+          `${API_BASE}/api/v1/guest-bookings/access-via-token/`,
+          {
+            method: "POST",
+            headers: buildHeaders(domain, null),
+            body: JSON.stringify({ t }),
+          }
+        );
+        if (res.ok) {
+          const data = await res.json();
+          const tid = data.tenant_id || tenantId;
+          if (data.token && tid) {
+            localStorage.setItem(`customer_booking_token_${tid}`, data.token);
+            if (data.email) localStorage.setItem(`customer_booking_email_${tid}`, data.email);
+          }
+        }
+      } catch (e) {
+        console.error("[BookingDetail] magic-link exchange failed:", e);
+      } finally {
+        // Drop ?t= from the URL regardless of outcome.
+        try {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("t");
+          window.history.replaceState({}, "", url.toString());
+        } catch {}
+        if (!cancelled) setTokenReady(true);
+      }
+    })();
+    return () => { cancelled = true; };
+  }, [isClient, searchParams, domain, tenantId]);
 
   const fetchBookingDetail = useCallback(async () => {
     if (!isClient) return;
@@ -84,7 +144,7 @@ export default function BookingDetailClient({
       // Go straight to list endpoint (individual endpoint doesn't exist)
       const res = await fetch(
         `${API_BASE}/api/v1/guest-bookings/by-email/`,
-        { headers: buildHeaders(domain, auth.token) }
+        { headers: buildHeaders(domain, auth.token), credentials: 'include' }
       );
 
       if (!res.ok) {
@@ -123,8 +183,78 @@ export default function BookingDetailClient({
   }, [domain, bookingId, tenantId, router, isClient]);
 
   useEffect(() => {
-    if (isClient) fetchBookingDetail();
-  }, [fetchBookingDetail, isClient]);
+    if (isClient && tokenReady) fetchBookingDetail();
+  }, [fetchBookingDetail, isClient, tokenReady]);
+
+  // Guest booking token for the conversation panel (X-Booking-Token +
+  // realtime), resolved from localStorage once the magic-link exchange
+  // (if any) has settled.
+  const guestToken = (() => {
+    if (!isClient || !tokenReady) return null;
+    const auth = resolveToken(tenantId);
+    return (auth.token || "").replace(/^Bearer /, "") || null;
+  })();
+
+  const [cancelling, setCancelling] = useState(false);
+  const [reviewOpen, setReviewOpen] = useState(false);
+  const [reviewRating, setReviewRating] = useState(5);
+  const [reviewComment, setReviewComment] = useState("");
+  const [reviewSubmitting, setReviewSubmitting] = useState(false);
+
+  const submitReview = useCallback(async () => {
+    const auth = resolveToken(tenantId);
+    setReviewSubmitting(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/v1/bookings/${bookingId}/submit_review/`,
+        {
+          method: "POST",
+          headers: buildGuestHeaders(domain, auth.token),
+          body: JSON.stringify({ rating: reviewRating, comment: reviewComment }),
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || data.error || "Could not submit your review.");
+      }
+      setReviewOpen(false);
+      setReviewComment("");
+      await fetchBookingDetail();
+    } catch (e) {
+      alert(e.message || "Could not submit your review.");
+    } finally {
+      setReviewSubmitting(false);
+    }
+  }, [tenantId, domain, bookingId, reviewRating, reviewComment, fetchBookingDetail]);
+
+  const handleCancelBooking = useCallback(async () => {
+    const reason = window.prompt("Why are you cancelling this booking? (optional)", "");
+    // prompt returns null when the customer dismisses the dialog — abort.
+    if (reason === null) return;
+    if (!window.confirm("Cancel this booking? This cannot be undone.")) return;
+
+    const auth = resolveToken(tenantId);
+    setCancelling(true);
+    try {
+      const res = await fetch(
+        `${API_BASE}/api/v1/bookings/${bookingId}/cancel/`,
+        {
+          method: "POST",
+          headers: buildGuestHeaders(domain, auth.token),
+          body: JSON.stringify({ reason: reason || "Cancelled by customer" }),
+        }
+      );
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || data.error || "Could not cancel this booking.");
+      }
+      await fetchBookingDetail();
+    } catch (e) {
+      alert(e.message || "Could not cancel this booking.");
+    } finally {
+      setCancelling(false);
+    }
+  }, [tenantId, domain, bookingId, fetchBookingDetail]);
 
   const handleBack = () => router.push(tenantRoutes.myBookings());
 
@@ -258,7 +388,45 @@ export default function BookingDetailClient({
             </div>
 
             <div className="p-6 space-y-6">
-              
+
+              {/* Live voice / video / screen-share call surface */}
+              {isClient && (() => {
+                const callAuth = resolveToken(tenantId);
+                const rawToken = (callAuth.token || "").replace(/^Bearer /, "");
+                return (
+                  <CallDock
+                    subjectType="booking"
+                    subjectId={bookingId}
+                    tenantId={tenantId}
+                    authMode="guest"
+                    guestToken={rawToken}
+                    selfName={booking.customer_name || "You"}
+                    canStart={["paid", "scheduled"].includes(booking.status)}
+                  />
+                );
+              })()}
+
+              {/* Conversation — chat + file sharing + timeline */}
+              <div className="border rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b bg-gray-50">
+                  <h3 className="text-sm font-semibold text-gray-700">Messages & Files</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Chat with your provider, share files, and see everything that happened.
+                  </p>
+                </div>
+                <div className="p-3">
+                  {guestToken && (
+                    <BookingConversationPanel
+                      bookingId={bookingId}
+                      domain={domain}
+                      auth={{ guestToken }}
+                      viewer="customer"
+                      showComposer={!["cancelled", "refunded"].includes(booking.status)}
+                    />
+                  )}
+                </div>
+              </div>
+
               {/* Payment Summary */}
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div className="bg-blue-50 p-4 rounded-lg">
@@ -393,18 +561,19 @@ export default function BookingDetailClient({
                 ← Back to List
               </button>
               
-              {booking.status === "scheduled" && (
+              {["paid", "scheduled"].includes(booking.status) && (
                 <button
-                  onClick={() => alert("Cancel functionality coming soon")}
-                  className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium"
+                  onClick={handleCancelBooking}
+                  disabled={cancelling}
+                  className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium disabled:opacity-50"
                 >
-                  Cancel Booking
+                  {cancelling ? "Cancelling…" : "Cancel Booking"}
                 </button>
               )}
               
-              {booking.status === "completed" && (
+              {booking.status === "completed" && !booking.has_review && (
                 <button
-                  onClick={() => alert("Review functionality coming soon")}
+                  onClick={() => setReviewOpen(true)}
                   className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium"
                 >
                   Leave Review
@@ -427,6 +596,55 @@ export default function BookingDetailClient({
       </main>
 
       {footer?.length > 0 && <LayoutRenderer sections={[footer]} site={site} />}
+
+      {/* Review modal */}
+      {reviewOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/50" onClick={() => setReviewOpen(false)} />
+          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6">
+            <h3 className="text-lg font-semibold text-gray-900 mb-1">Leave a review</h3>
+            <p className="text-sm text-gray-500 mb-4">How was your consultation?</p>
+
+            <div className="flex items-center gap-1 mb-4">
+              {[1, 2, 3, 4, 5].map((n) => (
+                <button
+                  key={n}
+                  type="button"
+                  onClick={() => setReviewRating(n)}
+                  className={`text-3xl leading-none ${n <= reviewRating ? "text-yellow-400" : "text-gray-300"}`}
+                  aria-label={`${n} star${n > 1 ? "s" : ""}`}
+                >
+                  ★
+                </button>
+              ))}
+            </div>
+
+            <textarea
+              value={reviewComment}
+              onChange={(e) => setReviewComment(e.target.value)}
+              rows={4}
+              placeholder="Share a few words about your experience (optional)"
+              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+            />
+
+            <div className="flex justify-end gap-2">
+              <button
+                onClick={() => setReviewOpen(false)}
+                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={submitReview}
+                disabled={reviewSubmitting}
+                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+              >
+                {reviewSubmitting ? "Submitting…" : "Submit review"}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 }

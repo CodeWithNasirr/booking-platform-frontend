@@ -16,7 +16,7 @@ export function useApp() {
 }
 
 export function AppProvider({ children }) {
-  console.log("APP COntenxt Mount")
+  // console.log("APP COntenxt Mount")
   const router = useRouter();
   const [hydrated, setHydrated] = useState(false);
   const [language, setLanguage] = useState("en");
@@ -40,7 +40,15 @@ export function AppProvider({ children }) {
     null;
 
   const hasProviders = activeTenantObj?.has_providers ?? false;
-    
+
+  // ── Single source of truth for auth-gating ──────────────────────
+  // `authReady` is the ONE flag guards should wait on: the client has
+  // hydrated AND the /auth/me load has settled. `role` is derived from the
+  // resolved active tenant (never recomputed with mismatched types in a
+  // layout). Every guard reads these — no local roleChecked copies.
+  const authReady = hydrated && !loadingUser;
+  const role = activeTenantObj?.role ?? null;
+
   // ---------------- HYDRATION ----------------
   useEffect(() => {
     const savedLang = Cookies.get("app_language") || "en";
@@ -178,7 +186,7 @@ export function AppProvider({ children }) {
           Cookies.get("active_tenant")
         );
 
-        console.log("User data loaded:", data);
+        // console.log("User data loaded:", data);
 
         setUser(data.user || null);
         setTenants(data.tenants || []);
@@ -225,6 +233,9 @@ export function AppProvider({ children }) {
         hasProviders,
 
         activeTenant,
+        activeTenantObj,
+        role,
+        authReady,
         setActiveTenant,
 
         selectTenant: (id) => {

@@ -24,55 +24,55 @@ const SOURCE_BADGES = {
 }
 
 // ─── Variables available in templates ────────────────────────
-const VARIABLE_GROUPS = {
-  reservations: [
-    { key: 'customer_name', label: 'Customer Name' },
-    { key: 'booking_number', label: 'Booking #' },
-    { key: 'service_name', label: 'Service' },
-    { key: 'date', label: 'Date' },
-    { key: 'time', label: 'Time' },
-    { key: 'duration', label: 'Duration' },
-    { key: 'amount', label: 'Amount' },
-    { key: 'currency', label: 'Currency' },
-    { key: 'meeting_url', label: 'Meeting URL' },
-    { key: 'provider_name', label: 'Provider' },
-    { key: 'business_name', label: 'Business Name' },
-    { key: 'reason', label: 'Reason' },
-  ],
-  orders: [
-    { key: 'customer_name', label: 'Customer Name' },
-    { key: 'order_number', label: 'Order #' },
-    { key: 'service_name', label: 'Service' },
-    { key: 'amount', label: 'Amount' },
-    { key: 'currency', label: 'Currency' },
-    { key: 'delivery_days', label: 'Delivery Days' },
-    { key: 'provider_name', label: 'Provider' },
-    { key: 'business_name', label: 'Business Name' },
-    { key: 'revisions_used', label: 'Revisions Used' },
-    { key: 'revisions_allowed', label: 'Revisions Allowed' },
-    { key: 'reason', label: 'Reason' },
-    { key: 'refund_amount', label: 'Refund Amount' },
-  ],
-  subscriptions: [
-    { key: 'admin_name', label: 'Admin Name' },
-    { key: 'plan_name', label: 'Plan Name' },
-    { key: 'business_name', label: 'Business Name' },
-    { key: 'days_remaining', label: 'Days Remaining' },
-    { key: 'next_billing_date', label: 'Next Billing' },
-  ],
-  platform: [
-    { key: 'date', label: 'Date' },
-    { key: 'new_bookings', label: 'New Bookings' },
-    { key: 'new_orders', label: 'New Orders' },
-    { key: 'revenue', label: 'Revenue' },
-    { key: 'currency', label: 'Currency' },
-    { key: 'new_customers', label: 'New Customers' },
-    { key: 'today_bookings', label: "Today's Bookings" },
-    { key: 'business_name', label: 'Business Name' },
-    { key: 'customer_name', label: 'Customer Name' },
-    { key: 'customer_email', label: 'Customer Email' },
-  ],
-}
+// const VARIABLE_GROUPS = {
+//   reservations: [
+//     { key: 'customer_name', label: 'Customer Name' },
+//     { key: 'booking_number', label: 'Booking #' },
+//     { key: 'service_name', label: 'Service' },
+//     { key: 'date', label: 'Date' },
+//     { key: 'time', label: 'Time' },
+//     { key: 'duration', label: 'Duration' },
+//     { key: 'amount', label: 'Amount' },
+//     { key: 'currency', label: 'Currency' },
+//     { key: 'meeting_url', label: 'Meeting URL' },
+//     { key: 'provider_name', label: 'Provider' },
+//     { key: 'business_name', label: 'Business Name' },
+//     { key: 'reason', label: 'Reason' },
+//   ],
+//   orders: [
+//     { key: 'customer_name', label: 'Customer Name' },
+//     { key: 'order_number', label: 'Order #' },
+//     { key: 'service_name', label: 'Service' },
+//     { key: 'amount', label: 'Amount' },
+//     { key: 'currency', label: 'Currency' },
+//     { key: 'delivery_days', label: 'Delivery Days' },
+//     { key: 'provider_name', label: 'Provider' },
+//     { key: 'business_name', label: 'Business Name' },
+//     { key: 'revisions_used', label: 'Revisions Used' },
+//     { key: 'revisions_allowed', label: 'Revisions Allowed' },
+//     { key: 'reason', label: 'Reason' },
+//     { key: 'refund_amount', label: 'Refund Amount' },
+//   ],
+//   subscriptions: [
+//     { key: 'admin_name', label: 'Admin Name' },
+//     { key: 'plan_name', label: 'Plan Name' },
+//     { key: 'business_name', label: 'Business Name' },
+//     { key: 'days_remaining', label: 'Days Remaining' },
+//     { key: 'next_billing_date', label: 'Next Billing' },
+//   ],
+//   platform: [
+//     { key: 'date', label: 'Date' },
+//     { key: 'new_bookings', label: 'New Bookings' },
+//     { key: 'new_orders', label: 'New Orders' },
+//     { key: 'revenue', label: 'Revenue' },
+//     { key: 'currency', label: 'Currency' },
+//     { key: 'new_customers', label: 'New Customers' },
+//     { key: 'today_bookings', label: "Today's Bookings" },
+//     { key: 'business_name', label: 'Business Name' },
+//     { key: 'customer_name', label: 'Customer Name' },
+//     { key: 'customer_email', label: 'Customer Email' },
+//   ],
+// }
 
 // ─── Sample data for preview ────────────────────────────────
 const SAMPLE_DATA = {
@@ -86,6 +86,8 @@ const SAMPLE_DATA = {
   amount: '150.00',
   currency: 'USD',
   meeting_url: 'https://meet.google.com/abc-def-ghi',
+  booking_url:
+  'https://booking.example.com/my-booking/BKG-260412-A1B2C3',
   provider_name: 'Sara Ahmed',
   business_name: 'Creative Studio',
   delivery_days: '5',
@@ -107,7 +109,8 @@ const SAMPLE_DATA = {
   message_preview: 'Hi, I have a question...',
 }
 
-export default function TemplateModal({ rule, onClose, onSave, activeTenant }) {
+export default function TemplateModal({ rule,registryEvent, onClose, onSave, activeTenant }) {
+
   const [activeChannel, setActiveChannel] = useState('whatsapp')
   const [template, setTemplate] = useState(rule.template || '')
   const [testPhone, setTestPhone] = useState('')
@@ -195,7 +198,9 @@ export default function TemplateModal({ rule, onClose, onSave, activeTenant }) {
     }, 0)
   }
 
-  const variables = VARIABLE_GROUPS[rule.category] || VARIABLE_GROUPS.reservations
+  // const variables = VARIABLE_GROUPS[rule.category] || VARIABLE_GROUPS.reservations
+
+  const variables = registryEvent?.variables || []
 
   // ── Preview rendering ──
   const renderPreview = (text) => {

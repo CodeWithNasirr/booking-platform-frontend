@@ -181,6 +181,9 @@ const menuItems = [
 ];
 
   // ── Four-layer gating: tenant type → plan → RBAC → (integration is visual only) ──
+  // NOTE: RBAC is authoritative. While permissions are still loading we do
+  // NOT fall back to "show everything" — that would leak unauthorized items
+  // for a frame. The component renders a skeleton instead (see below).
   const visibleItems = menuItems.filter((item) => {
     if (item.requiresProviders && !hasProviders) return false;
     if (item.requiresIndividual && hasProviders) return false;
@@ -190,10 +193,7 @@ const menuItems = [
       if (!hasFeature(item.featureCode)) return false;
     }
 
-    if (rbacLoading) return true;
-    if (!canSeeSidebarItem(item.key)) return false;
-
-    return true;
+    return canSeeSidebarItem(item.key);
   });
 
   // ── Resolve integration dot for a menu item ──
@@ -220,6 +220,41 @@ const menuItems = [
   const closedTransform = isRTL
   ? "translate-x-full"
   : "-translate-x-full";
+
+  // While permissions are loading, render a neutral skeleton — never the
+  // real menu. This is what prevents unauthorized items flashing for a
+  // frame before RBAC resolves.
+  if (rbacLoading) {
+    return (
+      <div
+        className={`
+          ${sidebarOpen ? "translate-x-0" : closedTransform}
+          lg:translate-x-0
+          fixed lg:relative inset-y-0
+          ${isRTL ? "right-0 border-l" : "left-0 border-r"}
+          z-50 w-64 bg-white shrink-0
+          transition-transform duration-300
+        `}
+      >
+        <div className="flex flex-col h-full">
+          <div className="p-6 border-b border-gray-200">
+            <div className="flex items-center gap-2">
+              <div className="w-10 h-10 rounded-xl bg-gray-100 animate-pulse" />
+              <div className="flex-1 space-y-2">
+                <div className="h-3 w-24 bg-gray-100 rounded animate-pulse" />
+                <div className="h-2 w-16 bg-gray-100 rounded animate-pulse" />
+              </div>
+            </div>
+          </div>
+          <nav className="flex-1 p-4 space-y-2">
+            {Array.from({ length: 8 }).map((_, i) => (
+              <div key={i} className="h-10 rounded-xl bg-gray-100 animate-pulse" />
+            ))}
+          </nav>
+        </div>
+      </div>
+    );
+  }
 
   return (
    <div

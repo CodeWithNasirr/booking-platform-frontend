@@ -64,6 +64,41 @@ export async function createCheckout(tenantId, planTier, billingInterval = "mont
   return data;
 }
 
+/** Enterprise — fetch the tenant's latest Contact-Sales request (or null) */
+export async function fetchEnterpriseRequest(tenantId) {
+  const res = await fetch(`${API}/api/v1/billing/enterprise/request/`, {
+    headers: headers(tenantId),
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to load enterprise request");
+  return res.json();
+}
+
+/** Enterprise — submit / re-submit a Contact-Sales request (idempotent on open) */
+export async function submitEnterpriseRequest(tenantId, payload) {
+  const res = await fetch(`${API}/api/v1/billing/enterprise/request/`, {
+    method: "POST",
+    headers: headers(tenantId),
+    credentials: "include",
+    body: JSON.stringify(payload || {}),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Failed to submit request");
+  return data;
+}
+
+/** Enterprise — withdraw an open Contact-Sales request */
+export async function cancelEnterpriseRequest(tenantId) {
+  const res = await fetch(`${API}/api/v1/billing/enterprise/request/cancel/`, {
+    method: "POST",
+    headers: headers(tenantId),
+    credentials: "include",
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Failed to cancel request");
+  return data;
+}
+
 /** Open Stripe billing portal */
 export async function openBillingPortal(tenantId) {
   const res = await fetch(`${API}/api/v1/billing/portal/`, {

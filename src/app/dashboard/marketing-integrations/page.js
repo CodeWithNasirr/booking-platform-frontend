@@ -20,6 +20,7 @@ import {
   Zap,
 } from 'lucide-react'
 import useBlockBackNavigation from '@/lib/useBlockBackNavigation'
+import TenantPermissionGate from "@/components/dashboard/TenantPermissionGate";
 
 const integrationsData = [
   {
@@ -74,7 +75,7 @@ const integrationsData = [
   },
 ]
 
-export default function MarketingIntegrationsPage() {
+function MarketingIntegrationsPageInner() {
   const { user, loadingUser, requiresOnboarding } = useApp()
   const router = useRouter()
 
@@ -570,4 +571,12 @@ export default function MarketingIntegrationsPage() {
       </div>
     </div>
   )
+}
+
+export default function MarketingIntegrationsPage(props) {
+  return (
+    <TenantPermissionGate permission="integrations.view">
+      <MarketingIntegrationsPageInner {...props} />
+    </TenantPermissionGate>
+  );
 }
