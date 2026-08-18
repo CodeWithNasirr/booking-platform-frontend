@@ -16,7 +16,6 @@ import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { Bell, Check, CheckCheck } from "lucide-react";
 
-import { useApp } from "@/contexts/AppContext";
 import { useNotifications } from "@/contexts/NotificationsContext";
 
 const CATEGORY_LABEL = {
@@ -52,8 +51,7 @@ function timeAgo(iso) {
   return new Date(iso).toLocaleDateString();
 }
 
-export default function NotificationBell() {
-  const { isRTL } = useApp();
+export default function NotificationBell({ isRTL = false }) {
   const {
     totalUnread,
     items,

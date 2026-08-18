@@ -2,22 +2,20 @@
 "use client";
 
 /**
- * Shared in-app notification state for the tenant dashboard chrome.
+ * Shared in-app notification state for dashboard chrome (tenant AND
+ * platform-admin). Mounted once per app (around Sidebar + Topbar) so there
+ * is a SINGLE realtime subscription and a SINGLE poll; the bell and the
+ * sidebar dots both read from here.
  *
- * Mounted once (around Sidebar + Topbar) so there is a SINGLE realtime
- * subscription and a SINGLE poll — the Topbar bell and the Sidebar dots
- * both read from here instead of each opening their own socket.
+ * Two providers share ONE context so the same NotificationBell / sidebar
+ * badge code works under either:
+ *   - NotificationsProvider          → tenant feed  (apiFetch, access_token)
+ *   - PlatformNotificationsProvider  → platform feed (platformFetch,
+ *                                       platform_access_token)
  *
- * Source of truth is always the backend:
- *   - initial + poll fallback  → GET feed/summary/  (unread totals)
- *   - live nudges              → realtime user:<id> topic, event
- *                                "notification.created" (bumps counts)
- *   - opening a section        → markCategoryRead(category) clears that
- *                                dot via the API, never local-only state.
- *
- * We never invent unread state on the client: realtime only ever
- * increments, and every decrement is the result of a backend mark-read
- * call (or the next poll/refetch reconciling the truth).
+ * Source of truth is always the backend: initial + poll → summary; live
+ * nudges → realtime user:<id> topic; every decrement is a backend
+ * mark-read (never local-only state).
  */
 
 import {
@@ -32,55 +30,64 @@ import {
 import Cookies from "js-cookie";
 
 import { useApp } from "@/contexts/AppContext";
+import { useSuperAdmin } from "@/contexts/Superadmincontext";
 import { useRealtime } from "@/lib/realtime";
 import {
   fetchNotificationSummary,
   fetchNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  fetchPlatformNotificationSummary,
+  fetchPlatformNotifications,
+  markPlatformNotificationRead,
+  markAllPlatformNotificationsRead,
 } from "@/lib/notificationsApi";
 
-const SIDEBAR_CATEGORIES = ["bookings", "orders", "custom_requests", "support"];
-const POLL_MS = 60000; // fallback refresh; realtime is the primary path
+const TENANT_CATEGORIES = ["bookings", "orders", "custom_requests", "support"];
+const PLATFORM_CATEGORIES = ["platform", "support", "billing", "integrations"];
+const POLL_MS = 60000;
 
 const NotificationsContext = createContext(null);
 
-function emptyByCategory() {
-  return SIDEBAR_CATEGORIES.reduce((acc, c) => ((acc[c] = 0), acc), {});
+function emptyByCategory(categories) {
+  return categories.reduce((acc, c) => ((acc[c] = 0), acc), {});
 }
 
-export function NotificationsProvider({ children }) {
-  const { user, activeTenant } = useApp();
-  const tenantId = activeTenant?.id || activeTenant || null;
-  const userId = user?.id || null;
+/**
+ * The whole state machine, parametrised by scope config so tenant and
+ * platform providers share it. `cfg`:
+ *   userId, jwt, categories, ready (bool), and an `api` of
+ *   { summary, list, markRead, markAll }.
+ */
+function useFeedState(cfg) {
+  const { userId, jwt, categories, ready, api } = cfg;
 
   const [totalUnread, setTotalUnread] = useState(0);
-  const [byCategory, setByCategory] = useState(emptyByCategory());
+  const [byCategory, setByCategory] = useState(emptyByCategory(categories));
   const [items, setItems] = useState([]);
   const [loading, setLoading] = useState(false);
-
-  // Guard against overlapping refetches clobbering each other.
   const inflight = useRef(false);
 
   const refreshSummary = useCallback(async () => {
-    if (!tenantId || !userId) return;
+    if (!ready) return;
     try {
-      const data = await fetchNotificationSummary(tenantId);
+      const data = await api.summary();
       if (data && typeof data.total_unread === "number") {
         setTotalUnread(data.total_unread);
-        setByCategory({ ...emptyByCategory(), ...(data.by_category || {}) });
+        setByCategory({ ...emptyByCategory(categories), ...(data.by_category || {}) });
       }
     } catch {
       /* best-effort — the next poll reconciles */
     }
-  }, [tenantId, userId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, api.summary]);
 
   const refreshFeed = useCallback(async () => {
-    if (!tenantId || !userId || inflight.current) return;
+    if (!ready || inflight.current) return;
     inflight.current = true;
     setLoading(true);
     try {
-      const data = await fetchNotifications(tenantId, { limit: 20 });
+      const data = await api.list({ limit: 20 });
       if (data && Array.isArray(data.results)) {
         setItems(data.results);
         if (typeof data.total_unread === "number") setTotalUnread(data.total_unread);
@@ -91,107 +98,148 @@ export function NotificationsProvider({ children }) {
       inflight.current = false;
       setLoading(false);
     }
-  }, [tenantId, userId]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [ready, api.list]);
 
-  // Initial load + poll fallback.
   useEffect(() => {
-    if (!tenantId || !userId) return undefined;
+    if (!ready) return undefined;
     refreshSummary();
     const t = setInterval(refreshSummary, POLL_MS);
     return () => clearInterval(t);
-  }, [tenantId, userId, refreshSummary]);
+  }, [ready, refreshSummary]);
 
-  // Realtime: live nudge on the recipient's private topic. On reconnect we
-  // re-sync via REST so anything missed while offline is reflected.
-  const topics = useMemo(
-    () => (userId ? [`user:${userId}`] : []),
-    [userId]
-  );
+  const topics = useMemo(() => (userId ? [`user:${userId}`] : []), [userId]);
 
   const handleEvent = useCallback(
     (env) => {
       if (!env || env.event !== "notification.created") return;
       const n = env.payload || {};
-      // Bump counts optimistically; the poll/refetch reconciles exact totals.
       setTotalUnread((c) => c + 1);
-      if (n.category && SIDEBAR_CATEGORIES.includes(n.category)) {
-        setByCategory((prev) => ({
-          ...prev,
-          [n.category]: (prev[n.category] || 0) + 1,
-        }));
+      if (n.category && categories.includes(n.category)) {
+        setByCategory((prev) => ({ ...prev, [n.category]: (prev[n.category] || 0) + 1 }));
       }
-      // Prepend to the dropdown list if it's already been opened/loaded.
-      setItems((prev) => (prev.length ? [{ ...n, is_read: false }, ...prev].slice(0, 20) : prev));
+      setItems((prev) =>
+        prev.length ? [{ ...n, is_read: false }, ...prev].slice(0, 20) : prev
+      );
     },
-    []
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [categories.join(",")]
   );
 
   useRealtime({
     topics,
-    auth: { jwt: Cookies.get("access_token") || null },
+    auth: { jwt: jwt || null },
     onEvent: handleEvent,
     onReconnect: refreshSummary,
   });
 
-  // ── Mutations (always backend-first) ──────────────────────────────
-
   const markRead = useCallback(
     async (id) => {
-      if (!tenantId) return;
-      // Optimistic: flip the row + decrement counts, then confirm.
-      setItems((prev) =>
-        prev.map((n) => (n.id === id && !n.is_read ? { ...n, is_read: true } : n))
-      );
+      setItems((prev) => prev.map((n) => (n.id === id && !n.is_read ? { ...n, is_read: true } : n)));
       try {
-        await markNotificationRead(tenantId, id);
+        await api.markRead(id);
       } finally {
         refreshSummary();
       }
     },
-    [tenantId, refreshSummary]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [api.markRead, refreshSummary]
   );
 
   const markCategoryRead = useCallback(
     async (category) => {
-      if (!tenantId || !category) return;
-      // Clear the dot immediately, then reconcile with the server.
+      if (!category) return;
       setByCategory((prev) => ({ ...prev, [category]: 0 }));
       try {
-        await markAllNotificationsRead(tenantId, category);
+        await api.markAll(category);
       } finally {
         refreshSummary();
       }
     },
-    [tenantId, refreshSummary]
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [api.markAll, refreshSummary]
   );
 
-  const markAllRead = useCallback(async () => {
-    if (!tenantId) return;
-    setTotalUnread(0);
-    setByCategory(emptyByCategory());
-    setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
-    try {
-      await markAllNotificationsRead(tenantId);
-    } finally {
-      refreshSummary();
-    }
-  }, [tenantId, refreshSummary]);
+  const markAllRead = useCallback(
+    async () => {
+      setTotalUnread(0);
+      setByCategory(emptyByCategory(categories));
+      setItems((prev) => prev.map((n) => ({ ...n, is_read: true })));
+      try {
+        await api.markAll();
+      } finally {
+        refreshSummary();
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [api.markAll, refreshSummary]
+  );
 
-  const value = useMemo(
+  return useMemo(
     () => ({
-      totalUnread,
-      byCategory,
-      items,
-      loading,
-      refreshFeed,
-      refreshSummary,
-      markRead,
-      markCategoryRead,
-      markAllRead,
+      totalUnread, byCategory, items, loading,
+      refreshFeed, refreshSummary, markRead, markCategoryRead, markAllRead,
     }),
     [totalUnread, byCategory, items, loading, refreshFeed, refreshSummary,
      markRead, markCategoryRead, markAllRead]
   );
+}
+
+// ── Tenant provider ────────────────────────────────────────────────
+
+export function NotificationsProvider({ children }) {
+  const { user, activeTenant } = useApp();
+  const tenantId = activeTenant?.id || activeTenant || null;
+  const userId = user?.id || null;
+
+  const api = useMemo(
+    () => ({
+      summary: () => fetchNotificationSummary(tenantId),
+      list: (opts) => fetchNotifications(tenantId, opts),
+      markRead: (id) => markNotificationRead(tenantId, id),
+      markAll: (category) => markAllNotificationsRead(tenantId, category),
+    }),
+    [tenantId]
+  );
+
+  const value = useFeedState({
+    userId,
+    jwt: Cookies.get("access_token"),
+    categories: TENANT_CATEGORIES,
+    ready: !!(tenantId && userId),
+    api,
+  });
+
+  return (
+    <NotificationsContext.Provider value={value}>
+      {children}
+    </NotificationsContext.Provider>
+  );
+}
+
+// ── Platform-admin provider ────────────────────────────────────────
+
+export function PlatformNotificationsProvider({ children }) {
+  const { user } = useSuperAdmin();
+  const userId = user?.id || null;
+
+  const api = useMemo(
+    () => ({
+      summary: () => fetchPlatformNotificationSummary(),
+      list: (opts) => fetchPlatformNotifications(opts),
+      markRead: (id) => markPlatformNotificationRead(id),
+      markAll: (category) => markAllPlatformNotificationsRead(category),
+    }),
+    []
+  );
+
+  const value = useFeedState({
+    userId,
+    jwt: Cookies.get("platform_access_token"),
+    categories: PLATFORM_CATEGORIES,
+    ready: !!userId,
+    api,
+  });
 
   return (
     <NotificationsContext.Provider value={value}>
@@ -202,12 +250,10 @@ export function NotificationsProvider({ children }) {
 
 export function useNotifications() {
   const ctx = useContext(NotificationsContext);
-  // Safe default so components (e.g. Sidebar) render even if used outside
-  // the provider — no unread data, but never a crash.
   return (
     ctx || {
       totalUnread: 0,
-      byCategory: emptyByCategory(),
+      byCategory: {},
       items: [],
       loading: false,
       refreshFeed: () => {},

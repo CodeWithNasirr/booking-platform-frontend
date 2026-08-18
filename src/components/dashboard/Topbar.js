@@ -41,7 +41,7 @@ export default function Topbar({ setSidebarOpen }) {
           }`}
         >
           <LanguageSwitcher />
-          <NotificationBell />
+          <NotificationBell isRTL={isRTL} />
 
           <div
             className={`flex items-center gap-2 border border-border rounded-xl px-3 py-2 ${
