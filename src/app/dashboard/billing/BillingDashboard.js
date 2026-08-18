@@ -129,42 +129,62 @@ export default function BillingDashboard() {
 
   useEffect(() => { loadData(); }, [loadData]);
 
-  const TIER_ORDER = { free: 0, starter: 1, professional: 2, enterprise: 3 };
+  const TIER_ORDER = {
+    free: 0,
+    starter: 1,
+    professional: 2,
+    enterprise: 3,
+  };
 
   const handleUpgrade = async (planTier) => {
     const currentTier = dashboard?.current_plan?.tier || "free";
-    const isDowngrade = (TIER_ORDER[planTier] ?? 0) < (TIER_ORDER[currentTier] ?? 0);
+    const isDowngrade =
+      (TIER_ORDER[planTier] ?? 0) < (TIER_ORDER[currentTier] ?? 0);
 
-    // Downgrades are scheduled for the next billing cycle — confirm, don't
-    // change the plan immediately, and never open a Moyasar checkout.
+    // Downgrades are scheduled for the next billing cycle.
     if (isDowngrade) {
       const ok = window.confirm(
         `Downgrade to ${planTier}? Your current plan stays active until the end of your ` +
         `billing period, then the downgrade takes effect. You won't be charged now.`
       );
+
       if (!ok) return;
     }
 
     setActionLoading(planTier);
+
     try {
-      const result = await createCheckout(activeTenant, planTier, billingInterval);
+      const result = await createCheckout(
+        activeTenant,
+        planTier,
+        billingInterval
+      );
+
       // Scheduled downgrade — no payment, current plan kept until effective date.
       if (result.scheduled) {
+        setShowPlans(false); // <-- ADD THIS
         setCheckoutBanner("scheduled");
         setTimeout(() => loadData(true), 800);
         return;
       }
+
       if (result.no_change) {
+        setShowPlans(false); // Optional: also close for no-op
         window.alert("You're already on this plan.");
         return;
       }
+
       if (result.free_plan || result.upgraded) {
+        setShowPlans(false); // Good UX for immediate plan changes too
         setCheckoutBanner(result.upgraded ? "upgraded" : "success");
         setTimeout(() => loadData(), 1500);
         return;
       }
+
       // Upgrade → pay via Moyasar hosted checkout.
-      if (result.checkout_url) window.location.href = result.checkout_url;
+      if (result.checkout_url) {
+        window.location.href = result.checkout_url;
+      }
     } catch (err) {
       alert(err.message || "Something went wrong");
     } finally {

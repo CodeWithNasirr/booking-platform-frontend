@@ -91,5 +91,40 @@ export default {
   "billing.status.pending": "Pending",
   "billing.status.completed": "Completed",
   "billing.status.rejected": "Rejected",
-  "billing.status.approved": "Approved"
+  "billing.status.approved": "Approved",
+
+  // Enterprise
+  "billing.enterprise.badge": "Enterprise",
+  "billing.enterprise.customPrice": "Custom",
+  "billing.enterprise.contactSales": "Contact Sales",
+
+  "billing.enterprise.submittedTitle": "Request received",
+  "billing.enterprise.submittedDesc": "Our sales team will reach out shortly.",
+
+  "billing.enterprise.requestTitle": "Enterprise request",
+  "billing.enterprise.statusPending": "Pending review",
+  "billing.enterprise.statusUnderReview": "Under review",
+  "billing.enterprise.requestPendingDesc":
+    "Our sales team is reviewing your request and will be in touch. You can withdraw it any time before it's approved.",
+  "billing.enterprise.submittedOn": "Submitted",
+  "billing.enterprise.withdraw": "Withdraw",
+  "billing.enterprise.cancelConfirm": "Withdraw this Enterprise request?",
+  "billing.enterprise.requestPending": "Request pending",
+
+  "billing.enterprise.modalIntro":
+    "Tell us about your needs and our sales team will prepare a tailored Enterprise quote for you.",
+
+  "billing.enterprise.contactName": "Contact name",
+  "billing.enterprise.contactEmail": "Work email",
+  "billing.enterprise.contactPhone": "Phone",
+  "billing.enterprise.companySize": "Company size",
+  "billing.enterprise.expectedVolume": "Expected monthly volume",
+  "billing.enterprise.message": "Anything else?",
+  "billing.enterprise.sendRequest": "Send request",
+
+  "billing.downgradeScheduled": "Downgrade scheduled",
+  "billing.downgradeScheduledDesc": "Your current plan stays active until the end of this billing period, then the downgrade takes effect. You were not charged.",
+  "billing.status.scheduled": "Scheduled",
+  // Common
+  "common.cancel": "Cancel",
 };

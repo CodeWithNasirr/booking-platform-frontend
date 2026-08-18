@@ -648,9 +648,9 @@ function MoyasarConfigModal({ activeTenant, existing, onClose, onSaved, onToast 
         secret_key: form.secret_key.trim(),
         publishable_key: form.publishable_key.trim(),
       });
-      console.log(res);
-      console.log(res.webhook_url);
-      console.log(res.webhook_secret);
+      // console.log(res);
+      // console.log(res.webhook_url);
+      // console.log(res.webhook_secret);
       // Always advance to the webhook step (webhook !== null). The secret is
       // only present when freshly generated; on re-configure it's intentionally
       // empty (already stored, never re-exposed) → we show the URL + a rotate CTA.

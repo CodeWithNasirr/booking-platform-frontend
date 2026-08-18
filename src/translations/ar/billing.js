@@ -70,7 +70,7 @@ export default {
   "billing.planFeatures": "مميزات الخطة",
 
   "billing.viewPlans": "عرض الخطط",
-  "billing.manageBilling": "إدارة الفواتير",
+  "billing.manageBilling": "إدارة الفوترة",
   "billing.viewInvoices": "عرض الفواتير",
 
   "billing.upgrade": "ترقية",
@@ -91,5 +91,38 @@ export default {
   "billing.status.pending": "قيد الانتظار",
   "billing.status.completed": "مكتمل",
   "billing.status.rejected": "مرفوض",
-  "billing.status.approved": "معتمد"
+  "billing.status.approved": "معتمد",
+
+  // Enterprise
+  "billing.enterprise.badge": "مؤسسات",
+  "billing.enterprise.customPrice": "مخصص",
+  "billing.enterprise.contactSales": "تواصل مع المبيعات",
+
+  "billing.enterprise.submittedTitle": "تم استلام الطلب",
+  "billing.enterprise.submittedDesc": "سيتواصل معك فريق المبيعات قريبًا.",
+
+  "billing.enterprise.requestTitle": "طلب خطة المؤسسات",
+  "billing.enterprise.statusPending": "بانتظار المراجعة",
+  "billing.enterprise.statusUnderReview": "قيد المراجعة",
+  "billing.enterprise.requestPendingDesc": "يقوم فريق المبيعات لدينا بمراجعة طلبك وسيتواصل معك قريبًا. يمكنك سحب الطلب في أي وقت قبل الموافقة عليه.",
+  "billing.enterprise.submittedOn": "تم التقديم",
+  "billing.enterprise.withdraw": "سحب الطلب",
+  "billing.enterprise.cancelConfirm": "هل تريد سحب طلب خطة المؤسسات هذا؟",
+  "billing.enterprise.requestPending": "الطلب قيد المراجعة",
+
+  "billing.enterprise.modalIntro": "أخبرنا باحتياجاتك، وسيقوم فريق المبيعات لدينا بإعداد عرض مخصص لخطة المؤسسات.",
+
+  "billing.enterprise.contactName": "اسم جهة الاتصال",
+  "billing.enterprise.contactEmail": "البريد الإلكتروني للعمل",
+  "billing.enterprise.contactPhone": "رقم الهاتف",
+  "billing.enterprise.companySize": "حجم الشركة",
+  "billing.enterprise.expectedVolume": "الحجم الشهري المتوقع",
+  "billing.enterprise.message": "هل هناك أي معلومات أخرى؟",
+  "billing.enterprise.sendRequest": "إرسال الطلب",
+
+  "billing.downgradeScheduled": "تمت جدولة خفض الخطة",
+  "billing.downgradeScheduledDesc": "ستظل خطتك الحالية نشطة حتى نهاية فترة الفوترة الحالية، ثم سيتم تطبيق خفض الخطة. لم يتم تحصيل أي رسوم منك.",
+  "billing.status.scheduled": "مجدول",
+  // Common
+  "common.cancel": "إلغاء"
 };
