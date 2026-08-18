@@ -184,6 +184,9 @@ export default function OrderCheckout({ service, domain }) {
         customer_phone: customerData.phone,
         // Idempotency: backend uses this to prevent duplicate orders
         checkout_session_id: checkout.checkoutSessionId,
+        // Tenant-site origin so the backend returns the customer to this
+        // domain's /my-orders/<id> after Moyasar payment.
+        origin: typeof window !== "undefined" ? window.location.origin : "",
       };
 
       const result = await initiateOrderPayment(domain, payload);

@@ -396,6 +396,9 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
 
                   body: JSON.stringify({
                     is_deposit: false,
+                    // Tenant-site origin so the backend returns the customer to
+                    // this domain's /my-bookings/<id> after Moyasar payment.
+                    origin: typeof window !== "undefined" ? window.location.origin : "",
                   }),
                 }
               );
