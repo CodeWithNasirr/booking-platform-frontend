@@ -1,135 +1,217 @@
-// src/components/bookings/BookingsList.js
+// src/app/dashboard/bookings/components/BookingsList.js
 'use client';
 
 import { useState } from 'react';
 import { useApp } from '@/contexts/AppContext';
+import { CalendarX, SearchX } from 'lucide-react';
+import EmptyState from '@/components/ui/EmptyState';
+import Button from '@/components/ui/Button';
 import BookingRow from './BookingRow';
-import {
-  Calendar,
-  Loader2,
-} from 'lucide-react';
+import BookingCard from './BookingCard';
+
+const COLUMNS = [
+  'booking', 'customer', 'service', 'provider', 'dateTime', 'status', 'payment',
+];
+
+function TableSkeleton({ rows = 6 }) {
+  return (
+    <tbody>
+      {Array.from({ length: rows }).map((_, i) => (
+        <tr key={i} className="border-t border-border">
+          {/* Booking */}
+          <td className="px-4 py-3.5">
+            <div className="h-3.5 w-24 rounded bg-muted animate-pulse" />
+            <div className="h-2.5 w-16 rounded bg-muted animate-pulse mt-2" />
+          </td>
+          {/* Customer */}
+          <td className="px-4 py-3.5">
+            <div className="flex items-center gap-2.5">
+              <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+              <div>
+                <div className="h-3.5 w-28 rounded bg-muted animate-pulse" />
+                <div className="h-2.5 w-20 rounded bg-muted animate-pulse mt-2" />
+              </div>
+            </div>
+          </td>
+          {/* Service */}
+          <td className="px-4 py-3.5">
+            <div className="h-3.5 w-32 rounded bg-muted animate-pulse" />
+            <div className="h-2.5 w-20 rounded bg-muted animate-pulse mt-2" />
+          </td>
+          {/* Provider */}
+          <td className="px-4 py-3.5">
+            <div className="h-3.5 w-24 rounded bg-muted animate-pulse" />
+          </td>
+          {/* Date */}
+          <td className="px-4 py-3.5">
+            <div className="h-3.5 w-20 rounded bg-muted animate-pulse" />
+            <div className="h-2.5 w-14 rounded bg-muted animate-pulse mt-2" />
+          </td>
+          {/* Status */}
+          <td className="px-4 py-3.5">
+            <div className="h-6 w-20 rounded-full bg-muted animate-pulse" />
+          </td>
+          {/* Payment */}
+          <td className="px-4 py-3.5">
+            <div className="h-5 w-16 rounded-md bg-muted animate-pulse" />
+          </td>
+          {/* Actions */}
+          <td className="px-4 py-3.5">
+            <div className="h-8 w-8 rounded-lg bg-muted animate-pulse ms-auto" />
+          </td>
+        </tr>
+      ))}
+    </tbody>
+  );
+}
+
+function CardSkeleton() {
+  return (
+    <div className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-start justify-between">
+        <div className="space-y-2">
+          <div className="h-4 w-32 rounded bg-muted animate-pulse" />
+          <div className="h-3 w-20 rounded bg-muted animate-pulse" />
+        </div>
+        <div className="h-6 w-20 rounded-full bg-muted animate-pulse" />
+      </div>
+      <div className="mt-3 flex items-center gap-2.5">
+        <div className="w-8 h-8 rounded-full bg-muted animate-pulse" />
+        <div className="h-3.5 w-28 rounded bg-muted animate-pulse" />
+      </div>
+      <div className="mt-3 h-px bg-border" />
+      <div className="mt-3 flex items-center justify-between">
+        <div className="h-5 w-16 rounded-md bg-muted animate-pulse" />
+        <div className="h-4 w-12 rounded bg-muted animate-pulse" />
+      </div>
+    </div>
+  );
+}
 
 export default function BookingsList({
   hasAnyAction,
   bookings,
   loading,
+  hasActiveFilters = false,
+  onClearFilters,
   onView,
-  onEdit,      
+  onEdit,
   onStatusChange,
   onCancel,
   onDelete,
 }) {
-  const { t, isRTL } = useApp();
+  const { t } = useApp();
   const [menuOpenId, setMenuOpenId] = useState(null);
-  // Loading state
+
+  const Head = (
+    <thead>
+      <tr className="border-b border-border bg-muted/40">
+        {COLUMNS.map((col) => (
+          <th
+            key={col}
+            className="px-4 py-3 text-start text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap"
+          >
+            {t(`bookings.table.${col}`)}
+          </th>
+        ))}
+        <th className="px-4 py-3 text-end text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+          {t('bookings.table.actions')}
+        </th>
+      </tr>
+    </thead>
+  );
+
+  // Loading — skeletons matching the final structure
   if (loading) {
     return (
-      <div className="bg-white border border-gray-200 rounded-xl p-12 flex flex-col items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-[#8B1E3F] mb-4" />
-        <p className="text-gray-600">{t('bookings.loading')}</p>
-      </div>
+      <>
+        <div className="hidden md:block rounded-xl border border-border bg-card overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              {Head}
+              <TableSkeleton />
+            </table>
+          </div>
+        </div>
+        <div className="md:hidden space-y-3">
+          {Array.from({ length: 4 }).map((_, i) => <CardSkeleton key={i} />)}
+        </div>
+      </>
     );
   }
 
-  // Empty state
+  // Empty — differentiate "no results for filters" vs "no bookings yet"
   if (bookings.length === 0) {
     return (
-      <div className="bg-white border border-gray-200 rounded-xl p-12 flex flex-col items-center justify-center">
-        <div className="w-16 h-16 rounded-full bg-[#8B1E3F]/10 flex items-center justify-center mb-4">
-          <Calendar className="w-8 h-8 text-[#8B1E3F]" />
-        </div>
-        <h3 className="text-lg font-semibold text-gray-900 mb-2">
-          {t('bookings.empty.title')}
-        </h3>
-        <p className="text-gray-600">
-          {t('bookings.empty.description')}
-        </p>
+      <div className="rounded-xl border border-border bg-card">
+        {hasActiveFilters ? (
+          <EmptyState
+            icon={SearchX}
+            title={t('bookings.empty.filtered')}
+            hint={t('bookings.empty.description')}
+            action={
+              onClearFilters ? (
+                <Button variant="secondary" size="sm" onClick={onClearFilters}>
+                  {t('bookings.empty.clearFilters')}
+                </Button>
+              ) : null
+            }
+          />
+        ) : (
+          <EmptyState
+            icon={CalendarX}
+            title={t('bookings.empty.title')}
+            hint={t('bookings.empty.description')}
+          />
+        )}
       </div>
     );
   }
 
   return (
-    <div className="bg-white border border-gray-200 rounded-xl overflow-hidden">
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th
-                className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                  isRTL ? 'text-right' : 'text-left'
-                }`}
-              >
-                {t('bookings.table.booking')}
-              </th>
-              <th
-                className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                  isRTL ? 'text-right' : 'text-left'
-                }`}
-              >
-                {t('bookings.table.customer')}
-              </th>
-              <th
-                className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                  isRTL ? 'text-right' : 'text-left'
-                }`}
-              >
-                {t('bookings.table.service')}
-              </th>
-              <th
-                className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                  isRTL ? 'text-right' : 'text-left'
-                }`}
-              >
-                {t('bookings.table.provider')}
-              </th>
-              <th
-                className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                  isRTL ? 'text-right' : 'text-left'
-                }`}
-              >
-                {t('bookings.table.dateTime')}
-              </th>
-              <th
-                className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                  isRTL ? 'text-right' : 'text-left'
-                }`}
-              >
-                {t('bookings.table.status')}
-              </th>
-              <th
-                className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                  isRTL ? 'text-right' : 'text-left'
-                }`}
-              >
-                {t('bookings.table.payment')}
-              </th>
-              <th
-                className={`px-6 py-3 text-xs font-medium text-gray-500 uppercase tracking-wider ${
-                  isRTL ? 'text-left' : 'text-right'
-                }`}
-              >
-                {t('bookings.table.actions')}
-              </th>
-            </tr>
-          </thead>
-          <tbody className="bg-white divide-y divide-gray-200">
-            {bookings.map((booking) => (
-              <BookingRow
-                hasAnyAction={hasAnyAction} 
-                key={booking.id}
-                booking={booking}
-                menuOpenId={menuOpenId}
-                setMenuOpenId={setMenuOpenId}
-                onEdit={onEdit}          // ✅ PASS IT
-                onView={onView}
-                onStatusChange={onStatusChange}
-                onCancel={onCancel}
-                onDelete={onDelete}
-              />
-            ))}
-          </tbody>
-        </table>
+    <>
+      {/* Desktop table */}
+      <div className="hidden md:block rounded-xl border border-border bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            {Head}
+            <tbody className="divide-y divide-border">
+              {bookings.map((booking) => (
+                <BookingRow
+                  key={booking.id}
+                  hasAnyAction={hasAnyAction}
+                  booking={booking}
+                  menuOpenId={menuOpenId}
+                  setMenuOpenId={setMenuOpenId}
+                  onView={onView}
+                  onEdit={onEdit}
+                  onStatusChange={onStatusChange}
+                  onCancel={onCancel}
+                  onDelete={onDelete}
+                />
+              ))}
+            </tbody>
+          </table>
+        </div>
       </div>
-    </div>
+
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-3">
+        {bookings.map((booking) => (
+          <BookingCard
+            key={booking.id}
+            hasAnyAction={hasAnyAction}
+            booking={booking}
+            menuOpenId={menuOpenId}
+            setMenuOpenId={setMenuOpenId}
+            onView={onView}
+            onEdit={onEdit}
+            onStatusChange={onStatusChange}
+            onCancel={onCancel}
+            onDelete={onDelete}
+          />
+        ))}
+      </div>
+    </>
   );
 }

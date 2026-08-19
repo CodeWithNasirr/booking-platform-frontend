@@ -4,6 +4,7 @@ export default {
   // =====================
   'bookings.title': 'الحجوزات',
   'bookings.subtitle': 'إدارة جميع مواعيدك وحجوزاتك',
+  'bookings.noPermission': 'ليس لديك إذن لعرض الحجوزات',
   'bookings.newBooking': 'حجز جديد',
   'bookings.calendarView': 'عرض التقويم',
 
@@ -11,6 +12,7 @@ export default {
   // STATS
   // =====================
   'bookings.stats.total': 'إجمالي الحجوزات',
+  'bookings.stats.upcoming': 'القادمة',
   'bookings.stats.pending': 'قيد الانتظار',
   'bookings.stats.confirmed': 'مؤكدة',
   'bookings.stats.completed': 'مكتملة',

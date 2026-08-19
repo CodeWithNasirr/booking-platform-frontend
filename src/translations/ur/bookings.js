@@ -4,6 +4,7 @@ export default {
   // =====================
   "bookings.title": "بکنگز",
   "bookings.subtitle": "اپنی تمام اپائنٹمنٹس اور ریزرویشنز کا انتظام کریں",
+  "bookings.noPermission": "آپ کو بکنگز دیکھنے کی اجازت نہیں ہے",
   "bookings.newBooking": "نئی بکنگ",
   "bookings.calendarView": "کیلنڈر ویو",
 
@@ -11,6 +12,7 @@ export default {
   // STATS
   // =====================
   "bookings.stats.total": "کل بکنگز",
+  "bookings.stats.upcoming": "آنے والی",
   "bookings.stats.pending": "زیر التواء",
   "bookings.stats.confirmed": "تصدیق شدہ",
   "bookings.stats.completed": "مکمل",

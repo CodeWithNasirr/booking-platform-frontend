@@ -4,6 +4,7 @@ export default {
   // =====================
   'bookings.title': 'Bookings',
   'bookings.subtitle': 'Manage all your appointments and reservations',
+  'bookings.noPermission': "You don't have permission to view bookings",
   'bookings.newBooking': 'New Booking',
   'bookings.calendarView': 'Calendar View',
 
@@ -11,6 +12,7 @@ export default {
   // STATS
   // =====================
   'bookings.stats.total': 'Total Bookings',
+  'bookings.stats.upcoming': 'Upcoming',
   'bookings.stats.pending': 'Pending',
   'bookings.stats.confirmed': 'Confirmed',
   'bookings.stats.completed': 'Completed',
