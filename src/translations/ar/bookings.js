@@ -135,6 +135,17 @@ export default {
   'bookings.modal.view.timeline': 'الجدول الزمني',
   'bookings.modal.view.files': 'الملفات',
   'bookings.modal.view.payments': 'المدفوعات',
+  'bookings.detail.overview': 'نظرة عامة',
+  'bookings.detail.chat': 'المحادثة',
+  'bookings.detail.activity': 'النشاط',
+  'bookings.detail.summary': 'الملخص',
+  'bookings.detail.location': 'الموقع',
+  'bookings.detail.call': 'مكالمة',
+  'bookings.detail.callControls': 'أدوات المكالمة',
+  'bookings.detail.back': 'رجوع',
+  'bookings.detail.online': 'اجتماع عبر الإنترنت',
+  'bookings.detail.join': 'الانضمام للاجتماع',
+  'bookings.detail.noActivity': 'لا يوجد نشاط بعد',
 
   // =====================
   // CANCEL MODAL
