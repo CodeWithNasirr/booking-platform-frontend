@@ -60,6 +60,7 @@ export default function BookingConversationPanel({
   auth,
   viewer = "admin",
   showComposer = true,
+  fill = false,
   className = "",
 }) {
   const [conversation, setConversation] = useState(null);
@@ -100,6 +101,7 @@ export default function BookingConversationPanel({
       order={conversation || { messages: [], timeline_events: [] }}
       viewer={viewer}
       className={className}
+      fill={fill}
       showComposer={showComposer}
       onSendMessage={async (content) => {
         const res = await fetch(

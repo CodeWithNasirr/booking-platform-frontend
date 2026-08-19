@@ -1,43 +1,10 @@
 // src/app/tenant-site/[domain]/my-bookings/MyBookingsClient.js
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import LayoutRenderer from "../LayoutRenderer";
 import CustomerBookingsDashboard from "@/app/tenant-site/modules/CustomerBookingsDashboard";
 import { tenantRoutes } from "@/lib/tenantRoutes";
-
-const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
-
-function resolveToken(tenantId) {
-  // Check for tenant-specific booking token first
-  if (tenantId) {
-    const guestToken = localStorage.getItem(`customer_booking_token_${tenantId}`);
-    if (guestToken) return { token: guestToken, type: "guest" };
-  }
-
-  // Fallback: scan for any customer_booking_token_* key
-  const keys = Object.keys(localStorage);
-  for (const key of keys) {
-    if (key.startsWith("customer_booking_token_")) {
-      const guestToken = localStorage.getItem(key);
-      if (guestToken) return { token: guestToken, type: "guest" };
-    }
-  }
-
-  return { token: null, type: null };
-}
-
-function buildHeaders(domain, token) {
-  const headers = { "Content-Type": "application/json" };
-  if (domain) headers["X-Tenant"] = domain;
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
-
-  return headers;
-}
 
 export default function MyBookingsClient({
   domain,
@@ -47,59 +14,10 @@ export default function MyBookingsClient({
 }) {
   const router = useRouter();
 
-  const [bookings, setBookings] = useState([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState(null);
-  const [hasToken, setHasToken] = useState(false);
-
+  // Auth (guest OTP / magic-link token) and booking fetching are owned by
+  // CustomerBookingsDashboard — see that module. This shell just wires the
+  // tenant site chrome (header/footer) and navigation.
   const tenantId = site?.id;
-
-  const fetchBookings = useCallback(async () => {
-    try {
-      setLoading(true);
-      setError(null);
-
-      const auth = resolveToken(tenantId);
-
-      if (!auth.token) {
-        setHasToken(false);
-        setLoading(false);
-        return;
-      }
-
-      setHasToken(true);
-
-      const res = await fetch(`${API_BASE}/api/v1/guest-bookings/by-email/`, {
-        headers: buildHeaders(domain, auth.token),
-        credentials: 'include',
-      });
-
-      if (!res.ok) {
-        if (res.status === 401 || res.status === 403) {
-          // Clear invalid token
-          if (tenantId) {
-            localStorage.removeItem(`customer_booking_token_${tenantId}`);
-            localStorage.removeItem(`customer_booking_email_${tenantId}`);
-          }
-          setHasToken(false);
-          setLoading(false);
-          return;
-        }
-        throw new Error(`${res.status}`);
-      }
-
-      const data = await res.json();
-      setBookings(data.bookings || []);
-    } catch {
-      setError("Failed to load your bookings.");
-    } finally {
-      setLoading(false);
-    }
-  }, [domain, tenantId]);
-
-  useEffect(() => {
-    fetchBookings();
-  }, [fetchBookings]);
 
   const handleSelectBooking = (bookingId) => {
     router.push(tenantRoutes.myBooking(bookingId));
@@ -114,34 +32,13 @@ export default function MyBookingsClient({
         <LayoutRenderer sections={headerSection} site={site} />
       )}
 
-      <main className="min-h-screen bg-gray-50">
-        {loading ? (
-          <div className="flex justify-center py-20">
-            <div className="animate-spin h-8 w-8 border-b-2 border-gray-900 rounded-full" />
-          </div>
-        ) : error ? (
-          <div className="text-center py-20">
-            <p className="text-red-600 mb-4">{error}</p>
-            <button
-              onClick={fetchBookings}
-              className="px-4 py-2 bg-blue-600 text-white rounded-xl"
-            >
-              Try Again
-            </button>
-          </div>
-        ) : !hasToken ? (
-          <CustomerBookingsDashboard
-            domain={domain}
-            tenantId={tenantId}
-            onSelectBooking={handleSelectBooking}
-          />
-        ) : (
-          <CustomerBookingsDashboard
-            domain={domain}
-            tenantId={tenantId}
-            onSelectBooking={handleSelectBooking}
-          />
-        )}
+      <main className="min-h-screen bg-muted">
+        <CustomerBookingsDashboard
+          domain={domain}
+          tenantId={tenantId}
+          site={site}
+          onSelectBooking={handleSelectBooking}
+        />
       </main>
 
       {footerSection.length > 0 && (
