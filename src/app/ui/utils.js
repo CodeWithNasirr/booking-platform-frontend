@@ -3,6 +3,11 @@
 import { clsx } from "clsx";
 import { twMerge } from "tailwind-merge";
 
-export function cn(...classes) {
-  return classes.filter(Boolean).join(" ");
+/**
+ * cn — compose conditional class names and de-duplicate conflicting
+ * Tailwind utilities so a caller's `className` reliably overrides a
+ * primitive's defaults.
+ */
+export function cn(...inputs) {
+  return twMerge(clsx(inputs));
 }

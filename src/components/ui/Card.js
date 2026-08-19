@@ -3,12 +3,12 @@
 /**
  * Card — the universal container. Replaces the dozen ad-hoc
  * `bg-white rounded-2xl border border-gray-100 shadow-sm p-6`
- * variants strewn across pages.
+ * variants strewn across pages, now on semantic tokens.
  *
  * Variants:
  *   default — soft shadow, hairline border, generous padding
  *   flat    — no shadow, useful inside scrollable panes
- *   inset   — sub-card (lighter background, no shadow)
+ *   inset   — sub-card (muted background, no shadow)
  *
  * `interactive` enables hover state for clickable cards.
  */
@@ -17,15 +17,15 @@ import { forwardRef } from "react";
 
 const PADDING = {
   none: "",
-  sm:   "p-3",
-  md:   "p-4",
-  lg:   "p-6",
+  sm: "p-3",
+  md: "p-4",
+  lg: "p-6",
 };
 
 const VARIANTS = {
-  default: "bg-white border border-gray-100 shadow-sm",
-  flat:    "bg-white border border-gray-100",
-  inset:   "bg-gray-50 border border-gray-200",
+  default: "bg-card text-card-foreground border border-border shadow-sm",
+  flat: "bg-card text-card-foreground border border-border",
+  inset: "bg-muted text-foreground border border-border",
 };
 
 const Card = forwardRef(function Card(
@@ -34,9 +34,9 @@ const Card = forwardRef(function Card(
 ) {
   const cls = [
     "rounded-2xl",
-    VARIANTS[variant],
-    PADDING[padding],
-    interactive && "hover:shadow transition cursor-pointer",
+    VARIANTS[variant] || VARIANTS.default,
+    PADDING[padding] ?? PADDING.lg,
+    interactive && "hover:shadow-md transition cursor-pointer",
     className,
   ].filter(Boolean).join(" ");
 
@@ -53,9 +53,9 @@ export function SectionCard({ title, action, children, padding = "lg", className
   return (
     <Card padding={padding} className={className}>
       {(title || action) && (
-        <div className="flex items-center justify-between mb-3">
+        <div className="flex items-center justify-between mb-3 gap-2">
           {title && (
-            <h2 className="text-sm font-semibold text-gray-700 uppercase tracking-wide">
+            <h2 className="text-sm font-semibold text-muted-foreground uppercase tracking-wide">
               {title}
             </h2>
           )}

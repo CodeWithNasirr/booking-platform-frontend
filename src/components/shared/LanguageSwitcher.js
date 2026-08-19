@@ -57,19 +57,12 @@ export default function LanguageSwitcher() {
     >
       <button
         onClick={() => setOpen((prev) => !prev)}
-        className={`
-          flex items-center gap-2
-          px-3 py-2
-          rounded-xl
-          bg-white
-          border border-gray-200
-          hover:border-blue-300
-          hover:shadow-sm
-          transition-all
-          ${isRTL ? "flex-row-reverse" : ""}
-        `}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        aria-label="Change language"
+        className="flex items-center gap-2 h-11 sm:h-10 px-3 rounded-xl bg-surface text-foreground border border-border hover:border-ring hover:shadow-sm transition-all"
       >
-        <Globe className="w-4 h-4 text-blue-600" />
+        <Globe className="w-4 h-4 text-primary" />
 
         <span className="text-sm hidden sm:inline">
           {currentLanguage.label}
@@ -77,13 +70,14 @@ export default function LanguageSwitcher() {
       </button>
 
       <div
+        role="listbox"
         className={`
           absolute top-full mt-2
           min-w-[180px]
-          bg-white
+          bg-popover text-popover-foreground
           rounded-xl
-          border border-gray-200
-          shadow-xl
+          border border-border
+          shadow-lg
           z-[9999]
           overflow-hidden
           transition-all duration-200
@@ -101,13 +95,15 @@ export default function LanguageSwitcher() {
           <button
             key={lang.code}
             onClick={() => handleChange(lang.code)}
+            role="option"
+            aria-selected={currentLang === lang.code}
             className={`
               w-full
               flex items-center gap-3
               px-4 py-3
               text-sm
               transition-colors
-              hover:bg-gray-50
+              hover:bg-muted
 
               ${
                 isRTL
@@ -117,8 +113,8 @@ export default function LanguageSwitcher() {
 
               ${
                 currentLang === lang.code
-                  ? "bg-blue-50 text-blue-600"
-                  : "text-gray-700"
+                  ? "bg-accent text-accent-foreground"
+                  : "text-foreground"
               }
             `}
           >

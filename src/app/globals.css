@@ -2,147 +2,252 @@
 @tailwind components;
 @tailwind utilities;
 
-/* ================================
-   Maroon SaaS Theme (Light)
-================================ */
+/* ============================================================
+   SaaS Design Tokens
+   ------------------------------------------------------------
+   Every token is expressed as raw HSL channels so Tailwind can
+   apply opacity modifiers (e.g. bg-primary/10). Consume them via
+   the semantic Tailwind colors mapped in tailwind.config.js:
+     background surface card popover border input ring
+     primary secondary muted accent
+     success warning danger destructive info
+
+   Status colors (success / warning / danger / info) stay
+   semantic and constant across tenants. Only primary/accent
+   follow tenant branding (see BrandRoot in components/ui/brand).
+   ============================================================ */
 :root {
-  /* Background & Text */
+  /* Surfaces & text */
   --background: 0 0% 100%;
   --foreground: 222 20% 10%;
+  --surface: 0 0% 100%;
+  --surface-foreground: 222 20% 10%;
+  --card: 0 0% 100%;
+  --card-foreground: 222 20% 10%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 222 20% 10%;
 
-  /* Brand - Maroon */
-  --primary: 345 65% 38%;              /* #8B1E3F */
-  --primary-foreground: 0 0% 100%;
-
-  /* Secondary UI */
-  --secondary: 220 20% 96%;            /* Soft gray */
+  /* Muted / secondary UI */
+  --muted: 220 20% 96%;
+  --muted-foreground: 220 9% 43%;
+  --secondary: 220 20% 96%;
   --secondary-foreground: 222 20% 15%;
 
-  /* Accent (lighter maroon / rose) */
+  /* Brand — Maroon (tenant-overridable via BrandRoot) */
+  --primary: 345 65% 38%;              /* #8B1E3F */
+  --primary-foreground: 0 0% 100%;
   --accent: 345 70% 94%;               /* #F6E8ED */
   --accent-foreground: 345 65% 30%;
 
-  /* Borders & Inputs */
+  /* Hex mirrors of the brand primary so legacy primitives that
+     read var(--brand-primary) stay in sync with the theme and no
+     longer fall back to a hard-coded blue. */
+  --brand-primary: #8B1E3F;
+  --brand-primary-fg: #FFFFFF;
+  --brand-secondary: #0F172A;
+
+  /* Borders, inputs, focus ring */
   --border: 220 15% 90%;
   --input: 220 15% 90%;
+  --input-background: 0 0% 100%;
   --ring: 345 65% 45%;
 
-  /* Destructive (NOT maroon) */
-  --destructive: 0 75% 55%;            /* True red */
+  /* Semantic status — success */
+  --success: 142 71% 40%;
+  --success-foreground: 0 0% 100%;
+  --success-soft: 142 60% 94%;
+  --success-soft-foreground: 142 72% 26%;
+
+  /* Semantic status — warning */
+  --warning: 38 92% 50%;
+  --warning-foreground: 30 60% 12%;
+  --warning-soft: 45 96% 90%;
+  --warning-soft-foreground: 26 80% 32%;
+
+  /* Semantic status — danger / destructive (true red, not maroon) */
+  --danger: 0 75% 55%;
+  --danger-foreground: 0 0% 100%;
+  --danger-soft: 0 86% 96%;
+  --danger-soft-foreground: 0 70% 42%;
+  --destructive: 0 75% 55%;
   --destructive-foreground: 0 0% 100%;
+
+  /* Semantic status — info (semantic blue, never the brand accent) */
+  --info: 217 91% 60%;
+  --info-foreground: 0 0% 100%;
+  --info-soft: 214 95% 93%;
+  --info-soft-foreground: 221 83% 45%;
+
+  /* Shape */
+  --radius: 0.75rem;
 }
 
+/* ============================================================
+   Dark theme (opt-in via .dark on <html>). Tokens only — no
+   component currently toggles it, so the light UI is unchanged.
+   ============================================================ */
+.dark {
+  --background: 222 22% 8%;
+  --foreground: 210 20% 96%;
+  --surface: 222 18% 11%;
+  --surface-foreground: 210 20% 96%;
+  --card: 222 18% 11%;
+  --card-foreground: 210 20% 96%;
+  --popover: 222 18% 11%;
+  --popover-foreground: 210 20% 96%;
 
-/* Base Layer */
+  --muted: 222 15% 18%;
+  --muted-foreground: 220 10% 65%;
+  --secondary: 222 15% 18%;
+  --secondary-foreground: 210 20% 96%;
+
+  --primary: 345 60% 52%;
+  --primary-foreground: 0 0% 100%;
+  --accent: 345 40% 22%;
+  --accent-foreground: 345 70% 86%;
+
+  --border: 222 14% 22%;
+  --input: 222 14% 22%;
+  --input-background: 222 18% 13%;
+  --ring: 345 60% 55%;
+
+  --success: 142 65% 45%;
+  --success-foreground: 0 0% 100%;
+  --success-soft: 142 40% 18%;
+  --success-soft-foreground: 142 60% 78%;
+
+  --warning: 38 92% 55%;
+  --warning-foreground: 30 60% 10%;
+  --warning-soft: 38 50% 20%;
+  --warning-soft-foreground: 45 90% 78%;
+
+  --danger: 0 72% 58%;
+  --danger-foreground: 0 0% 100%;
+  --danger-soft: 0 45% 22%;
+  --danger-soft-foreground: 0 80% 82%;
+  --destructive: 0 72% 58%;
+  --destructive-foreground: 0 0% 100%;
+
+  --info: 217 85% 62%;
+  --info-foreground: 0 0% 100%;
+  --info-soft: 217 45% 22%;
+  --info-soft-foreground: 214 90% 82%;
+}
+
+/* ============================================================
+   Base layer
+   ============================================================ */
 @layer base {
   * {
     @apply border-border;
   }
-  
+
+  html {
+    scroll-behavior: smooth;
+    -webkit-text-size-adjust: 100%;
+  }
+
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont,
       'Segoe UI', 'Roboto', 'Oxygen', 'Ubuntu',
       'Cantarell', sans-serif;
+    -webkit-font-smoothing: antialiased;
+    text-rendering: optimizeLegibility;
   }
 
-  /* Typography */
+  /* Typography scale */
   h1 {
     @apply text-4xl md:text-5xl lg:text-6xl font-bold;
     line-height: 1.2;
     letter-spacing: -0.02em;
   }
-
   h2 {
     @apply text-3xl md:text-4xl lg:text-5xl font-bold;
     line-height: 1.2;
     letter-spacing: -0.02em;
   }
-
   h3 {
     @apply text-xl md:text-2xl font-semibold;
     line-height: 1.3;
   }
-
   h4 {
     @apply text-lg md:text-xl font-semibold;
     line-height: 1.4;
   }
-
   p {
     @apply text-base;
     line-height: 1.6;
   }
-
-  html {
-    scroll-behavior: smooth;
-  }
 }
 
-/* Scrollbar Styles */
+/* ============================================================
+   Scrollbar (uses brand primary, direction-agnostic)
+   ============================================================ */
 ::-webkit-scrollbar {
   width: 10px;
   height: 10px;
 }
-
 ::-webkit-scrollbar-track {
-  background: #f1f1f1;
+  background: hsl(var(--muted));
 }
-
 ::-webkit-scrollbar-thumb {
-  background: #8b1e3fe4;
+  background: color-mix(in srgb, var(--brand-primary) 85%, transparent);
   border-radius: 5px;
 }
-
 ::-webkit-scrollbar-thumb:hover {
-  background: #8B1E3F;
+  background: var(--brand-primary);
 }
 
-/* Focus Visible */
+/* Focus ring — semantic, consistent everywhere */
 *:focus-visible {
-  outline: 2px solid #3A7BFF;
+  outline: 2px solid hsl(var(--ring));
   outline-offset: 2px;
 }
 
+/* ============================================================
+   Motion primitives (modals / drawers / dropdowns)
+   ============================================================ */
 @keyframes scaleIn {
-  from {
-    opacity: 0;
-    transform: scale(0.95) translateY(10px);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1) translateY(0);
-  }
+  from { opacity: 0; transform: scale(0.95) translateY(10px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
 }
-
 @keyframes fadeIn {
   from { opacity: 0; }
-  to { opacity: 1; }
+  to   { opacity: 1; }
 }
-
-.animate-modal {
-  animation: scaleIn 0.25s ease-out forwards;
-}
-
-.animate-backdrop {
-  animation: fadeIn 0.2s ease-out forwards;
-}
-
-
 @keyframes dropdown-in {
-  from {
-    opacity: 0;
-    transform: scale(0.95);
-  }
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+@keyframes drawer-in-right {
+  from { transform: translateX(100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes drawer-in-left {
+  from { transform: translateX(-100%); }
+  to   { transform: translateX(0); }
+}
+@keyframes drawer-in-bottom {
+  from { transform: translateY(100%); }
+  to   { transform: translateY(0); }
 }
 
-.animate-in {
-  animation: dropdown-in 0.18s ease-out forwards;
-  transform-origin: top right;
-}
+.animate-modal { animation: scaleIn 0.25s ease-out forwards; }
+.animate-backdrop { animation: fadeIn 0.2s ease-out forwards; }
+.animate-in { animation: dropdown-in 0.18s ease-out forwards; transform-origin: top right; }
+[dir="rtl"] .animate-in { transform-origin: top left; }
+.animate-drawer-right { animation: drawer-in-right 0.25s ease-out forwards; }
+.animate-drawer-left { animation: drawer-in-left 0.25s ease-out forwards; }
+.animate-drawer-bottom { animation: drawer-in-bottom 0.28s ease-out forwards; }
 
+/* Reduced-motion respect */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}

@@ -30,13 +30,42 @@
 import { useEffect, useMemo } from "react";
 
 const FALLBACK = {
-  primary: "#3B82F6",
+  primary: "#8B1E3F", // matches the maroon theme default in globals.css
   primaryFg: "#FFFFFF",
   secondary: "#0F172A",
   businessName: "",
   logo: "",
   ready: false,
 };
+
+// Convert a #rrggbb / #rgb hex to space-separated HSL channels
+// ("345 65% 38%") so the value can drive the semantic --primary
+// token that Tailwind consumes as hsl(var(--primary) / <alpha>).
+function hexToHslChannels(hex) {
+  if (!hex || typeof hex !== "string") return null;
+  let h = hex.replace("#", "").trim();
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (h.length !== 6) return null;
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let s = 0;
+  let hue = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: hue = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: hue = (b - r) / d + 2; break;
+      default: hue = (r - g) / d + 4;
+    }
+    hue /= 6;
+  }
+  return `${Math.round(hue * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
 
 // Pick a readable text colour against the brand background using
 // a simple WCAG luminance calculation. Keeps every button label
@@ -135,11 +164,27 @@ export function useBrand() {
  */
 export function BrandRoot({ as: As = "div", className = "", children, ...rest }) {
   const brand = useBrand();
-  const style = useMemo(() => ({
-    "--brand-primary": brand.primary,
-    "--brand-primary-fg": brand.primaryFg,
-    "--brand-secondary": brand.secondary,
-  }), [brand.primary, brand.primaryFg, brand.secondary]);
+  const style = useMemo(() => {
+    // Legacy hex vars (consumed by primitives via var(--brand-primary)).
+    const vars = {
+      "--brand-primary": brand.primary,
+      "--brand-primary-fg": brand.primaryFg,
+      "--brand-secondary": brand.secondary,
+    };
+    // Bridge tenant branding into the semantic token layer so
+    // Tailwind's bg-primary / text-primary / ring-primary and every
+    // token-based primitive follow the tenant's accent too.
+    const primaryChannels = hexToHslChannels(brand.primary);
+    const primaryFgChannels = hexToHslChannels(brand.primaryFg);
+    if (primaryChannels) {
+      vars["--primary"] = primaryChannels;
+      vars["--ring"] = primaryChannels;
+    }
+    if (primaryFgChannels) {
+      vars["--primary-foreground"] = primaryFgChannels;
+    }
+    return vars;
+  }, [brand.primary, brand.primaryFg, brand.secondary]);
   return (
     <As style={style} className={className} {...rest}>
       {children}
