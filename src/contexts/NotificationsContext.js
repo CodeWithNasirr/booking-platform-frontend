@@ -37,6 +37,7 @@ import {
   fetchNotifications,
   markNotificationRead,
   markAllNotificationsRead,
+  markNotificationsReadByTarget,
   fetchPlatformNotificationSummary,
   fetchPlatformNotifications,
   markPlatformNotificationRead,
@@ -175,13 +176,39 @@ function useFeedState(cfg) {
     [api.markAll, refreshSummary]
   );
 
+  // Called when a conversation/detail view for one object is opened. Clears
+  // ONLY that object's notifications (backend), then reconciles counts so the
+  // Topbar and every sidebar dot update together without a page refresh.
+  const markTargetRead = useCallback(
+    async (targetType, targetId) => {
+      if (!targetType || !targetId || !api.markTarget) return;
+      // Optimistically drop matching unread items from the dropdown list.
+      setItems((prev) =>
+        prev.map((n) =>
+          n.target_type === targetType && String(n.target_id) === String(targetId)
+            ? { ...n, is_read: true }
+            : n
+        )
+      );
+      try {
+        await api.markTarget(targetType, targetId);
+      } finally {
+        // Server truth for both the bell count and the sidebar dots.
+        refreshSummary();
+      }
+    },
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+    [api.markTarget, refreshSummary]
+  );
+
   return useMemo(
     () => ({
       totalUnread, byCategory, items, loading,
       refreshFeed, refreshSummary, markRead, markCategoryRead, markAllRead,
+      markTargetRead,
     }),
     [totalUnread, byCategory, items, loading, refreshFeed, refreshSummary,
-     markRead, markCategoryRead, markAllRead]
+     markRead, markCategoryRead, markAllRead, markTargetRead]
   );
 }
 
@@ -198,6 +225,7 @@ export function NotificationsProvider({ children }) {
       list: (opts) => fetchNotifications(tenantId, opts),
       markRead: (id) => markNotificationRead(tenantId, id),
       markAll: (category) => markAllNotificationsRead(tenantId, category),
+      markTarget: (type, id) => markNotificationsReadByTarget(tenantId, type, id),
     }),
     [tenantId]
   );
@@ -261,6 +289,7 @@ export function useNotifications() {
       markRead: () => {},
       markCategoryRead: () => {},
       markAllRead: () => {},
+      markTargetRead: () => {},
     }
   );
 }

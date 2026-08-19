@@ -25,6 +25,7 @@ import { apiFetch as authFetch } from '@/lib/apiClient';
 import { useState, useEffect, useCallback } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
+import { useNotifications } from "@/contexts/NotificationsContext";
 import { useTenantPermission } from "@/lib/useTenantPermission";
 import { BrandRoot, Card, Button } from "@/components/ui";
 import ProviderPicker from "@/components/dashboard/providers/ProviderPicker";
@@ -101,6 +102,15 @@ const ACTION_STYLES = {
 export default function AdminOrderDetailClient({ orderId }) {
   const router = useRouter();
   const { activeTenant, user,t } = useApp();
+  const { markTargetRead } = useNotifications();
+
+  // Opening this order's conversation clears its unread message notifications
+  // (backend read state) and updates the bell + Orders sidebar dot without a
+  // full refresh. Runs once per opened order.
+  useEffect(() => {
+    if (orderId) markTargetRead("order", orderId);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [orderId]);
 
   const { allowed: canView } = useTenantPermission("orders.view");
   const { allowed: canManage } = useTenantPermission("orders.manage");

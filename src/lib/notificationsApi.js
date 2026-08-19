@@ -41,6 +41,19 @@ export async function markAllNotificationsRead(tenantId, category) {
   return apiFetch(`${BASE}/read-all/${qs}`, tenantId, { method: "POST" });
 }
 
+/**
+ * Mark all unread notifications for ONE object read — called when the tenant
+ * opens that object's conversation (e.g. an order/booking detail). Clears only
+ * that object's notifications so the sidebar dot reflects the remaining unread
+ * objects, not the whole category.
+ */
+export async function markNotificationsReadByTarget(tenantId, targetType, targetId) {
+  return apiFetch(`${BASE}/read-target/`, tenantId, {
+    method: "POST",
+    body: JSON.stringify({ target_type: targetType, target_id: String(targetId) }),
+  });
+}
+
 // ── Platform-admin feed (uses the platform token via platformFetch) ──
 // The backend scopes these to (recipient=current staff user, tenant IS NULL),
 // so platform and tenant feeds never mix.

@@ -1,8 +1,10 @@
 // src/components/bookings/ViewBookingModal.js
 'use client';
 
+import { useEffect } from 'react';
 import Cookies from 'js-cookie';
 import { useApp } from '@/contexts/AppContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
 import { CallDock } from '@/components/collaboration';
 import BookingConversationPanel from '@/components/bookings/BookingConversationPanel';
 import {
@@ -90,7 +92,16 @@ export default function ViewBookingModal({
 }) {
   const { t, isRTL, activeTenant, user } = useApp();
   const tenantId = activeTenant?.id || activeTenant;
-  
+  const { markTargetRead } = useNotifications();
+
+  // Opening this booking's conversation clears its unread message
+  // notifications (backend read state) and updates the bell + Bookings
+  // sidebar dot without a full refresh.
+  useEffect(() => {
+    if (booking?.id) markTargetRead("booking", booking.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booking?.id]);
+
   const statusConfig = getStatusConfig(t);
   const paymentConfig = getPaymentConfig(t);
   
