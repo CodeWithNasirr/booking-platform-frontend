@@ -78,6 +78,7 @@ export default function OrderConversation({
   lockedMessage = "This order is locked.",
   showComposer = true,
   composerSticky = false,
+  fill = false,
   className = "",
 }) {
   const [messageText, setMessageText] = useState("");
@@ -135,8 +136,11 @@ export default function OrderConversation({
   }, [messageText, sending, onSendMessage, viewer]);
 
   return (
-    <div className={`flex flex-col ${className}`}>
-      <div className="flex-1 min-h-[240px]">
+    <div className={`flex flex-col ${fill ? "h-full min-h-0" : ""} ${className}`}>
+      {/* When `fill`, the feed scrolls internally and the composer stays
+          pinned at the bottom (CRM-style). Otherwise the panel grows with
+          content (default, unchanged for existing callers). */}
+      <div className={fill ? "flex-1 min-h-0 overflow-y-auto" : "flex-1 min-h-[240px]"}>
         <ConversationFeed
           request={requestLike}
           viewer={viewer}
