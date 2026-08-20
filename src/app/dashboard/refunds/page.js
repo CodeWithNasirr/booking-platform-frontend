@@ -92,12 +92,19 @@ function StatCard({ icon: Icon, label, value, color }) {
    ──────────────────────────────────────────────── */
 
 function IssueRefundModal({ onClose, onSubmit, submitting, t }) {
-  const [type, setType] = useState("booking");
-  const [entityId, setEntityId] = useState("");
+  // The tenant SELECTS a booking/order from a searchable list of refundable
+  // records — no UUID to discover or paste. The chosen record carries its own
+  // id + refundable amount, and the backend re-validates ownership + ceiling.
+  const [search, setSearch] = useState("");
+  const [options, setOptions] = useState([]);
+  const [loadingOptions, setLoadingOptions] = useState(false);
+  const [selected, setSelected] = useState(null);
+
+  const [mode, setMode] = useState("full");        // "full" | "partial"
+  const [partialAmount, setPartialAmount] = useState("");
   const [reason, setReason] = useState("admin_initiated");
   const [detail, setDetail] = useState("");
-  const [customAmount, setCustomAmount] = useState("");
-  const [skipPolicy, setSkipPolicy] = useState(false);
+  const [confirming, setConfirming] = useState(false);
 
   const reasonOptions = [
     { value: "admin_initiated", labelKey: "refunds.reason.adminInitiated" },
@@ -107,23 +114,50 @@ function IssueRefundModal({ onClose, onSubmit, submitting, t }) {
     { value: "duplicate_payment", labelKey: "refunds.reason.duplicatePayment" },
   ];
 
+  // Load refundable records (debounced) whenever the search changes and no
+  // record is selected yet.
+  useEffect(() => {
+    if (selected) return undefined;
+    let cancelled = false;
+    setLoadingOptions(true);
+    const h = setTimeout(async () => {
+      try {
+        const qs = search ? `?search=${encodeURIComponent(search)}` : "";
+        const data = await apiFetch(
+          `/api/v1/payments/tenant/refunds/refundable/${qs}`, activeTenant);
+        if (!cancelled) setOptions(data?.results || []);
+      } catch {
+        if (!cancelled) setOptions([]);
+      } finally {
+        if (!cancelled) setLoadingOptions(false);
+      }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(h); };
+  }, [search, selected]);
+
+  const refundable = selected ? parseFloat(selected.refundable) : 0;
+  const amount = mode === "full"
+    ? refundable
+    : Math.min(parseFloat(partialAmount || "0") || 0, refundable);
+  const amountValid = amount > 0 && amount <= refundable + 1e-9;
+
   function handleSubmit() {
-    const payload = {
-      [type === "booking" ? "booking_id" : "order_id"]: entityId,
+    if (!selected || !amountValid) return;
+    onSubmit({
+      [selected.kind === "booking" ? "booking_id" : "order_id"]: selected.id,
+      amount: amount.toFixed(2),
       reason,
       reason_detail: detail,
-      skip_policy: skipPolicy,
-    };
-    if (skipPolicy && customAmount) {
-      payload.amount = customAmount;
-    }
-    onSubmit(payload);
+      skip_policy: true,
+    });
   }
+
+  const money = (v) => `${selected?.currency || ""} ${Number(v).toFixed(2)}`;
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
-      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md">
-        <div className="flex items-center justify-between p-5 border-b border-gray-200">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200 sticky top-0 bg-white">
           <h3 className="text-lg font-semibold text-gray-900">{t("refunds.modal.issue.title")}</h3>
           <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100">
             <X className="w-5 h-5 text-gray-500" />
@@ -131,76 +165,154 @@ function IssueRefundModal({ onClose, onSubmit, submitting, t }) {
         </div>
 
         <div className="p-5 space-y-4">
-          <div className="flex gap-2">
-            {["booking", "order"].map(tType => (
-              <button key={tType} onClick={() => setType(tType)}
-                className={`px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
-                  type === tType ? "text-white" : "text-gray-600 bg-gray-100"
-                }`}
-                style={type === tType ? { backgroundColor: MAROON } : {}}>
-                {t(`refunds.modal.issue.${tType}`)}
-              </button>
-            ))}
-          </div>
+          {/* Step 1 — pick a refundable record */}
+          {!selected && (
+            <>
+              <div className="relative">
+                <Search className="absolute top-1/2 -translate-y-1/2 start-3 w-4 h-4 text-gray-400" />
+                <input
+                  autoFocus value={search} onChange={e => setSearch(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 ps-9 pe-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1E3F]/30"
+                  placeholder={t("refunds.modal.issue.searchPlaceholder")} />
+              </div>
+              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-64 overflow-y-auto">
+                {loadingOptions && (
+                  <div className="p-4 text-center text-sm text-gray-400">
+                    <Loader2 className="w-4 h-4 animate-spin inline" />
+                  </div>
+                )}
+                {!loadingOptions && options.length === 0 && (
+                  <div className="p-6 text-center text-sm text-gray-400">
+                    {t("refunds.modal.issue.noRefundable")}
+                  </div>
+                )}
+                {options.map(o => (
+                  <button key={`${o.kind}:${o.id}`} onClick={() => setSelected(o)}
+                    className="w-full text-start p-3 hover:bg-rose-50/60 transition-colors flex items-center justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="flex items-center gap-2">
+                        <span className="text-[10px] uppercase font-semibold text-gray-500 bg-gray-100 rounded px-1.5 py-0.5">
+                          {t(`refunds.modal.issue.${o.kind}`)}
+                        </span>
+                        <span className="font-medium text-gray-900 truncate">{o.number}</span>
+                      </span>
+                      <span className="block text-xs text-gray-500 truncate">
+                        {o.customer_name || o.customer_email}
+                      </span>
+                    </span>
+                    <span className="text-end flex-shrink-0">
+                      <span className="block text-sm font-semibold" style={{ color: MAROON }}>
+                        {o.currency} {Number(o.refundable).toFixed(2)}
+                      </span>
+                      <span className="block text-[10px] text-gray-400">
+                        {t("refunds.modal.issue.refundable")}
+                      </span>
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">
-              {t(`refunds.modal.issue.${type}Id`)}
-            </label>
-            <input value={entityId} onChange={e => setEntityId(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1E3F]/30 focus:border-[#8B1E3F]"
-              placeholder="UUID" />
-          </div>
+          {/* Step 2 — the selected record + amount + reason */}
+          {selected && (
+            <>
+              <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 flex items-center justify-between">
+                <span className="min-w-0">
+                  <span className="font-medium text-gray-900">{selected.number}</span>
+                  <span className="block text-xs text-gray-500 truncate">
+                    {selected.customer_name || selected.customer_email}
+                  </span>
+                  <span className="block text-xs text-gray-500 mt-0.5">
+                    {t("refunds.modal.issue.refundable")}: <b>{money(refundable)}</b>
+                    {" · "}{t("refunds.modal.issue.gateway")}: {selected.gateway_provider || "—"}
+                  </span>
+                </span>
+                <button onClick={() => { setSelected(null); setConfirming(false); }}
+                  className="text-xs text-gray-500 hover:text-gray-800 underline flex-shrink-0">
+                  {t("refunds.modal.issue.change")}
+                </button>
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t("refunds.modal.issue.reason")}</label>
-            <select value={reason} onChange={e => setReason(e.target.value)}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#8B1E3F]/30">
-              {reasonOptions.map(opt => (
-                <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
-              ))}
-            </select>
-          </div>
+              <div className="flex gap-2">
+                {["full", "partial"].map(m => (
+                  <button key={m} onClick={() => setMode(m)}
+                    className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium transition-colors ${
+                      mode === m ? "text-white" : "text-gray-600 bg-gray-100"}`}
+                    style={mode === m ? { backgroundColor: MAROON } : {}}>
+                    {t(`refunds.modal.issue.${m}`)}
+                  </button>
+                ))}
+              </div>
 
-          <div>
-            <label className="block text-sm font-medium text-gray-700 mb-1">{t("refunds.modal.issue.notes")}</label>
-            <textarea value={detail} onChange={e => setDetail(e.target.value)} rows={2}
-              className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1E3F]/30"
-              placeholder={t("refunds.modal.issue.notesPlaceholder")} />
-          </div>
+              {mode === "partial" && (
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1">
+                    {t("refunds.modal.issue.refundAmount")}
+                  </label>
+                  <input type="number" step="0.01" min="0" max={refundable}
+                    value={partialAmount} onChange={e => setPartialAmount(e.target.value)}
+                    className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1E3F]/30"
+                    placeholder="0.00" />
+                  {partialAmount && !amountValid && (
+                    <p className="text-xs text-red-600 mt-1">
+                      {t("refunds.modal.issue.amountTooHigh", { max: money(refundable) })}
+                    </p>
+                  )}
+                </div>
+              )}
 
-          <div className="flex items-center gap-2">
-            <input type="checkbox" id="skipPolicy" checked={skipPolicy}
-              onChange={e => setSkipPolicy(e.target.checked)}
-              className="rounded border-gray-300" />
-            <label htmlFor="skipPolicy" className="text-xs text-gray-600">
-              {t("refunds.modal.issue.skipPolicy")}
-            </label>
-          </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("refunds.modal.issue.reason")}</label>
+                <select value={reason} onChange={e => setReason(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-[#8B1E3F]/30">
+                  {reasonOptions.map(opt => (
+                    <option key={opt.value} value={opt.value}>{t(opt.labelKey)}</option>
+                  ))}
+                </select>
+              </div>
 
-          {skipPolicy && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-1">{t("refunds.modal.issue.refundAmount")}</label>
-              <input type="number" step="0.01" value={customAmount}
-                onChange={e => setCustomAmount(e.target.value)}
-                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1E3F]/30"
-                placeholder="0.00" />
-            </div>
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">{t("refunds.modal.issue.notes")}</label>
+                <textarea value={detail} onChange={e => setDetail(e.target.value)} rows={2}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-[#8B1E3F]/30"
+                  placeholder={t("refunds.modal.issue.notesPlaceholder")} />
+              </div>
+
+              {confirming && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 flex gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-800">
+                    {t("refunds.modal.issue.confirmWarning", { amount: money(amount) })}
+                  </p>
+                </div>
+              )}
+            </>
           )}
         </div>
 
-        <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-200">
-          <button onClick={onClose} disabled={submitting}
-            className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
-            {t("common.cancel")}
-          </button>
-          <button onClick={handleSubmit} disabled={submitting || !entityId}
-            className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50"
-            style={{ backgroundColor: MAROON }}>
-            {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
-            {t("refunds.modal.issue.submit")}
-          </button>
-        </div>
+        {selected && (
+          <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-200 sticky bottom-0 bg-white">
+            <button onClick={onClose} disabled={submitting}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+              {t("common.cancel")}
+            </button>
+            {!confirming ? (
+              <button onClick={() => setConfirming(true)} disabled={!amountValid}
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50"
+                style={{ backgroundColor: MAROON }}>
+                {t("refunds.modal.issue.review", { amount: money(amount) })}
+              </button>
+            ) : (
+              <button onClick={handleSubmit} disabled={submitting || !amountValid}
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50"
+                style={{ backgroundColor: MAROON }}>
+                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {t("refunds.modal.issue.confirmRefund")}
+              </button>
+            )}
+          </div>
+        )}
       </div>
     </div>
   );

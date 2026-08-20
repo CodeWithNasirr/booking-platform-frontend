@@ -59,6 +59,17 @@ export default {
   "refunds.modal.issue.skipPolicy": "Override policy — set custom refund amount",
   "refunds.modal.issue.refundAmount": "Refund Amount",
   "refunds.modal.issue.submit": "Issue Refund",
+  "refunds.modal.issue.searchPlaceholder": "Search a booking or order by number or customer…",
+  "refunds.modal.issue.noRefundable": "No refundable payments found.",
+  "refunds.modal.issue.refundable": "Refundable",
+  "refunds.modal.issue.gateway": "Gateway",
+  "refunds.modal.issue.change": "Change",
+  "refunds.modal.issue.full": "Full refund",
+  "refunds.modal.issue.partial": "Partial",
+  "refunds.modal.issue.amountTooHigh": "Amount cannot exceed {{max}}.",
+  "refunds.modal.issue.confirmWarning": "You are about to refund {{amount}}. This cannot be undone.",
+  "refunds.modal.issue.review": "Review {{amount}}",
+  "refunds.modal.issue.confirmRefund": "Confirm refund",
 
   // ── Refund Reasons ──
   "refunds.reason.adminInitiated": "Admin Initiated",
