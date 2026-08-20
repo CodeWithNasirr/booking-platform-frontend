@@ -5,6 +5,7 @@ import { resolveTranslated } from "../../../[domain]/utils/resolveTranslated";
 import PackageCard from "../components/PackageCard";
 import RequirementsForm from "../components/RequirementsForm";
 import { formatCurrency } from "@/lib/currency";
+
 export default function PackageStep({
   service,
   selectedPackage,
@@ -18,39 +19,34 @@ export default function PackageStep({
   theme,
   lang,
   isRTL,
-  
 }) {
   const title = resolveTranslated(service.name, lang);
   const desc = resolveTranslated(service.description || service.short_description, lang);
-  const color = theme.primary_color || "#3B82F6";
 
   return (
     <div className="mt-6 space-y-6">
       {/* Service Header */}
-      <div className={`flex gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+      <div className="flex gap-4">
         {service.image && (
           <img
             src={service.image}
             alt={title}
-            className="w-24 h-24 rounded-xl object-cover flex-shrink-0"
+            className="w-20 h-20 rounded-xl object-cover flex-shrink-0"
           />
         )}
-        <div>
-          <h2 className="text-2xl font-bold text-gray-900 mb-1">{title}</h2>
-          {desc && <p className="text-gray-600 text-sm">{desc}</p>}
+        <div className="min-w-0">
+          <h2 className="text-xl font-bold text-foreground mb-1">{title}</h2>
+          {desc && <p className="text-muted-foreground text-sm line-clamp-3">{desc}</p>}
         </div>
       </div>
 
       {/* Packages */}
       {service.packages?.length > 0 ? (
         <div className="space-y-4">
-          <h3 className="text-lg font-bold text-gray-900">
-            {resolveTranslated(
-              { en: "Choose a Package", ar: "اختر باقة", ur: "پیکج منتخب کریں" },
-              lang
-            )}
+          <h3 className="text-lg font-bold text-foreground">
+            {resolveTranslated({ en: "Choose a Package", ar: "اختر باقة", ur: "پیکج منتخب کریں" }, lang)}
           </h3>
-          <div className="grid gap-4 md:grid-cols-2">
+          <div className="grid gap-3 md:grid-cols-2">
             {service.packages.map((pkg) => (
               <PackageCard
                 key={pkg.id}
@@ -58,7 +54,6 @@ export default function PackageStep({
                 selected={selectedPackage?.id === pkg.id}
                 onSelect={() => onSelectPackage(pkg)}
                 currency={currency}
-
                 theme={theme}
                 lang={lang}
               />
@@ -66,11 +61,11 @@ export default function PackageStep({
           </div>
         </div>
       ) : (
-        <div className="p-6 bg-gray-50 rounded-xl text-center">
-          <p className="text-2xl font-bold" style={{ color }}>
-            ${Number(currentPrice).toFixed(2)}
+        <div className="p-6 bg-muted rounded-xl border border-border text-center">
+          <p className="text-2xl font-bold text-primary tabular-nums">
+            {formatCurrency(currentPrice, currency)}
           </p>
-          <p className="text-sm text-gray-500 mt-1">
+          <p className="text-sm text-muted-foreground mt-1">
             {resolveTranslated({ en: "Delivery in", ar: "التسليم خلال", ur: "ڈیلیوری" }, lang)}{" "}
             {deliveryDays}{" "}
             {resolveTranslated({ en: "days", ar: "أيام", ur: "دن" }, lang)}
@@ -92,8 +87,7 @@ export default function PackageStep({
       {/* Continue */}
       <button
         onClick={onContinue}
-        className="w-full py-4 text-white rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity"
-        style={{ backgroundColor: color }}
+        className="w-full h-12 bg-primary text-primary-foreground rounded-xl font-semibold hover:brightness-110 transition"
       >
         {resolveTranslated({ en: "Continue", ar: "متابعة", ur: "جاری رکھیں" }, lang)} — {formatCurrency(currentPrice, currency)}
       </button>

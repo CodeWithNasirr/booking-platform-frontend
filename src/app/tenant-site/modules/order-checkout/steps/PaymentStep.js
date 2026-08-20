@@ -12,10 +12,12 @@
 
 import { useState } from "react";
 import { useStripe, useElements, PaymentElement } from "@stripe/react-stripe-js";
+import { ChevronLeft, Loader2 } from "lucide-react";
 import { resolveTranslated } from "../../../[domain]/utils/resolveTranslated";
 import { confirmOrderPayment } from "@/lib/orderApi";
 import OrderSummary from "../components/OrderSummary";
 import { formatCurrency } from "@/lib/currency";
+
 export default function PaymentStep({
   domain,
   orderId,
@@ -34,7 +36,6 @@ export default function PaymentStep({
   const elements = useElements();
   const [paying, setPaying] = useState(false);
   const [error, setError] = useState(null);
-  const color = theme.primary_color || "#3B82F6";
 
   const handlePay = async () => {
     if (!stripe || !elements) return;
@@ -45,10 +46,7 @@ export default function PaymentStep({
     const { error: stripeErr, paymentIntent } = await stripe.confirmPayment({
       elements,
       redirect: "if_required",
-      
     });
-
-  
 
     if (stripeErr) {
       setError(stripeErr.message);
@@ -100,44 +98,42 @@ export default function PaymentStep({
         price={currentPrice}
         deliveryDays={deliveryDays}
         revisionsAllowed={revisionsAllowed}
+        currency={service.currency}
         theme={theme}
         lang={lang}
         isRTL={isRTL}
       />
 
-      <div className="bg-white rounded-xl border p-6">
+      <div className="bg-card rounded-xl border border-border p-5 sm:p-6">
         <PaymentElement />
       </div>
 
       {error && (
-        <div className="p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm">
+        <div className="p-4 bg-danger-soft border border-danger/20 rounded-xl text-danger-soft-foreground text-sm">
           {error}
         </div>
       )}
 
-      <div className="flex gap-4">
-        <button onClick={onBack} className="px-6 py-3 text-gray-600 font-medium">
+      <div className="flex items-center gap-3">
+        <button
+          onClick={onBack}
+          className="inline-flex items-center gap-1.5 h-12 px-4 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
+        >
+          <ChevronLeft className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
           {resolveTranslated({ en: "Back", ar: "رجوع", ur: "واپس" }, lang)}
         </button>
         <button
           onClick={handlePay}
           disabled={!stripe || paying}
-          className="flex-1 py-4 text-white rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity disabled:opacity-50 flex items-center justify-center gap-2"
-          style={{ backgroundColor: color }}
+          className="flex-1 h-12 bg-primary text-primary-foreground rounded-xl font-semibold hover:brightness-110 transition disabled:opacity-50 flex items-center justify-center gap-2"
         >
           {paying ? (
             <>
-              <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
+              <Loader2 className="w-5 h-5 animate-spin" />
               {resolveTranslated({ en: "Processing...", ar: "جاري المعالجة...", ur: "پروسیسنگ..." }, lang)}
             </>
           ) : (
-            `${resolveTranslated(
-  { en: "Pay Now", ar: "ادفع الآن", ur: "ابھی ادا کریں" },
-  lang
-)} — ${formatCurrency(currentPrice, service.currency)}`
+            `${resolveTranslated({ en: "Pay Now", ar: "ادفع الآن", ur: "ابھی ادا کریں" }, lang)} — ${formatCurrency(currentPrice, service.currency)}`
           )}
         </button>
       </div>

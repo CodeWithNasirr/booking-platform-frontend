@@ -1,6 +1,7 @@
 // src/app/tenant-site/modules/order-checkout/steps/CustomerStep.js
 "use client";
 
+import { ChevronLeft, Loader2 } from "lucide-react";
 import { resolveTranslated } from "../../../[domain]/utils/resolveTranslated";
 import OrderSummary from "../components/OrderSummary";
 
@@ -26,8 +27,6 @@ export default function CustomerStep({
   lang,
   isRTL,
 }) {
-  const color = theme.primary_color || "#3B82F6";
-
   return (
     <div className="mt-6 space-y-6">
       <OrderSummary
@@ -37,7 +36,6 @@ export default function CustomerStep({
         deliveryDays={deliveryDays}
         revisionsAllowed={revisionsAllowed}
         currency={currency}
-
         theme={theme}
         lang={lang}
         isRTL={isRTL}
@@ -45,47 +43,48 @@ export default function CustomerStep({
 
       {/* Customer form */}
       <div className="space-y-4">
-        <h3 className="text-lg font-bold text-gray-900">
-          {resolveTranslated(
-            { en: "Your Information", ar: "معلوماتك", ur: "آپ کی معلومات" },
-            lang
-          )}
+        <h3 className="text-lg font-bold text-foreground">
+          {resolveTranslated({ en: "Your Information", ar: "معلوماتك", ur: "آپ کی معلومات" }, lang)}
         </h3>
         {FIELDS.map((f) => (
           <div key={f.id}>
-            <label
-              className={`block text-sm font-medium text-gray-700 mb-1 ${isRTL ? "text-right" : ""}`}
-            >
+            <label className="block text-sm font-medium text-foreground mb-1.5">
               {resolveTranslated(f.label, lang)}
-              <span className="text-red-500 ml-1">*</span>
+              <span className="text-danger ms-1">*</span>
             </label>
             <input
               type={f.type}
               value={customerData[f.id] || ""}
               onChange={(e) => onChange({ ...customerData, [f.id]: e.target.value })}
-              className="w-full px-4 py-3 rounded-xl border border-gray-300 focus:ring-2 focus:ring-blue-200 focus:border-transparent"
+              className="w-full h-12 px-4 rounded-xl border border-border bg-input-background text-foreground placeholder:text-muted-foreground focus:outline-none focus:ring-2 focus:ring-ring/40 focus:border-ring"
+              dir={isRTL ? "rtl" : "ltr"}
             />
           </div>
         ))}
       </div>
 
       {/* Navigation */}
-      <div className="flex gap-4">
+      <div className="flex items-center gap-3">
         <button
           onClick={onBack}
-          className="px-6 py-3 text-gray-600 font-medium hover:text-gray-900 transition-colors"
+          className="inline-flex items-center gap-1.5 h-12 px-4 rounded-xl text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
+          <ChevronLeft className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
           {resolveTranslated({ en: "Back", ar: "رجوع", ur: "واپس" }, lang)}
         </button>
         <button
           onClick={onProceed}
           disabled={paying}
-          className="flex-1 py-4 text-white rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity disabled:opacity-50"
-          style={{ backgroundColor: color }}
+          className="flex-1 h-12 bg-primary text-primary-foreground rounded-xl font-semibold hover:brightness-110 transition disabled:opacity-50 flex items-center justify-center gap-2"
         >
-          {paying
-            ? resolveTranslated({ en: "Processing...", ar: "جاري المعالجة...", ur: "پروسیسنگ..." }, lang)
-            : resolveTranslated({ en: "Proceed to Payment", ar: "متابعة الدفع", ur: "ادائیگی کے لیے آگے بڑھیں" }, lang)}
+          {paying ? (
+            <>
+              <Loader2 className="w-5 h-5 animate-spin" />
+              {resolveTranslated({ en: "Processing...", ar: "جاري المعالجة...", ur: "پروسیسنگ..." }, lang)}
+            </>
+          ) : (
+            resolveTranslated({ en: "Proceed to Payment", ar: "متابعة الدفع", ur: "ادائیگی کے لیے آگے بڑھیں" }, lang)
+          )}
         </button>
       </div>
     </div>

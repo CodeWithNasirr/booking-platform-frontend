@@ -28,12 +28,14 @@ import { useTenantTheme } from "../../contexts/TenantThemeContext";
 import { resolveTranslated } from "../../[domain]/utils/resolveTranslated";
 import { initiateOrderPayment } from "@/lib/orderApi";
 
+import { Search, ChevronLeft } from "lucide-react";
 import useCheckoutState from "./hooks/useCheckoutState";
 import StepsHeader from "./components/StepsHeader";
 import PackageStep from "./steps/PackageStep";
 import CustomerStep from "./steps/CustomerStep";
 import PaymentStep from "./steps/PaymentStep";
 import ConfirmationStep from "./steps/ConfirmationStep";
+import { brandStyle } from "./brandVars";
 
 const stripePromise = loadStripe(process.env.NEXT_PUBLIC_STRIPE_PUBLISHABLE_KEY);
 
@@ -62,10 +64,10 @@ export default function OrderCheckout({ service, domain }) {
   // ─── Wait for hydration from localStorage ───
   if (!checkout.hydrated) {
     return (
-      <div className="max-w-3xl mx-auto p-8">
+      <div className="max-w-3xl mx-auto p-6 md:p-8" style={brandStyle(theme)}>
         <div className="animate-pulse space-y-6">
-          <div className="h-8 bg-gray-200 rounded w-1/2" />
-          <div className="h-48 bg-gray-200 rounded-xl" />
+          <div className="h-8 bg-muted rounded w-1/2" />
+          <div className="h-48 bg-muted rounded-xl" />
         </div>
       </div>
     );
@@ -73,12 +75,15 @@ export default function OrderCheckout({ service, domain }) {
 
   if (!service) {
     return (
-      <div className="max-w-3xl mx-auto p-8 text-center">
-        <div className="text-5xl mb-4">🔍</div>
-        <h2 className="text-xl font-bold text-gray-900 mb-2">
+      <div className="max-w-3xl mx-auto p-6 md:p-8 text-center" style={brandStyle(theme)}>
+        <div className="w-12 h-12 rounded-2xl bg-muted text-muted-foreground flex items-center justify-center mx-auto mb-3">
+          <Search className="w-6 h-6" />
+        </div>
+        <h2 className="text-lg font-bold text-foreground mb-2">
           {resolveTranslated({ en: "Service not found", ar: "الخدمة غير موجودة", ur: "سروس نہیں ملی" }, lang)}
         </h2>
-        <button onClick={() => router.back()} className="mt-4 px-6 py-2 bg-gray-100 rounded-lg text-gray-700">
+        <button onClick={() => router.back()} className="mt-3 inline-flex items-center gap-1.5 h-10 px-4 bg-muted border border-border rounded-lg text-sm font-medium text-foreground hover:bg-muted/70 transition">
+          <ChevronLeft className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
           {resolveTranslated({ en: "Go Back", ar: "رجوع", ur: "واپس جائیں" }, lang)}
         </button>
       </div>
@@ -117,8 +122,8 @@ export default function OrderCheckout({ service, domain }) {
           lang={lang}
           isRTL={isRTL}
         />
-  
-        <div className="bg-white rounded-xl border p-6">
+
+        <div className="bg-card rounded-xl border border-border p-5 sm:p-6">
           <HyperPayWidget
             checkoutId={checkoutId}
             widgetUrl={widgetUrl}
@@ -129,11 +134,12 @@ export default function OrderCheckout({ service, domain }) {
             theme={theme}
           />
         </div>
-  
+
         <button
           onClick={onBack}
-          className="px-6 py-3 text-gray-600 font-medium hover:text-gray-900"
+          className="inline-flex items-center gap-1.5 h-10 px-3 -ms-1 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
+          <ChevronLeft className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
           {resolveTranslated({ en: "Back", ar: "رجوع", ur: "واپس" }, lang)}
         </button>
       </div>
@@ -228,14 +234,18 @@ export default function OrderCheckout({ service, domain }) {
   };
 
   return (
-    <div className={`max-w-3xl mx-auto p-6 md:p-8 ${isRTL ? "rtl" : ""}`}>
+    <div
+      className={`max-w-3xl mx-auto p-4 sm:p-6 md:p-8 ${isRTL ? "rtl" : ""}`}
+      style={brandStyle(theme)}
+      dir={isRTL ? "rtl" : "ltr"}
+    >
       <StepsHeader currentStep={checkout.step} theme={theme} lang={lang} isRTL={isRTL} />
 
       {/* Error banner */}
       {error && (
-        <div className="my-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm flex justify-between items-start">
+        <div className="my-4 p-4 bg-danger-soft border border-danger/20 rounded-xl text-danger-soft-foreground text-sm flex justify-between items-start gap-3">
           <span>{error}</span>
-          <button onClick={() => setError(null)} className="text-red-400 hover:text-red-600 font-bold ml-3">×</button>
+          <button onClick={() => setError(null)} className="text-danger hover:opacity-70 font-bold shrink-0" aria-label="Dismiss">×</button>
         </div>
       )}
 
