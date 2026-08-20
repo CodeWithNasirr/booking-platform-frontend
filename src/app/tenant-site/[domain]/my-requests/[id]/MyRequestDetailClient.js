@@ -434,8 +434,6 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   }
 
   const hide = (name) => (tab !== name ? "max-lg:hidden" : "");
-  const conversationEmpty =
-    request.messages?.length === 0 && request.timeline?.length <= 1 && pendingMessages.length === 0;
   const activityEvents = (request.timeline || []).filter((ev) => TIMELINE_LABELS[ev.event] !== null);
 
   return (
@@ -555,7 +553,7 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
 
           {/* RIGHT — conversation (primary interaction) */}
           <div className={`${hide("chat")}`}>
-            <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col h-[68vh] lg:h-[72vh]">
+            <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col h-[70dvh] min-h-[380px] lg:h-[72vh]">
               <div className="flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
                 <MessageCircle className="w-4 h-4 text-muted-foreground" />
                 <div className="min-w-0">
@@ -563,18 +561,21 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
                   <p className="text-[11px] text-muted-foreground leading-tight">Chat with {businessName || "the team"} &amp; share files</p>
                 </div>
               </div>
-              <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
-                {conversationEmpty ? (
+              <ConversationFeed
+                request={request}
+                viewer="customer"
+                pendingMessages={pendingMessages}
+                fill
+                className="px-4 py-3"
+                emptyState={(
                   <EmptyState
                     icon={MessageCircle}
                     title="Thanks for sending this in"
                     hint={`${businessName || "The team"} is reviewing your request. You'll get an email when there's an update.`}
                     className="py-6"
                   />
-                ) : (
-                  <ConversationFeed request={request} viewer="customer" pendingMessages={pendingMessages} />
                 )}
-              </div>
+              />
               <StickyComposer
                 value={reply}
                 onChange={setReply}

@@ -441,7 +441,7 @@ export default function AdminOrderDetailClient({ orderId }) {
             </div>
 
             {/* Conversation */}
-            <div className={`${hide("chat")} rounded-xl border border-border bg-card overflow-hidden flex flex-col h-[70vh] min-h-[440px]`}>
+            <div className={`${hide("chat")} rounded-xl border border-border bg-card overflow-hidden flex flex-col h-[70dvh] min-h-[440px] lg:h-[70vh]`}>
               <div className="hidden lg:flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
                 <MessageSquare className="w-4 h-4 text-muted-foreground" />
                 <h2 className="text-sm font-semibold text-foreground">{t("orderDetail.chat")}</h2>

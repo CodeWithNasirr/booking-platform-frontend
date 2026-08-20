@@ -143,6 +143,7 @@ export default function ViewBookingModal({
       domain={tenantId}
       auth={{ jwt: Cookies.get('access_token') || null }}
       viewer="admin"
+      fill
       showComposer={!['cancelled', 'refunded'].includes(booking.status)}
     />
   );
@@ -211,7 +212,9 @@ export default function ViewBookingModal({
             <MessageSquare className="w-4 h-4 text-muted-foreground" />
             <h2 className="text-sm font-semibold text-foreground">{t('bookings.detail.chat')}</h2>
           </div>
-          <div className="flex-1 min-h-0 overflow-y-auto">
+          {/* The conversation panel (fill) owns its own bounded scroll
+              area and keeps the composer pinned below the messages. */}
+          <div className="flex-1 min-h-0 flex flex-col">
             {conversation}
           </div>
         </section>

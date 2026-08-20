@@ -790,14 +790,12 @@ function DetailPane({
 
   // Conversation (bounded panel, pinned composer)
   const chatBlock = (
-    <div className={`${hide("chat")} rounded-xl border border-border bg-card overflow-hidden flex flex-col h-[70vh] min-h-[440px]`}>
+    <div className={`${hide("chat")} rounded-xl border border-border bg-card overflow-hidden flex flex-col h-[70dvh] min-h-[440px] lg:h-[70vh]`}>
       <div className="hidden lg:flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
         <MessageSquare className="w-4 h-4 text-muted-foreground" />
         <h2 className="text-sm font-semibold text-foreground">Conversation</h2>
       </div>
-      <div className="flex-1 min-h-0 overflow-y-auto px-4 py-4">
-        <ConversationFeed request={request} viewer="admin" pendingMessages={pendingMessages} />
-      </div>
+      <ConversationFeed request={request} viewer="admin" pendingMessages={pendingMessages} fill className="px-4 py-4" />
       <StickyComposer
         value={reply}
         onChange={setReply}

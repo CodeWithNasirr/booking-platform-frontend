@@ -512,7 +512,7 @@ export default function BookingDetailClient({
                 canStart={["paid", "scheduled"].includes(booking.status)}
               />
             )}
-            <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col h-[68vh] lg:h-[72vh]">
+            <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col h-[70dvh] min-h-[380px] lg:h-[72vh]">
               <div className="flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
                 <MessageSquare className="w-4 h-4 text-muted-foreground" />
                 <div className="min-w-0">
