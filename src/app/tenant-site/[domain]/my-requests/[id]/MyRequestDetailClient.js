@@ -1,30 +1,33 @@
 "use client";
 
 /**
- * MyRequestDetailClient — V3.F.2 customer portal.
+ * MyRequestDetailClient — customer portal, single custom request.
  *
- * Apple-Support / Stripe-Customer-Portal feel:
+ * Rebuilt (Phase 9) to share the visual language of the customer
+ * Booking and Order detail pages:
  *
- *   - Brand-led header strip carrying the tenant logo + business
- *     name so the customer reads this as the business's product,
- *     not ours.
- *   - StatusTimeline rail above the fold — the customer's first
- *     question ("where is my request?") gets answered before
- *     anything scrolls.
- *   - Quote becomes the hero whenever one is active.
- *   - Single-column, generous spacing, 44 px touch targets.
- *   - Sticky composer pinned over the iOS home indicator via
- *     env(safe-area-inset-bottom).
+ *   - Branded chrome via <PortalBrandRoot> (tenant accent flows into
+ *     the Phase-1 semantic tokens) on a bg-muted canvas.
+ *   - Desktop: two-column workspace — request information / progress /
+ *     attachments / activity on the left, the CONVERSATION pinned as a
+ *     tall right rail (the primary interaction).
+ *   - Mobile: Details | Chat segmented tabs; Chat is a full-screen
+ *     conversation with a sticky composer and no horizontal overflow.
+ *   - Realtime, optimistic messaging, quote actions and uploads are
+ *     UNCHANGED — only the presentation was rebuilt.
  *
- * Everything composes from the design system + shared
- * custom-request primitives. Brand colours flow from
- * <BrandRoot> via CSS variables.
+ * Auth (UNCHANGED): cookie JWT → Authorization: Bearer; magic-link
+ * (?t=) → access-via-token → guest X-Request-Token; stored guest token;
+ * else prompt to sign in.
  */
 
 import { useEffect, useMemo, useState, useCallback } from "react";
 import { useSearchParams } from "next/navigation";
 import Link from "next/link";
-import { ArrowLeft, RefreshCw, MessageCircle, Inbox } from "lucide-react";
+import {
+  ArrowLeft, RefreshCw, MessageCircle, Inbox, Info, FileText,
+  Paperclip, Clock, Wallet, CalendarClock,
+} from "lucide-react";
 
 import LayoutRenderer from "../../LayoutRenderer";
 import { useTenantLang } from "../../../contexts/TenantLangContext";
@@ -37,20 +40,18 @@ import {
   AttachmentGrid,
   StickyComposer,
   StatusTimeline,
+  StatusBadge,
   RequestDetailSkeleton,
   PostAcceptanceCard,
   UploadQueueTray,
   useUploadQueue,
   TERMINAL_STATUSES,
+  TIMELINE_LABELS,
 } from "@/components/custom-requests";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
-import {
-  Card,
-  Button,
-  EmptyState,
-  BrandRoot,
-  useBrand,
-} from "@/components/ui";
+import { Button, EmptyState } from "@/components/ui";
+import PortalBrandRoot, { getTenantBrand } from "@/app/tenant-site/components/portalBrand";
+import Tabs from "@/components/ui/Tabs";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -90,25 +91,22 @@ async function apiJson(url, opts = {}) {
 
 export default function MyRequestDetailClient({ domain, requestId, site, header, footer }) {
   return (
-    <BrandRoot className="contents">
-      <CustomerPortalDetail
-        domain={domain}
-        requestId={requestId}
-        site={site}
-        header={header}
-        footer={footer}
-      />
-    </BrandRoot>
+    <CustomerPortalDetail
+      domain={domain}
+      requestId={requestId}
+      site={site}
+      header={header}
+      footer={footer}
+    />
   );
 }
 
 function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   const { isRTL } = useTenantLang();
-  const brand = useBrand();
+  const brand = getTenantBrand(site);
   const searchParams = useSearchParams();
 
-  const tenantId = site.tenant_id;
-
+  const tenantId = site?.tenant_id;
 
   const [request, setRequest] = useState(null);
   const [loading, setLoading] = useState(true);
@@ -120,14 +118,13 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   const [reply, setReply] = useState("");
   const [sending, setSending] = useState(false);
   const [actionBusy, setActionBusy] = useState(false);
+  const [tab, setTab] = useState("chat"); // mobile: details | chat (conversation is primary)
   // Optimistic outbound queue — bubbles render immediately as
   // "Sending…" and clear when realtime patches the persisted
   // message into request.messages.
   const [pendingMessages, setPendingMessages] = useState([]);
   // Order summary fetched once when the request enters a
-  // post-acceptance state. Guests may not have the order-portal
-  // auth set up — failures are swallowed and we degrade to the
-  // simple "open in order portal" CTA.
+  // post-acceptance state.
   const [order, setOrder] = useState(null);
 
   // ── Auth resolution ─────────────────────────────────────────────
@@ -211,9 +208,6 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   useEffect(() => { fetchRequest(); }, [fetchRequest]);
 
   // ── Order summary (post-acceptance) ─────────────────────────────
-  // Soft fetch — most commonly a guest who hasn't done the
-  // order-portal OTP yet will 401; the PostAcceptanceCard falls
-  // back to the generic "open order" CTA without an inline pill.
   const fetchOrderSummary = useCallback(async () => {
     const orderId = request?.converted_order;
     const inScope = ["converted", "completed"].includes(request?.status);
@@ -235,16 +229,11 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   useEffect(() => { fetchOrderSummary(); }, [fetchOrderSummary]);
 
   // ── Realtime ────────────────────────────────────────────────────
-  // Subscribe to BOTH the request topic and (once the request
-  // converts) the linked order topic, so the PostAcceptanceCard
-  // flips from "Complete payment" → "Working on this" → … the
-  // moment the order status changes — even if the customer is
-  // paying in another tab.
   const orderTopicId = request?.converted_order;
   const realtimeTopics = useMemo(() => {
-    const t = requestId ? [`custom_request:${requestId}`] : [];
-    if (orderTopicId) t.push(`order:${orderTopicId}`);
-    return t;
+    const topics = requestId ? [`custom_request:${requestId}`] : [];
+    if (orderTopicId) topics.push(`order:${orderTopicId}`);
+    return topics;
   }, [requestId, orderTopicId]);
 
   useRealtime({
@@ -264,8 +253,6 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
       }
     },
     onReconnect: () => {
-      // One REST resync each — anything missed while offline
-      // recovers, then realtime takes over again.
       fetchRequest();
       if (orderTopicId) fetchOrderSummary();
     },
@@ -280,7 +267,7 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   }, [request]);
 
   const isLocked = TERMINAL_STATUSES.has(request?.status);
-  const businessName = brand.businessName || site?.tenant?.name || "";
+  const businessName = brand.name || site?.tenant?.name || "";
   const tenantLogo = brand.logo || site?.tenant?.logo;
 
   // ── Actions ─────────────────────────────────────────────────────
@@ -306,8 +293,6 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
           body: JSON.stringify({ body, kind: "message" }),
         },
       );
-      // Realtime echoes the persisted row; reconciliation effect
-      // below drops the pending entry once that lands.
     } catch (err) {
       setPendingMessages((q) => q.filter((m) => m.id !== optimistic.id));
       setReply(body);
@@ -319,7 +304,7 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
 
   // Reconcile: when the realtime feed grows to include a message
   // matching a pending entry's body within the last minute, drop
-  // the optimistic placeholder. Cheap O(n*m) over very small n,m.
+  // the optimistic placeholder.
   useEffect(() => {
     if (pendingMessages.length === 0 || !request?.messages?.length) return;
     const now = Date.now();
@@ -361,10 +346,7 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
     await quoteAction("counter_request", quoteId, { note });
   }
 
-  // Upload queue — real per-file progress, cancel, retry, soft
-  // auto-fade on success. The persisted file lands in
-  // request.files via the realtime attachment envelope and shows
-  // in AttachmentGrid; the tray is just the in-flight surface.
+  // Upload queue — real per-file progress, cancel, retry.
   const uploadOne = useCallback(async (file, { onProgress, signal }) => {
     const form = new FormData();
     form.append("file", file);
@@ -394,205 +376,277 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   const headerSection = header ? [header] : [];
   const footerSection = footer ? [footer] : [];
 
+  const Chrome = ({ children }) => (
+    <>
+      {headerSection.length > 0 && <LayoutRenderer sections={headerSection} site={site} />}
+      <main className={`min-h-screen bg-muted ${isRTL ? "rtl" : ""}`} dir={isRTL ? "rtl" : undefined}>
+        {children}
+      </main>
+      {footerSection.length > 0 && <LayoutRenderer sections={footerSection} site={site} />}
+    </>
+  );
+
   if (needsAuth) {
     return (
-      <Shell header={headerSection} footer={footerSection} site={site} isRTL={isRTL}>
-        <Card className="max-w-md mx-auto text-center">
-          <h2 className="text-lg font-semibold mb-2">Sign in to view this request</h2>
-          <p className="text-sm text-gray-600 mb-5">
-            Use the verification link in your email, or go to your dashboard to enter a code.
-          </p>
-          <Link
-            href={tenantRoutes.myRequests()}
-            className="inline-flex items-center justify-center h-11 px-6 rounded-xl font-medium bg-[color:var(--brand-primary,#3B82F6)] text-[color:var(--brand-primary-fg,#fff)] hover:brightness-110"
-          >
-            Go to My Requests
-          </Link>
-        </Card>
-      </Shell>
+      <Chrome>
+        <PortalBrandRoot site={site} className="max-w-md mx-auto px-4 py-16">
+          <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
+            <div className="w-12 h-12 rounded-2xl bg-muted text-muted-foreground flex items-center justify-center mx-auto mb-3"><Inbox className="w-6 h-6" /></div>
+            <h2 className="text-lg font-semibold text-foreground mb-2">Sign in to view this request</h2>
+            <p className="text-sm text-muted-foreground mb-5">
+              Use the verification link in your email, or go to your dashboard to enter a code.
+            </p>
+            <Link href={tenantRoutes.myRequests()} className="inline-flex items-center justify-center h-11 px-6 rounded-xl font-medium bg-primary text-primary-foreground hover:brightness-110 transition">
+              Go to My Requests
+            </Link>
+          </div>
+        </PortalBrandRoot>
+      </Chrome>
     );
   }
 
   if (loading && !request) {
     return (
-      <Shell header={headerSection} footer={footerSection} site={site} isRTL={isRTL}>
-        <div className="max-w-3xl mx-auto"><RequestDetailSkeleton /></div>
-      </Shell>
+      <Chrome>
+        <PortalBrandRoot site={site} className="max-w-5xl mx-auto px-4 py-6">
+          <RequestDetailSkeleton />
+        </PortalBrandRoot>
+      </Chrome>
     );
   }
 
   if (error && !request) {
     return (
-      <Shell header={headerSection} footer={footerSection} site={site} isRTL={isRTL}>
-        <EmptyState
-          icon={Inbox}
-          title="We couldn't load this request"
-          hint={error}
-          action={(
-            <Button variant="primary" onClick={fetchRequest} leftIcon={<RefreshCw className="w-4 h-4" />}>
-              Try again
-            </Button>
-          )}
-          className="max-w-md mx-auto bg-white rounded-2xl border border-gray-100 shadow-sm"
-        />
-      </Shell>
+      <Chrome>
+        <PortalBrandRoot site={site} className="max-w-md mx-auto px-4 py-16">
+          <EmptyState
+            icon={Inbox}
+            title="We couldn't load this request"
+            hint={error}
+            action={(
+              <Button variant="primary" onClick={fetchRequest} leftIcon={<RefreshCw className="w-4 h-4" />}>Try again</Button>
+            )}
+            className="bg-card rounded-2xl border border-border shadow-sm"
+          />
+        </PortalBrandRoot>
+      </Chrome>
     );
   }
 
+  const hide = (name) => (tab !== name ? "max-lg:hidden" : "");
+  const conversationEmpty =
+    request.messages?.length === 0 && request.timeline?.length <= 1 && pendingMessages.length === 0;
+  const activityEvents = (request.timeline || []).filter((ev) => TIMELINE_LABELS[ev.event] !== null);
+
   return (
-    <Shell header={headerSection} footer={footerSection} site={site} isRTL={isRTL}>
-      <div className="max-w-3xl mx-auto pb-32 space-y-5">
-        {/* Brand strip — frames the page as the tenant's product */}
-        <div className="flex items-center justify-between gap-3">
-          <Link
-            href={tenantRoutes.myRequests()}
-            className="inline-flex items-center gap-1.5 h-10 px-3 -ml-3 rounded-xl text-sm text-gray-600 hover:bg-gray-100 transition"
-          >
-            <ArrowLeft className="w-4 h-4" />
-            <span className="hidden sm:inline">My requests</span>
+    <Chrome>
+      <PortalBrandRoot site={site} className="max-w-5xl mx-auto px-4 py-6">
+        {/* Back + brand */}
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <Link href={tenantRoutes.myRequests()} className="inline-flex items-center gap-1.5 text-sm text-muted-foreground hover:text-foreground transition">
+            <ArrowLeft className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
+            <span className="hidden sm:inline">Back to my requests</span>
+            <span className="sm:hidden">Back</span>
           </Link>
           {(tenantLogo || businessName) && (
-            <div className="flex items-center gap-2 text-sm text-gray-700">
+            <div className="flex items-center gap-2 text-sm text-foreground min-w-0">
               {tenantLogo && (
                 // eslint-disable-next-line @next/next/no-img-element
-                <img src={tenantLogo} alt="" className="w-7 h-7 rounded-lg object-contain" />
+                <img src={tenantLogo} alt="" className="w-7 h-7 rounded-lg object-cover shrink-0" />
               )}
-              {businessName && <span className="font-semibold">{businessName}</span>}
+              {businessName && <span className="font-semibold truncate">{businessName}</span>}
             </div>
           )}
         </div>
 
-        {/* Hero card */}
-        <Card padding="lg" className="space-y-4">
-          <div>
-            <p className="text-xs text-gray-500 font-mono">#{request.request_number}</p>
-            <h1 className="text-2xl font-bold text-gray-900 mt-0.5">{request.title}</h1>
+        {/* Header card */}
+        <header className="rounded-xl border border-border bg-card p-4 mb-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">{request.title}</h1>
+              <p className="text-xs font-mono text-muted-foreground mt-0.5">#{request.request_number}</p>
+            </div>
+            <div className="shrink-0"><StatusBadge status={request.status} /></div>
+          </div>
+        </header>
+
+        {/* Mobile tabs */}
+        <div className="lg:hidden mb-4">
+          <Tabs value={tab} onChange={setTab} variant="segment" className="w-full" items={[
+            { value: "details", label: "Details", icon: Info },
+            { value: "chat", label: "Conversation", icon: MessageCircle },
+          ]} />
+        </div>
+
+        {/* Workspace */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-6 lg:items-start">
+          {/* LEFT — request details */}
+          <div className={`space-y-4 min-w-0 ${hide("details")}`}>
+            {/* Progress */}
+            <Section icon={Clock} title="Status & progress">
+              <StatusTimeline status={request.status} />
+            </Section>
+
+            {/* Quote hero (only while negotiating) */}
+            {!POST_ACCEPTANCE_STATUSES.has(request.status) && activeQuote && (
+              <QuoteCard
+                quote={activeQuote}
+                canAccept canReject canCounter
+                disabled={isLocked || actionBusy}
+                onAccept={() => quoteAction("accept_quote", activeQuote.id)}
+                onReject={() => quoteAction("reject_quote", activeQuote.id)}
+                onCounter={() => handleCounter(activeQuote.id)}
+              />
+            )}
+
+            {/* Post-acceptance actions (pay / track / review / wrap up) */}
+            <PostAcceptanceCard
+              request={request}
+              order={order}
+              orderHref={request.converted_order ? tenantRoutes.myOrder(request.converted_order) : null}
+              providerName={request.provider_name || businessName}
+            />
+
+            {/* Request information */}
+            <Section icon={FileText} title="Request information">
+              {request.description && (
+                <p className="text-sm text-foreground whitespace-pre-line leading-relaxed">{request.description}</p>
+              )}
+              {(request.budget_min || request.budget_max || request.deadline) && (
+                <div className="mt-3 grid grid-cols-2 gap-3">
+                  {(request.budget_min || request.budget_max) && (
+                    <Field icon={Wallet} label="Budget">
+                      {request.budget_min || ""}
+                      {request.budget_min && request.budget_max && " – "}
+                      {request.budget_max || ""}
+                    </Field>
+                  )}
+                  {request.deadline && (
+                    <Field icon={CalendarClock} label="Deadline">{request.deadline}</Field>
+                  )}
+                </div>
+              )}
+            </Section>
+
+            {/* Attachments */}
+            {(request.files?.length > 0 || uploadQueue.length > 0) && (
+              <Section icon={Paperclip} title="Attachments">
+                {request.files?.length > 0 && <AttachmentGrid files={request.files} />}
+                {uploadQueue.length > 0 && (
+                  <UploadQueueTray
+                    queue={uploadQueue}
+                    onCancel={cancelUpload}
+                    onRetry={retryUpload}
+                    onDismiss={dismissUpload}
+                    onClearDone={clearDoneUploads}
+                    className={request.files?.length > 0 ? "mt-3" : ""}
+                  />
+                )}
+              </Section>
+            )}
+
+            {/* Activity timeline */}
+            {activityEvents.length > 0 && (
+              <Section icon={Clock} title="Activity">
+                <ActivityTimeline events={activityEvents} />
+              </Section>
+            )}
           </div>
 
-          <StatusTimeline status={request.status} />
-
-          <p className="text-gray-700 whitespace-pre-line text-[15px] leading-relaxed">
-            {request.description}
-          </p>
-
-          {(request.budget_min || request.budget_max || request.deadline) && (
-            <dl className="grid grid-cols-2 gap-3 pt-2 text-sm">
-              {(request.budget_min || request.budget_max) && (
-                <div>
-                  <dt className="text-[11px] uppercase tracking-wide text-gray-500">Budget</dt>
-                  <dd className="text-gray-800 mt-0.5">
-                    {request.budget_min || ""}
-                    {request.budget_min && request.budget_max && " – "}
-                    {request.budget_max || ""}
-                  </dd>
+          {/* RIGHT — conversation (primary interaction) */}
+          <div className={`${hide("chat")}`}>
+            <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col h-[68vh] lg:h-[72vh]">
+              <div className="flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
+                <MessageCircle className="w-4 h-4 text-muted-foreground" />
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold text-foreground leading-tight">Conversation</h2>
+                  <p className="text-[11px] text-muted-foreground leading-tight">Chat with {businessName || "the team"} &amp; share files</p>
                 </div>
-              )}
-              {request.deadline && (
-                <div>
-                  <dt className="text-[11px] uppercase tracking-wide text-gray-500">Deadline</dt>
-                  <dd className="text-gray-800 mt-0.5">{request.deadline}</dd>
-                </div>
-              )}
-            </dl>
-          )}
-        </Card>
-
-        {/* Quote hero — the customer's call-to-action moment
-            while a quote is on the table. Once the request leaves
-            the negotiation phase we swap to PostAcceptanceCard
-            instead, which keeps the page focused on a single
-            next step. */}
-        {!POST_ACCEPTANCE_STATUSES.has(request.status) && activeQuote && (
-          <QuoteCard
-            quote={activeQuote}
-            canAccept canReject canCounter
-            disabled={isLocked || actionBusy}
-            onAccept={() => quoteAction("accept_quote", activeQuote.id)}
-            onReject={() => quoteAction("reject_quote", activeQuote.id)}
-            onCounter={() => handleCounter(activeQuote.id)}
-          />
-        )}
-
-        {/* Post-acceptance hero — replaces the active-quote card
-            once the request is converted / completed / rejected /
-            cancelled. Status-aware: pay, track, review, wrap up. */}
-        <PostAcceptanceCard
-          request={request}
-          order={order}
-          orderHref={request.converted_order ? tenantRoutes.myOrder(request.converted_order) : null}
-          providerName={request.provider_name || businessName}
-        />
-
-        {/* Attachments — persistent grid + live upload queue.
-            The tray collapses to nothing once every upload
-            finishes, so it never dominates the layout. */}
-        {(request.files?.length > 0 || uploadQueue.length > 0) && (
-          <Card padding="lg">
-            <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3">
-              Attachments
-            </h2>
-            {request.files?.length > 0 && <AttachmentGrid files={request.files} />}
-            {uploadQueue.length > 0 && (
-              <UploadQueueTray
-                queue={uploadQueue}
-                onCancel={cancelUpload}
-                onRetry={retryUpload}
-                onDismiss={dismissUpload}
-                onClearDone={clearDoneUploads}
-                className={request.files?.length > 0 ? "mt-3" : ""}
+              </div>
+              <div className="flex-1 min-h-0 overflow-y-auto px-4 py-3">
+                {conversationEmpty ? (
+                  <EmptyState
+                    icon={MessageCircle}
+                    title="Thanks for sending this in"
+                    hint={`${businessName || "The team"} is reviewing your request. You'll get an email when there's an update.`}
+                    className="py-6"
+                  />
+                ) : (
+                  <ConversationFeed request={request} viewer="customer" pendingMessages={pendingMessages} />
+                )}
+              </div>
+              <StickyComposer
+                value={reply}
+                onChange={setReply}
+                onSend={handleSend}
+                onAttach={uploadFiles}
+                sending={sending}
+                uploading={uploading}
+                locked={isLocked}
+                lockedMessage="This request is closed."
               />
-            )}
-          </Card>
-        )}
-
-        {/* Conversation */}
-        <Card padding="lg">
-          <h2 className="text-sm font-semibold uppercase tracking-wide text-gray-500 mb-3 flex items-center gap-2">
-            <MessageCircle className="w-3.5 h-3.5" />
-            Conversation
-          </h2>
-          {(request.messages?.length === 0 && request.timeline?.length <= 1 && pendingMessages.length === 0)
-            ? (
-              <EmptyState
-                icon={MessageCircle}
-                title="Thanks for sending this in"
-                hint={`The ${businessName || "team"} is reviewing your request. You'll get an email when there's an update.`}
-                className="py-6"
-              />
-            )
-            : (
-              <ConversationFeed
-                request={request}
-                viewer="customer"
-                pendingMessages={pendingMessages}
-              />
-            )}
-        </Card>
-      </div>
-
-      {/* Sticky composer — always above the iOS home indicator */}
-      <StickyComposer
-        value={reply}
-        onChange={setReply}
-        onSend={handleSend}
-        onAttach={uploadFiles}
-        sending={sending}
-        uploading={uploading}
-        locked={isLocked}
-        sticky
-      />
-    </Shell>
+            </div>
+          </div>
+        </div>
+      </PortalBrandRoot>
+    </Chrome>
   );
 }
 
-function Shell({ header, footer, site, isRTL, children }) {
+// ── Local presentational helpers (shared visual language) ──
+
+function Section({ icon: Icon, title, children }) {
   return (
-    <>
-      {header.length > 0 && <LayoutRenderer sections={header} site={site} />}
-      <main className={`min-h-screen bg-gray-50 ${isRTL ? "rtl" : ""}`} dir={isRTL ? "rtl" : undefined}>
-        <div className="px-4 sm:px-6 py-6 sm:py-10">{children}</div>
-      </main>
-      {footer.length > 0 && <LayoutRenderer sections={footer} site={site} />}
-    </>
+    <section className="rounded-xl border border-border bg-card p-4">
+      <div className="flex items-center gap-2 mb-3">
+        {Icon && <Icon className="w-4 h-4 text-muted-foreground shrink-0" />}
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground truncate">{title}</h3>
+      </div>
+      {children}
+    </section>
+  );
+}
+
+function Field({ icon: Icon, label, children }) {
+  return (
+    <div className="min-w-0">
+      <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide text-muted-foreground">
+        {Icon && <Icon className="w-3.5 h-3.5 shrink-0" />}
+        <span className="truncate">{label}</span>
+      </div>
+      <p className="text-sm text-foreground mt-0.5 tabular-nums break-words">{children}</p>
+    </div>
+  );
+}
+
+function ActivityTimeline({ events }) {
+  return (
+    <ol className="space-y-3">
+      {events.map((ev) => {
+        const label = TIMELINE_LABELS[ev.event] || ev.event;
+        const from = ev.metadata?.from;
+        const to = ev.metadata?.to;
+        const when = ev.created_at ? new Date(ev.created_at) : null;
+        return (
+          <li key={ev.id} className="flex gap-3">
+            <div className="flex flex-col items-center shrink-0">
+              <span className="w-2 h-2 rounded-full bg-primary mt-1.5" />
+              <span className="w-px flex-1 bg-border mt-1" />
+            </div>
+            <div className="min-w-0 pb-1">
+              <p className="text-sm text-foreground">
+                {label}
+                {from && to && <span className="text-muted-foreground"> · {from} → {to}</span>}
+              </p>
+              {when && !Number.isNaN(when.getTime()) && (
+                <p className="text-[11px] text-muted-foreground mt-0.5">
+                  {when.toLocaleDateString(undefined, { month: "short", day: "numeric" })} · {when.toLocaleTimeString(undefined, { hour: "numeric", minute: "2-digit" })}
+                </p>
+              )}
+            </div>
+          </li>
+        );
+      })}
+    </ol>
   );
 }
