@@ -64,6 +64,27 @@ export default {
   "customRequests.quoteStatus.pending": "معلق",
   "customRequests.quoteStatus.accepted": "مقبول",
   "customRequests.quoteStatus.rejected": "مرفوض",
+
+
+  // =====================
+  // CUSTOM REQUESTS — PROVIDER
+  // =====================
+  "customRequests.searchProviders": "البحث عن مزودي الخدمة بالاسم أو البريد الإلكتروني…",
+  "customRequests.noProviders": "لا يوجد مزودو خدمة نشطون حاليًا. قم بدعوة مزود من صفحة مزودي الخدمة.",
+
+  // =====================
+  // CUSTOM REQUESTS — MESSAGES
+  // =====================
+  "customRequests.conversation": "المحادثة",
+  "customRequests.noMessages": "لا توجد رسائل بعد.",
+  "customRequests.kindMessage": "رسالة",
+  "customRequests.kindInfoRequest": "طلب معلومات",
+  "customRequests.writeReply": "اكتب ردًا…",
+
+  // =====================
+  // COMMON
+  // =====================
+  "common.send": "إرسال",
   
   // =====================
   // COMMON

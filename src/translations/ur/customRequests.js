@@ -64,6 +64,26 @@ export default {
   "customRequests.quoteStatus.pending": "زیر التوا",
   "customRequests.quoteStatus.accepted": "قبول شدہ",
   "customRequests.quoteStatus.rejected": "مسترد",
+
+  // =====================
+  // CUSTOM REQUESTS — PROVIDER
+  // =====================
+  "customRequests.searchProviders": "نام یا ای میل کے ذریعے فراہم کنندگان تلاش کریں…",
+  "customRequests.noProviders": "ابھی کوئی فعال فراہم کنندہ نہیں۔ فراہم کنندگان کے صفحے سے کسی کو مدعو کریں۔",
+
+  // =====================
+  // CUSTOM REQUESTS — MESSAGES
+  // =====================
+  "customRequests.conversation": "گفتگو",
+  "customRequests.noMessages": "ابھی کوئی پیغامات نہیں ہیں۔",
+  "customRequests.kindMessage": "پیغام",
+  "customRequests.kindInfoRequest": "معلومات کی درخواست",
+  "customRequests.writeReply": "جواب لکھیں…",
+
+  // =====================
+  // COMMON
+  // =====================
+  "common.send": "بھیجیں",
   
   // =====================
   // COMMON

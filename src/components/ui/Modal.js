@@ -7,9 +7,16 @@ import IconButton from "./IconButton";
 
 /**
  * Modal — accessible, controlled dialog on shared tokens.
- * Handles ESC to close, backdrop click, body scroll-lock and
- * initial focus. Sizes are responsive and never exceed the
- * viewport on 360px screens.
+ *
+ * Handles:
+ * - ESC to close
+ * - backdrop click
+ * - body scroll-lock
+ * - initial focus when the modal opens
+ *
+ * The focus effect intentionally depends only on `open`.
+ * This prevents controlled inputs inside the modal from losing
+ * focus whenever the parent component re-renders.
  *
  *   <Modal open={open} onClose={close} title="Edit service">
  *     …body…
@@ -25,27 +32,48 @@ const SIZES = {
 };
 
 export default function Modal({
-  open, onClose, title, description, children,
-  size = "md", closeOnBackdrop = true, className = "",
+  open,
+  onClose,
+  title,
+  description,
+  children,
+  size = "md",
+  closeOnBackdrop = true,
+  className = "",
 }) {
   const panelRef = useRef(null);
 
   useEffect(() => {
     if (!open) return undefined;
-    const onKey = (e) => { if (e.key === "Escape") onClose?.(); };
+
+    const onKey = (e) => {
+      if (e.key === "Escape") {
+        onClose?.();
+      }
+    };
+
     document.addEventListener("keydown", onKey);
-    const prev = document.body.style.overflow;
+
+    const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    // move focus into the panel
-    const id = requestAnimationFrame(() => panelRef.current?.focus());
+
+    // Only focus the panel when the modal actually opens.
+    // Do not re-focus it on every parent render, otherwise
+    // controlled inputs can lose focus while typing.
+    const frameId = requestAnimationFrame(() => {
+      panelRef.current?.focus();
+    });
+
     return () => {
       document.removeEventListener("keydown", onKey);
-      document.body.style.overflow = prev;
-      cancelAnimationFrame(id);
+      document.body.style.overflow = previousOverflow;
+      cancelAnimationFrame(frameId);
     };
-  }, [open, onClose]);
+  }, [open]); // IMPORTANT: do not include onClose here
 
-  if (!open) return null;
+  if (!open) {
+    return null;
+  }
 
   const titleId = title ? "modal-title" : undefined;
   const descId = description ? "modal-desc" : undefined;
@@ -53,11 +81,14 @@ export default function Modal({
   return (
     <Portal>
       <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        {/* Backdrop */}
         <div
           className="absolute inset-0 bg-black/50 animate-backdrop"
           onClick={closeOnBackdrop ? onClose : undefined}
           aria-hidden="true"
         />
+
+        {/* Modal panel */}
         <div
           ref={panelRef}
           role="dialog"
@@ -65,22 +96,33 @@ export default function Modal({
           aria-labelledby={titleId}
           aria-describedby={descId}
           tabIndex={-1}
-          className={`relative w-full ${SIZES[size] || SIZES.md} max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl bg-surface text-surface-foreground border border-border shadow-lg animate-modal outline-none ${className}`}
+          className={`relative w-full ${
+            SIZES[size] || SIZES.md
+          } max-h-[calc(100vh-2rem)] overflow-y-auto rounded-2xl bg-surface text-surface-foreground border border-border shadow-lg animate-modal outline-none ${className}`}
         >
+          {/* Header */}
           {(title || onClose) && (
             <div className="flex items-start justify-between gap-3 p-5 pb-3">
               <div className="min-w-0">
                 {title && (
-                  <h2 id={titleId} className="text-lg font-semibold text-foreground">
+                  <h2
+                    id={titleId}
+                    className="text-lg font-semibold text-foreground"
+                  >
                     {title}
                   </h2>
                 )}
+
                 {description && (
-                  <p id={descId} className="text-sm text-muted-foreground mt-0.5">
+                  <p
+                    id={descId}
+                    className="text-sm text-muted-foreground mt-0.5"
+                  >
                     {description}
                   </p>
                 )}
               </div>
+
               {onClose && (
                 <IconButton
                   label="Close"
@@ -93,16 +135,25 @@ export default function Modal({
               )}
             </div>
           )}
-          <div className="px-5 pb-5">{children}</div>
+
+          {/* Content */}
+          <div className="px-5 pb-5">
+            {children}
+          </div>
         </div>
       </div>
     </Portal>
   );
 }
 
-export function ModalFooter({ className = "", children }) {
+export function ModalFooter({
+  className = "",
+  children,
+}) {
   return (
-    <div className={`flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4 mt-4 border-t border-border ${className}`}>
+    <div
+      className={`flex flex-col-reverse sm:flex-row sm:justify-end gap-2 pt-4 mt-4 border-t border-border ${className}`}
+    >
       {children}
     </div>
   );
