@@ -15,10 +15,10 @@ const SIZES = {
 };
 
 const ROLE_TONE = {
-  customer: "bg-blue-100 text-blue-700",
-  provider: "bg-emerald-100 text-emerald-700",
-  admin:    "bg-gray-200 text-gray-700",
-  system:   "bg-amber-100 text-amber-700",
+  customer: "bg-info-soft text-info-soft-foreground",
+  provider: "bg-success-soft text-success-soft-foreground",
+  admin: "bg-muted text-muted-foreground",
+  system: "bg-warning-soft text-warning-soft-foreground",
 };
 
 function initialsOf(name) {
@@ -30,7 +30,7 @@ function initialsOf(name) {
 export default function Avatar({
   name, role, size = "md", src, className = "",
 }) {
-  const tone = ROLE_TONE[role] || "bg-gray-100 text-gray-700";
+  const tone = ROLE_TONE[role] || "bg-muted text-muted-foreground";
   if (src) {
     // eslint-disable-next-line @next/next/no-img-element
     return (

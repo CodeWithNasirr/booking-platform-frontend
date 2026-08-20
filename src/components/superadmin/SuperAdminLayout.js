@@ -29,6 +29,8 @@ import {
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import { useSuperAdmin } from "@/contexts/Superadmincontext";
+import { useNotifications } from "@/contexts/NotificationsContext";
+import NotificationBell from "@/components/dashboard/NotificationBell";
 import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
 import { useTranslation } from "@/lib/t";
 import {
@@ -40,6 +42,15 @@ import {
 const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) => {
   const { user, platform, loading, hasPermission, logout } = useSuperAdmin();
   const { t, isRTL } = useTranslation();
+  const { byCategory, markCategoryRead } = useNotifications();
+
+  // Superadmin menu route → platform notification category (for the dots).
+  const NOTIF_CATEGORY = {
+    "/superadmin/tenants": "platform",
+    "/superadmin/support": "support",
+    "/superadmin/billing": "billing",
+    "/superadmin/integrations": "integrations",
+  };
 
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [userMenuOpen, setUserMenuOpen] = useState(false);
@@ -169,11 +180,17 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
               .map((item) => {
                 const Icon = item.icon;
                 const active = isActive(item.key);
+                const category = NOTIF_CATEGORY[item.key];
+                const unread = category ? byCategory?.[category] || 0 : 0;
 
                 return (
                   <button
                     key={item.key}
-                    onClick={() => handleNavigation(item.key)}
+                    onClick={() => {
+                      // Opening a section clears only that section's dot.
+                      if (category && unread > 0) markCategoryRead(category);
+                      handleNavigation(item.key);
+                    }}
                     className={`w-full flex items-center gap-3 px-4 py-3 rounded-xl transition-all text-sm ${
                       active ? "font-medium" : "text-gray-700 hover:bg-gray-50"
                     }`}
@@ -185,6 +202,17 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
                   >
                     <Icon className="w-5 h-5 flex-shrink-0" />
                     <span>{item.label}</span>
+                    {unread > 0 && (
+                      <span
+                        className={`flex-shrink-0 min-w-[18px] h-[18px] px-1 rounded-full text-white text-[10px] font-semibold flex items-center justify-center ${
+                          isRTL ? "mr-auto" : "ml-auto"
+                        }`}
+                        style={{ backgroundColor: colors.primary }}
+                        title={`${unread} new`}
+                      >
+                        {unread > 99 ? "99+" : unread}
+                      </span>
+                    )}
                   </button>
                 );
               })}
@@ -233,15 +261,7 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
               <LanguageSwitcher />
 
               {/* Notifications */}
-              <button className="relative p-2 rounded-xl hover:bg-gray-100 transition-colors">
-                <Bell className="w-5 h-5 text-gray-600" />
-                <span
-                  className="absolute -top-1 -right-1 w-5 h-5 flex items-center justify-center text-xs text-white rounded-full"
-                  style={{ backgroundColor: colors.primary }}
-                >
-                  3
-                </span>
-              </button>
+              <NotificationBell isRTL={isRTL} />
 
               {/* User Menu */}
               <div className="relative">

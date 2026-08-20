@@ -35,6 +35,16 @@ import {
   UserPlus,
   Inbox,
   MessageSquareDashed,
+  Clock,
+  Loader2,
+  CheckCircle,
+  ShoppingBag,
+  MoreVertical,
+  MessageSquare,
+  LayoutPanelLeft,
+  History,
+  Paperclip,
+  SearchX,
 } from "lucide-react";
 
 import {
@@ -56,6 +66,8 @@ import {
   QuoteCard,
   StickyComposer,
   PostAcceptanceCard,
+  AttachmentGrid,
+  StatusTimeline,
   ListRowSkeleton,
   RequestDetailSkeleton,
   STATUS_TONE,
@@ -66,6 +78,10 @@ import {
   SectionCard,
   PageHeader,
   Button,
+  IconButton,
+  Badge,
+  Tabs,
+  Drawer,
   SearchInput,
   FilterBar,
   EmptyState,
@@ -475,230 +491,211 @@ function Workspace() {
     tone: FILTER_TONES[s],
   })), [counts, unreadCounts]);
 
+  // KPI summary (task: New / Pending / In progress / Converted / Closed)
+  const kpis = [
+    { key: "new", label: "New requests", value: counts.pending || 0, icon: Inbox, chip: "bg-accent text-accent-foreground" },
+    { key: "pending", label: "Pending", value: counts.quoted || 0, icon: Clock, chip: "bg-warning-soft text-warning-soft-foreground" },
+    { key: "inprogress", label: "In progress", value: (counts.negotiating || 0) + (counts.accepted || 0), icon: Loader2, chip: "bg-info-soft text-info-soft-foreground" },
+    { key: "converted", label: "Converted", value: counts.converted || 0, icon: ShoppingBag, chip: "bg-success-soft text-success-soft-foreground" },
+    { key: "closed", label: "Closed", value: (counts.completed || 0) + (counts.rejected || 0) + (counts.cancelled || 0), icon: CheckCircle, chip: "bg-muted text-muted-foreground" },
+  ];
+
+  const hasActiveFilters = Boolean(debouncedSearch) || statusFilter !== "all";
+
   // ── Render ──────────────────────────────────────────────────────
+  // DETAIL screen
+  if (selectedId) {
+    return (
+      <div className="max-w-[1400px] mx-auto p-4 sm:p-6">
+        {detailLoading || !detail ? (
+          <div className="max-w-3xl mx-auto w-full"><RequestDetailSkeleton /></div>
+        ) : (
+          <DetailPane
+            request={detail}
+            order={detailOrder}
+            tenantId={tenantId}
+            canManage={canManage}
+            actionBusy={actionBusy}
+            reply={reply}
+            setReply={setReply}
+            replyKind={replyKind}
+            setReplyKind={setReplyKind}
+            sending={sending}
+            pendingMessages={visiblePending}
+            onSend={handleSend}
+            onClose={clearSelection}
+            onRefresh={refreshBoth}
+            onReject={handleReject}
+            onReopen={handleReopen}
+            onAcceptQuote={handleAcceptQuote}
+            onRejectQuote={handleRejectQuote}
+          />
+        )}
+      </div>
+    );
+  }
+
+  // LIST screen
   return (
-    <div className="h-[calc(100vh-4rem)] bg-gray-50 flex flex-col">
-      {/* Page header — single source of truth for title + pulse */}
-      <div className="bg-white border-b">
-        <div className="px-4 sm:px-6 py-4">
-          <PageHeader
-            title="Custom Requests"
-            subtitle={pulse}
-            actions={(
-              <Button
-                variant="secondary" size="sm"
-                onClick={fetchList}
-                leftIcon={<RefreshCw className="w-3.5 h-3.5" />}
-              >
-                Refresh
-              </Button>
-            )}
-          />
-        </div>
-        {/* Mobile / tablet filter bar (vertical rail hidden) */}
-        <div className="px-4 sm:px-6 py-2 lg:hidden">
-          <FilterBar
-            value={statusFilter}
-            onChange={setStatusFilter}
-            options={filterOptions}
-          />
-        </div>
-      </div>
-
-      <div className="flex-1 min-h-0 flex">
-        {/* LEFT — vertical filter rail (lg+) */}
-        <aside
-          className="hidden lg:flex flex-col w-56 border-r bg-white p-3 overflow-y-auto"
-          aria-label="Status filters"
-        >
-          <p className="text-[10px] font-semibold text-gray-400 uppercase tracking-wider px-2 mb-2">
-            View
-          </p>
-          <ul className="space-y-0.5">
-            {filterOptions.map((opt) => {
-              const isActive = statusFilter === opt.value;
-              return (
-                <li key={opt.value}>
-                  <button
-                    onClick={() => setStatusFilter(opt.value)}
-                    aria-pressed={isActive}
-                    className={`w-full flex items-center justify-between gap-2 px-2.5 py-1.5 rounded-lg text-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-primary,#3B82F6)]/30 ${
-                      isActive
-                        ? "bg-[color:var(--brand-primary,#3B82F6)]/10 text-gray-900 font-semibold"
-                        : "text-gray-600 hover:bg-gray-100"
-                    }`}
-                  >
-                    <span className="flex items-center gap-2 min-w-0">
-                      {opt.tone && (
-                        <span
-                          className={`w-1.5 h-1.5 rounded-full ${
-                            { yellow: "bg-yellow-400", blue: "bg-blue-400",
-                              indigo: "bg-indigo-400", emerald: "bg-emerald-400",
-                              purple: "bg-purple-400", slate: "bg-slate-400",
-                              rose: "bg-rose-400", gray: "bg-gray-400" }[opt.tone]
-                          }`}
-                        />
-                      )}
-                      <span className="capitalize truncate">{opt.label}</span>
-                    </span>
-                    <span className="flex items-center gap-1.5 shrink-0">
-                      {opt.unread > 0 && (
-                        <span
-                          className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1.5 rounded-full bg-[color:var(--brand-primary,#3B82F6)] text-[color:var(--brand-primary-fg,#fff)] text-[10px] font-bold tabular-nums"
-                          title={`${opt.unread} unread`}
-                        >
-                          {opt.unread}
-                        </span>
-                      )}
-                      {opt.count > 0 && (
-                        <span className={`text-xs tabular-nums ${isActive ? "text-gray-700" : "text-gray-400"}`}>
-                          {opt.count}
-                        </span>
-                      )}
-                    </span>
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        </aside>
-
-        {/* CENTER — list */}
-        <section
-          className={`${selectedId ? "hidden xl:flex" : "flex"} flex-col w-full xl:w-[26rem] border-r bg-white`}
-          aria-label="Request list"
-        >
-          <div className="p-3 border-b">
-            <SearchInput
-              value={searchQuery}
-              onChange={setSearchQuery}
-              placeholder="Search title, customer, #number"
-              ariaLabel="Search requests"
-            />
-            <p className="text-[11px] text-gray-500 mt-2 px-1">
-              {requests.length} {requests.length === 1 ? "result" : "results"}
-            </p>
+    <div className="max-w-[1400px] mx-auto p-4 sm:p-6 space-y-5">
+      {/* Header */}
+      <header className="flex flex-col sm:flex-row sm:items-start sm:justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2.5">
+            <h1 className="text-xl sm:text-2xl font-bold text-foreground">Custom Requests</h1>
+            <span className="inline-flex items-center px-2 h-6 rounded-full bg-muted text-muted-foreground text-xs font-semibold tabular-nums">
+              {requests.length}
+            </span>
           </div>
+          <p className="text-sm text-muted-foreground mt-1">{pulse}</p>
+        </div>
+        <Button variant="secondary" size="md" onClick={fetchList} leftIcon={<RefreshCw className="w-4 h-4" />}>
+          Refresh
+        </Button>
+      </header>
 
-          <div className="flex-1 overflow-y-auto p-3">
-            {listLoading ? (
-              <ListRowSkeleton count={5} />
-            ) : listError ? (
-              <Card padding="lg">
-                <EmptyState
-                  icon={RefreshCw}
-                  title="Couldn't load requests"
-                  hint={listError}
-                  action={<Button onClick={fetchList}>Try again</Button>}
-                />
-              </Card>
-            ) : requests.length === 0 ? (
-              <EmptyState
-                icon={Inbox}
-                title="Nothing here"
-                hint={debouncedSearch ? `No results for "${debouncedSearch}"` : "No requests match this view."}
-              />
-            ) : (
-              <ul className="space-y-1.5">
-                {requests.map((r) => {
-                  const isSelected = r.id === selectedId;
-                  const isUnread = unreadIds.has(r.id);
-                  return (
-                    <li key={r.id}>
-                      <button
-                        onClick={() => selectRequest(r.id)}
-                        aria-current={isSelected ? "true" : undefined}
-                        aria-label={isUnread ? `Unread: ${r.title}` : r.title}
-                        className={`w-full text-left rounded-xl border transition p-3 focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-primary,#3B82F6)]/30 ${
-                          isSelected
-                            ? "bg-[color:var(--brand-primary,#3B82F6)]/8 border-[color:var(--brand-primary,#3B82F6)]/30"
-                            : isUnread
-                              ? "bg-white border-gray-200 shadow-sm hover:border-gray-300"
-                              : "bg-white border-gray-100 hover:border-gray-200 hover:bg-gray-50"
-                        }`}
-                      >
-                        <div className="flex items-start gap-2.5">
-                          <Avatar
-                            name={r.customer_name || r.customer_email}
-                            role="customer"
-                            size="sm"
-                            className="mt-0.5"
-                          />
-                          <div className="min-w-0 flex-1">
-                            <div className="flex items-center justify-between gap-2">
-                              <p className={`text-sm truncate ${isUnread ? "font-bold text-gray-900" : "font-semibold text-gray-900"}`}>
-                                {r.title}
-                              </p>
-                              <span className="text-[10px] text-gray-400 shrink-0 tabular-nums">
-                                {relTime(r.updated_at || r.created_at)}
-                              </span>
-                            </div>
-                            <p className="text-xs text-gray-500 mt-0.5 truncate">
-                              #{r.request_number} · {r.customer_name || r.customer_email || "—"}
-                            </p>
-                            <div className="flex items-center gap-2 mt-1.5 flex-wrap">
-                              {isUnread && !isSelected && (
-                                <span
-                                  aria-hidden="true"
-                                  className="w-2 h-2 rounded-full bg-[color:var(--brand-primary,#3B82F6)]"
-                                />
-                              )}
-                              <StatusBadge status={r.status} size="sm" />
-                              {r.budget_max && (
-                                <span className="text-[10px] text-gray-500">
-                                  up to {r.budget_max}
-                                </span>
-                              )}
-                            </div>
-                          </div>
-                        </div>
-                      </button>
-                    </li>
-                  );
-                })}
-              </ul>
-            )}
-          </div>
-        </section>
-
-        {/* RIGHT — conversation pane */}
-        <main className={`${selectedId ? "flex" : "hidden xl:flex"} flex-col flex-1 bg-gray-50 min-w-0`} aria-label="Conversation">
-          {!selectedId ? (
-            <EmptyState
-              icon={MessageSquareDashed}
-              title="Select a request"
-              hint="Pick a request on the left to see its conversation, timeline, and quote."
-              className="flex-1 self-stretch justify-center"
-            />
-          ) : detailLoading || !detail ? (
-            <div className="p-6 max-w-3xl mx-auto w-full">
-              <RequestDetailSkeleton />
+      {/* KPI row */}
+      <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+        {kpis.map((item) => {
+          const Icon = item.icon;
+          return (
+            <div key={item.key} className="rounded-xl border border-border bg-card p-3.5 flex items-center gap-3">
+              <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${item.chip}`}>
+                <Icon className="w-4 h-4" strokeWidth={2} />
+              </div>
+              <div className="min-w-0">
+                <p className="text-xs text-muted-foreground truncate">{item.label}</p>
+                <p className="text-lg font-bold text-foreground tabular-nums">{item.value}</p>
+              </div>
             </div>
-          ) : (
-            <DetailPane
-              request={detail}
-              order={detailOrder}
-              tenantId={tenantId}
-              canManage={canManage}
-              actionBusy={actionBusy}
-              reply={reply}
-              setReply={setReply}
-              replyKind={replyKind}
-              setReplyKind={setReplyKind}
-              sending={sending}
-              pendingMessages={visiblePending}
-              onSend={handleSend}
-              onClose={clearSelection}
-              onRefresh={refreshBoth}
-              onReject={handleReject}
-              onReopen={handleReopen}
-              onAcceptQuote={handleAcceptQuote}
-              onRejectQuote={handleRejectQuote}
-            />
-          )}
-        </main>
+          );
+        })}
       </div>
+
+      {/* Toolbar */}
+      <div className="rounded-xl border border-border bg-card p-3 space-y-3">
+        <SearchInput
+          value={searchQuery}
+          onChange={setSearchQuery}
+          placeholder="Search title, customer, #number"
+          ariaLabel="Search requests"
+        />
+        <FilterBar value={statusFilter} onChange={setStatusFilter} options={filterOptions} ariaLabel="Status filters" />
+      </div>
+
+      {/* List states */}
+      {listLoading ? (
+        <div className="space-y-3">
+          <div className="hidden md:block rounded-xl border border-border bg-card p-2">
+            {Array.from({ length: 6 }).map((_, i) => (
+              <div key={i} className="h-14 rounded-lg bg-muted animate-pulse m-2" />
+            ))}
+          </div>
+          <div className="md:hidden"><ListRowSkeleton count={5} /></div>
+        </div>
+      ) : listError ? (
+        <div className="rounded-xl border border-border bg-card">
+          <EmptyState icon={RefreshCw} title="Couldn't load requests" hint={listError} action={<Button variant="primary" onClick={fetchList}>Try again</Button>} />
+        </div>
+      ) : requests.length === 0 ? (
+        <div className="rounded-xl border border-border bg-card">
+          <EmptyState
+            icon={hasActiveFilters ? SearchX : Inbox}
+            title="No requests found"
+            hint={debouncedSearch ? `No results for "${debouncedSearch}"` : hasActiveFilters ? "No requests match this filter." : "Custom requests will appear here."}
+          />
+        </div>
+      ) : (
+        <RequestList requests={requests} unreadIds={unreadIds} onOpen={selectRequest} />
+      )}
     </div>
+  );
+}
+
+// ── List (desktop table + mobile cards) ────────────────────────────
+function RequestList({ requests, unreadIds, onOpen }) {
+  const cols = ["customer", "title", "activity", "status", "unread"];
+  const labels = { customer: "Customer", title: "Request", activity: "Last activity", status: "Status", unread: "Unread" };
+  return (
+    <>
+      {/* Desktop table */}
+      <div className="hidden md:block rounded-xl border border-border bg-card overflow-hidden">
+        <div className="overflow-x-auto">
+          <table className="w-full text-sm">
+            <thead>
+              <tr className="border-b border-border bg-muted/40">
+                {cols.map((c) => (
+                  <th key={c} className={`px-4 py-3 text-xs font-semibold text-muted-foreground uppercase tracking-wide whitespace-nowrap ${c === "unread" ? "text-end" : "text-start"}`}>
+                    {labels[c]}
+                  </th>
+                ))}
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-border">
+              {requests.map((r) => {
+                const unread = unreadIds.has(r.id);
+                return (
+                  <tr key={r.id} onClick={() => onOpen(r.id)} className="cursor-pointer hover:bg-muted/40 transition-colors">
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <div className="flex items-center gap-2.5">
+                        <Avatar name={r.customer_name || r.customer_email} role="customer" size="sm" />
+                        <div className="min-w-0">
+                          <div className="text-sm font-medium text-foreground truncate max-w-[180px]">{r.customer_name || "—"}</div>
+                          <div className="text-xs text-muted-foreground truncate max-w-[180px]">{r.customer_email || ""}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-4 py-3">
+                      <div className="font-medium text-foreground truncate max-w-[280px]">{r.title}</div>
+                      <div className="text-xs text-muted-foreground">#{r.request_number}</div>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap">
+                      <span className="text-sm text-muted-foreground">{relTime(r.updated_at || r.created_at)}</span>
+                    </td>
+                    <td className="px-4 py-3 whitespace-nowrap"><StatusBadge status={r.status} size="sm" /></td>
+                    <td className="px-4 py-3 whitespace-nowrap text-end">
+                      {unread
+                        ? <span className="inline-flex items-center justify-center min-w-[18px] h-[18px] px-1 rounded-full bg-primary text-primary-foreground text-[10px] font-bold">•</span>
+                        : <span className="text-muted-foreground/50">—</span>}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Mobile cards */}
+      <div className="md:hidden space-y-3">
+        {requests.map((r) => {
+          const unread = unreadIds.has(r.id);
+          return (
+            <button
+              key={r.id}
+              onClick={() => onOpen(r.id)}
+              className="w-full text-start rounded-xl border border-border bg-card p-4 active:bg-muted/40 transition-colors"
+            >
+              <div className="flex items-start justify-between gap-2">
+                <div className="flex items-center gap-1.5 min-w-0">
+                  <span className={`font-semibold text-foreground truncate ${unread ? "font-bold" : ""}`}>{r.title}</span>
+                  {unread && <span className="w-2 h-2 rounded-full bg-primary shrink-0" />}
+                </div>
+                <StatusBadge status={r.status} size="sm" className="shrink-0" />
+              </div>
+              <div className="text-xs text-muted-foreground mt-0.5">#{r.request_number}</div>
+              <div className="mt-3 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <Avatar name={r.customer_name || r.customer_email} role="customer" size="sm" />
+                  <span className="text-sm text-foreground truncate">{r.customer_name || r.customer_email || "—"}</span>
+                </div>
+                <span className="text-xs text-muted-foreground shrink-0">{relTime(r.updated_at || r.created_at)}</span>
+              </div>
+            </button>
+          );
+        })}
+      </div>
+    </>
   );
 }
 
@@ -711,6 +708,9 @@ function DetailPane({
   onSend, onClose, onRefresh, onReject, onReopen,
   onAcceptQuote, onRejectQuote,
 }) {
+  const [tab, setTab] = useState("chat"); // mobile: request | chat | activity
+  const [showActions, setShowActions] = useState(false);
+
   const isLocked = TERMINAL_STATUSES.has(request.status);
   const isReopenable = ["rejected", "cancelled", "completed"].includes(request.status);
   const isPostAcceptance =
@@ -721,204 +721,233 @@ function DetailPane({
       || (request.quotes || [])[0];
   }, [request]);
 
+  const files = request.files || request.attachments || [];
+  const hide = (name) => (tab !== name ? "max-lg:hidden" : "");
+  const customer = request.customer_name || request.customer_email || "—";
+  const hasActions = canManage;
+
+  const tabItems = [
+    { value: "request", label: "Request", icon: LayoutPanelLeft },
+    { value: "chat", label: "Chat", icon: MessageSquare },
+    { value: "activity", label: "Activity", icon: History },
+  ];
+
+  // Request context block (description + budget + attachments + quote)
+  const requestBlock = (
+    <div className={`space-y-4 ${hide("request")}`}>
+      <section className="rounded-xl border border-border bg-card p-4">
+        <p className="text-sm text-foreground whitespace-pre-line">{request.description}</p>
+        <div className="grid grid-cols-3 gap-3 mt-4 text-xs">
+          {(request.budget_min || request.budget_max) && (
+            <Cell label="Budget">
+              {request.budget_min || ""}
+              {request.budget_min && request.budget_max && " – "}
+              {request.budget_max || ""}
+            </Cell>
+          )}
+          {request.deadline && <Cell label="Deadline">{request.deadline}</Cell>}
+          {request.provider_name && <Cell label="Provider">{request.provider_name}</Cell>}
+        </div>
+      </section>
+
+      {files.length > 0 && (
+        <section className="rounded-xl border border-border bg-card p-4">
+          <div className="flex items-center gap-2 mb-3">
+            <Paperclip className="w-4 h-4 text-muted-foreground" />
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Attachments</h3>
+          </div>
+          <AttachmentGrid files={files} />
+        </section>
+      )}
+
+      {!isPostAcceptance && activeQuote && (
+        <QuoteCard
+          quote={activeQuote}
+          canAccept={canManage && !isLocked}
+          canReject={canManage && !isLocked}
+          disabled={actionBusy}
+          onAccept={() => onAcceptQuote(activeQuote.id)}
+          onReject={() => onRejectQuote(activeQuote.id)}
+        />
+      )}
+
+      {!isPostAcceptance && canManage && !isLocked && (
+        <QuoteComposer tenantId={tenantId} request={request} isRevision={Boolean(activeQuote)} />
+      )}
+
+      {isPostAcceptance && (
+        <PostAcceptanceCard
+          request={request}
+          order={order}
+          viewer="admin"
+          providerName={request.provider_name}
+          customerName={request.customer_name || request.customer_email}
+          orderHref={request.converted_order ? `/dashboard/orders/${request.converted_order}` : null}
+        />
+      )}
+    </div>
+  );
+
+  // Conversation (bounded panel, pinned composer)
+  const chatBlock = (
+    <div className={`${hide("chat")} rounded-xl border border-border bg-card overflow-hidden flex flex-col h-[70dvh] min-h-[440px] lg:h-[70vh]`}>
+      <div className="hidden lg:flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
+        <MessageSquare className="w-4 h-4 text-muted-foreground" />
+        <h2 className="text-sm font-semibold text-foreground">Conversation</h2>
+      </div>
+      <ConversationFeed request={request} viewer="admin" pendingMessages={pendingMessages} fill className="px-4 py-4" />
+      <StickyComposer
+        value={reply}
+        onChange={setReply}
+        onSend={onSend}
+        sending={sending}
+        disabled={isLocked}
+        locked={isLocked}
+        lockedMessage="This request is locked."
+        onReopen={canManage && isReopenable ? onReopen : undefined}
+        allowKind
+        kind={replyKind}
+        onKindChange={setReplyKind}
+      />
+    </div>
+  );
+
+  // Activity block
+  const activityBlock = (
+    <div className={`space-y-4 ${hide("activity")}`}>
+      <section className="rounded-xl border border-border bg-card p-4">
+        <div className="flex items-center gap-2 mb-3">
+          <History className="w-4 h-4 text-muted-foreground" />
+          <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">Activity</h3>
+        </div>
+        <StatusTimeline status={request.status} />
+        <div className="mt-4 space-y-1 text-sm">
+          <div className="flex items-baseline justify-between gap-3 py-1">
+            <span className="text-muted-foreground">Submitted</span>
+            <span className="text-foreground">{relTime(request.created_at)}</span>
+          </div>
+          <div className="flex items-baseline justify-between gap-3 py-1">
+            <span className="text-muted-foreground">Last activity</span>
+            <span className="text-foreground">{relTime(request.updated_at || request.created_at)}</span>
+          </div>
+        </div>
+      </section>
+    </div>
+  );
+
+  // Sidebar info (customer + provider + converted link)
+  const infoCards = (
+    <div className={`space-y-4 ${hide("request")}`}>
+      <section className="rounded-xl border border-border bg-card p-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Customer</h3>
+        <div className="flex items-center gap-3">
+          <Avatar name={request.customer_name || request.customer_email} role="customer" size="lg" />
+          <div className="min-w-0">
+            <p className="text-sm font-semibold text-foreground truncate">{request.customer_name || "—"}</p>
+            {request.customer_email && <p className="text-xs text-muted-foreground truncate">{request.customer_email}</p>}
+            {request.customer_phone && <p className="text-xs text-muted-foreground truncate">{request.customer_phone}</p>}
+          </div>
+        </div>
+      </section>
+
+      <section className="rounded-xl border border-border bg-card p-4">
+        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground mb-3">Provider</h3>
+        {request.provider_name ? (
+          <div className="flex items-center gap-3">
+            <Avatar name={request.provider_name} role="provider" size="md" />
+            <p className="text-sm text-foreground truncate">{request.provider_name}</p>
+          </div>
+        ) : (
+          <p className="text-sm text-muted-foreground">Not assigned yet</p>
+        )}
+      </section>
+
+      {request.converted_order && (
+        <a
+          href={`/dashboard/orders/${request.converted_order}`}
+          className="flex items-center justify-center gap-2 rounded-xl border border-border bg-card px-3 py-2.5 text-sm font-medium text-primary hover:bg-muted"
+        >
+          <ShoppingBag className="w-4 h-4" />
+          Open order page
+        </a>
+      )}
+    </div>
+  );
+
+  // Actions group (assign / reject / reopen)
+  const actionsGroup = (
+    <div className="space-y-2">
+      <ProviderAssigner
+        tenantId={tenantId}
+        requestId={request.id}
+        onAssigned={onRefresh}
+        disabled={actionBusy || isLocked}
+      />
+      {!isLocked && (
+        <Button variant="secondary" size="md" onClick={onReject} disabled={actionBusy} className="w-full text-danger border-danger/30 hover:bg-danger-soft">
+          Reject request
+        </Button>
+      )}
+      {isReopenable && (
+        <Button variant="outline" size="md" onClick={onReopen} disabled={actionBusy} leftIcon={<RotateCcw className="w-4 h-4" />} className="w-full">
+          Reopen
+        </Button>
+      )}
+    </div>
+  );
+
   return (
     <>
-      {/* Sticky header — carries the mobile back button */}
-      <header className="bg-white border-b sticky top-0 z-10">
-        <div className="px-4 sm:px-6 py-3 flex items-center justify-between gap-3">
-          <div className="flex items-center gap-2 min-w-0">
-            <button
-              onClick={onClose}
-              aria-label="Back to list"
-              className="xl:hidden -ml-2 h-10 w-10 inline-flex items-center justify-center rounded-xl text-gray-600 hover:bg-gray-100"
-            >
-              <ArrowLeft className="w-4 h-4" />
-            </button>
-            <div className="min-w-0">
-              <div className="flex items-center gap-2">
-                <h2 className="text-base font-bold truncate">{request.title}</h2>
-                <StatusBadge status={request.status} size="sm" />
-              </div>
-              <p className="text-[11px] text-gray-500 mt-0.5">
-                #{request.request_number} · {request.customer_name || request.customer_email}
-              </p>
+      {/* Header */}
+      <header className="rounded-xl border border-border bg-card p-4 mb-4">
+        <div className="flex items-center gap-3">
+          <IconButton label="Back to requests" icon={ArrowLeft} variant="ghost" onClick={onClose} className="shrink-0" />
+          <div className="w-10 h-10 hidden sm:block shrink-0">
+            <Avatar name={request.customer_name || request.customer_email} role="customer" size="lg" />
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0 flex-wrap">
+              <h1 className="text-lg font-bold text-foreground truncate">{request.title}</h1>
+              <span className="text-xs font-mono text-muted-foreground">#{request.request_number}</span>
+            </div>
+            <div className="flex items-center gap-2 mt-1 flex-wrap">
+              <span className="text-sm text-muted-foreground truncate">{customer}</span>
+              <StatusBadge status={request.status} size="sm" />
             </div>
           </div>
-          <button
-            onClick={onRefresh}
-            aria-label="Refresh"
-            className="h-9 w-9 inline-flex items-center justify-center rounded-xl text-gray-500 hover:bg-gray-100"
-          >
-            <RefreshCw className="w-4 h-4" />
-          </button>
+          <div className="flex items-center gap-2 shrink-0">
+            <IconButton label="Refresh" icon={RefreshCw} variant="outline" onClick={onRefresh} />
+            {hasActions && (
+              <IconButton label="Actions" icon={MoreVertical} variant="outline" onClick={() => setShowActions(true)} className="lg:hidden" />
+            )}
+          </div>
         </div>
       </header>
 
-      <div className="flex-1 overflow-hidden flex">
-        {/* Conversation column */}
-        <div className="flex-1 flex flex-col min-w-0">
-          <div className="flex-1 overflow-y-auto px-4 sm:px-6 py-4 space-y-4">
-            <Card padding="lg">
-              <p className="text-sm text-gray-700 whitespace-pre-line">{request.description}</p>
-              <div className="grid grid-cols-3 gap-3 mt-3 text-xs">
-                {(request.budget_min || request.budget_max) && (
-                  <Cell label="Budget">
-                    {request.budget_min || ""}
-                    {request.budget_min && request.budget_max && " – "}
-                    {request.budget_max || ""}
-                  </Cell>
-                )}
-                {request.deadline && <Cell label="Deadline">{request.deadline}</Cell>}
-                {request.provider_name && <Cell label="Provider">{request.provider_name}</Cell>}
-              </div>
-            </Card>
+      {/* Mobile segmented navigation */}
+      <div className="lg:hidden mb-4">
+        <Tabs value={tab} onChange={setTab} items={tabItems} variant="segment" className="w-full" />
+      </div>
 
-            {/* Quote stays the hero while the request is being
-                negotiated. Once it leaves negotiation
-                PostAcceptanceCard takes the slot — one CTA,
-                not two competing for the same eye line. */}
-            {!isPostAcceptance && activeQuote && (
-              <QuoteCard
-                quote={activeQuote}
-                canAccept={canManage && !isLocked}
-                canReject={canManage && !isLocked}
-                disabled={actionBusy}
-                onAccept={() => onAcceptQuote(activeQuote.id)}
-                onReject={() => onRejectQuote(activeQuote.id)}
-              />
-            )}
-
-            {/* V3.E business rule — tenant-only quote composer */}
-            {!isPostAcceptance && canManage && !isLocked && (
-              <QuoteComposer
-                tenantId={tenantId}
-                request={request}
-                isRevision={Boolean(activeQuote)}
-              />
-            )}
-
-            {/* Post-acceptance hero — V3.F.11 admin variant */}
-            {isPostAcceptance && (
-              <PostAcceptanceCard
-                request={request}
-                order={order}
-                viewer="admin"
-                providerName={request.provider_name}
-                customerName={request.customer_name || request.customer_email}
-                orderHref={request.converted_order
-                  ? `/dashboard/orders/${request.converted_order}`
-                  : null}
-              />
-            )}
-
-            <Card padding="lg">
-              <h3 className="text-xs font-semibold uppercase tracking-wide text-gray-500 mb-3">
-                Conversation
-              </h3>
-              <ConversationFeed
-                request={request}
-                viewer="admin"
-                pendingMessages={pendingMessages}
-              />
-            </Card>
-          </div>
-
-          <StickyComposer
-            value={reply}
-            onChange={setReply}
-            onSend={onSend}
-            sending={sending}
-            disabled={isLocked}
-            locked={isLocked}
-            lockedMessage="This request is locked."
-            onReopen={canManage && isReopenable ? onReopen : undefined}
-            allowKind
-            kind={replyKind}
-            onKindChange={setReplyKind}
-          />
+      {/* Workspace */}
+      <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_320px] lg:gap-6 lg:items-start">
+        <div className="space-y-4 min-w-0">
+          {requestBlock}
+          {chatBlock}
+          {activityBlock}
         </div>
-
-        {/* Context sidebar (xl+) */}
-        <aside
-          className="hidden xl:flex flex-col w-72 border-l bg-white overflow-y-auto"
-          aria-label="Request context"
-        >
-          <div className="p-4 space-y-4">
-            <SectionCard title="Customer" padding="md">
-              <div className="flex items-center gap-3">
-                <Avatar
-                  name={request.customer_name || request.customer_email}
-                  role="customer"
-                  size="lg"
-                />
-                <div className="min-w-0">
-                  <p className="text-sm font-semibold text-gray-900 truncate">
-                    {request.customer_name || "—"}
-                  </p>
-                  {request.customer_email && (
-                    <p className="text-xs text-gray-500 truncate">{request.customer_email}</p>
-                  )}
-                  {request.customer_phone && (
-                    <p className="text-xs text-gray-500 truncate">{request.customer_phone}</p>
-                  )}
-                </div>
-              </div>
-            </SectionCard>
-
-            <SectionCard title="Provider" padding="md">
-              {request.provider_name ? (
-                <div className="flex items-center gap-3">
-                  <Avatar name={request.provider_name} role="provider" size="md" />
-                  <p className="text-sm text-gray-800 truncate">{request.provider_name}</p>
-                </div>
-              ) : (
-                <p className="text-sm text-gray-400">Not assigned yet</p>
-              )}
-            </SectionCard>
-
-            {canManage && (
-              <div className="space-y-2">
-                <ProviderAssigner
-                  tenantId={tenantId}
-                  requestId={request.id}
-                  onAssigned={onRefresh}
-                  disabled={actionBusy || isLocked}
-                />
-                {!isLocked && (
-                  <Button
-                    variant="danger" size="sm" onClick={onReject} disabled={actionBusy}
-                    className="w-full"
-                  >
-                    Reject request
-                  </Button>
-                )}
-                {isReopenable && (
-                  <Button
-                    variant="outline" size="sm" onClick={onReopen} disabled={actionBusy}
-                    leftIcon={<RotateCcw className="w-3.5 h-3.5" />}
-                    className="w-full"
-                  >
-                    Reopen
-                  </Button>
-                )}
-              </div>
-            )}
-
-            {/* PostAcceptanceCard in the main column is the
-                canonical order CTA now. Sidebar still carries a
-                tiny fallback link for when the right pane is
-                scrolled past the hero. */}
-            {request.converted_order && (
-              <a
-                href={`/dashboard/orders/${request.converted_order}`}
-                className="block px-3 py-2 text-xs text-[color:var(--brand-primary,#3B82F6)] hover:underline text-center"
-              >
-                Open order page →
-              </a>
-            )}
-          </div>
+        <aside className="mt-4 lg:mt-0 lg:sticky lg:top-4 space-y-4">
+          {infoCards}
+          {hasActions && <div className="hidden lg:block">{actionsGroup}</div>}
         </aside>
       </div>
+
+      {/* Mobile actions bottom sheet */}
+      {hasActions && (
+        <Drawer open={showActions} onClose={() => setShowActions(false)} side="bottom" title="Actions">
+          {actionsGroup}
+        </Drawer>
+      )}
     </>
   );
 }

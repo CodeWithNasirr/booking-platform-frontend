@@ -41,6 +41,8 @@ export default {
   "customRequests.actions": "Actions",
   "customRequests.assignProvider": "Assign Provider",
   "customRequests.providerIdPlaceholder": "Provider ID",
+  "customRequests.searchProviders": "Search providers by name or email…",
+  "customRequests.noProviders": "No active providers yet. Invite one from the Providers page.",
   "customRequests.viewOrder": "View Order",
   "customRequests.rejectRequest": "Reject Request",
   
@@ -64,6 +66,18 @@ export default {
   "customRequests.quoteStatus.pending": "Pending",
   "customRequests.quoteStatus.accepted": "Accepted",
   "customRequests.quoteStatus.rejected": "Rejected",
+
+  // =====================
+  // CUSTOM REQUESTS — MESSAGES
+  // =====================
+  "customRequests.conversation": "Conversation",
+  "customRequests.noMessages": "No messages yet.",
+  "customRequests.kindMessage": "Message",
+  "customRequests.kindInfoRequest": "Request info",
+  "customRequests.writeReply": "Write a reply…",
+
+  // COMMON
+  "common.send": "Send",
   
   // =====================
   // COMMON

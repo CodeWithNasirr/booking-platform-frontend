@@ -10,15 +10,15 @@ export default function EmptyState({
   return (
     <div className={`flex flex-col items-center justify-center text-center p-8 ${className}`}>
       {Icon && (
-        <div className="w-12 h-12 rounded-2xl bg-gray-100 flex items-center justify-center text-gray-400 mb-3">
+        <div className="w-12 h-12 rounded-2xl bg-muted flex items-center justify-center text-muted-foreground mb-3">
           <Icon className="w-6 h-6" />
         </div>
       )}
       {title && (
-        <p className="text-base font-semibold text-gray-700">{title}</p>
+        <p className="text-base font-semibold text-foreground">{title}</p>
       )}
       {hint && (
-        <p className="text-sm text-gray-500 mt-1 max-w-sm">{hint}</p>
+        <p className="text-sm text-muted-foreground mt-1 max-w-sm">{hint}</p>
       )}
       {action && <div className="mt-4">{action}</div>}
     </div>

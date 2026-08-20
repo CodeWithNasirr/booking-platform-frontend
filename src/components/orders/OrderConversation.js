@@ -78,6 +78,7 @@ export default function OrderConversation({
   lockedMessage = "This order is locked.",
   showComposer = true,
   composerSticky = false,
+  fill = false,
   className = "",
 }) {
   const [messageText, setMessageText] = useState("");
@@ -135,14 +136,27 @@ export default function OrderConversation({
   }, [messageText, sending, onSendMessage, viewer]);
 
   return (
-    <div className={`flex flex-col ${className}`}>
-      <div className="flex-1 min-h-[240px]">
+    <div className={`flex flex-col ${fill ? "h-full min-h-0" : ""} ${className}`}>
+      {/* When `fill`, ConversationFeed owns a bounded, independently
+          scrolling container and the composer stays pinned below it
+          (CRM/portal chat). Otherwise the panel grows with content and
+          the page scrolls (default, unchanged for existing callers). */}
+      {fill ? (
         <ConversationFeed
           request={requestLike}
           viewer={viewer}
           pendingMessages={reconciledPending}
+          fill
         />
-      </div>
+      ) : (
+        <div className="flex-1 min-h-[240px]">
+          <ConversationFeed
+            request={requestLike}
+            viewer={viewer}
+            pendingMessages={reconciledPending}
+          />
+        </div>
+      )}
 
       {queue.queue.length > 0 && (
         <div className="mt-3">

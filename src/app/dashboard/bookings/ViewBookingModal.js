@@ -1,86 +1,51 @@
-// src/components/bookings/ViewBookingModal.js
+// src/app/dashboard/bookings/ViewBookingModal.js
 'use client';
 
+import { useEffect, useState } from 'react';
 import Cookies from 'js-cookie';
 import { useApp } from '@/contexts/AppContext';
+import { useNotifications } from '@/contexts/NotificationsContext';
 import { CallDock } from '@/components/collaboration';
 import BookingConversationPanel from '@/components/bookings/BookingConversationPanel';
+
+import { BrandRoot } from '@/components/ui/brand';
+import Button from '@/components/ui/Button';
+import IconButton from '@/components/ui/IconButton';
+import StatusPill from '@/components/ui/StatusPill';
+import Badge from '@/components/ui/Badge';
+import Tabs from '@/components/ui/Tabs';
+
+import BookingDetailSidebar from './components/detail/BookingDetailSidebar';
+import BookingActivityTimeline from './components/detail/BookingActivityTimeline';
 import {
-  X,
-  Clock,
-  DollarSign,
-  Calendar,
-  User,
+  getStatusMeta,
+  getPaymentMeta,
+  getInitials,
+  getCustomerName,
+} from './components/bookingPresentation';
+
+import {
+  ArrowLeft,
   CheckCircle,
-  XCircle,
-  RefreshCw,
   Play,
-  Edit,
-  FileText,
-  CreditCard,
+  XCircle,
   MessageSquare,
-  MapPin,
-  Phone,
-  Mail,
-  ExternalLink,
+  LayoutPanelLeft,
+  History,
 } from 'lucide-react';
 
-// Status configuration
-const getStatusConfig = (t) => ({
-  draft: {
-    label: t('bookings.status.draft'),
-    color: 'bg-gray-100 text-gray-700 border-gray-200',
-    icon: Clock,
-  },
-  pending: {
-    label: t('bookings.status.pending'),
-    color: 'bg-amber-100 text-amber-700 border-amber-200',
-    icon: Clock,
-  },
-  pending_payment: {
-    label: t('bookings.status.pendingPayment'),
-    color: 'bg-amber-100 text-amber-700 border-amber-200',
-    icon: Clock,
-  },
-  confirmed: {
-    label: t('bookings.status.confirmed'),
-    color: 'bg-blue-100 text-blue-700 border-blue-200',
-    icon: CheckCircle,
-  },
-  scheduled: {
-    label: t('bookings.status.scheduled'),
-    color: 'bg-indigo-100 text-indigo-700 border-indigo-200',
-    icon: Calendar,
-  },
-  in_progress: {
-    label: t('bookings.status.inProgress'),
-    color: 'bg-purple-100 text-purple-700 border-purple-200',
-    icon: RefreshCw,
-  },
-  completed: {
-    label: t('bookings.status.completed'),
-    color: 'bg-emerald-100 text-emerald-700 border-emerald-200',
-    icon: CheckCircle,
-  },
-  cancelled: {
-    label: t('bookings.status.cancelled'),
-    color: 'bg-red-100 text-red-700 border-red-200',
-    icon: XCircle,
-  },
-  refunded: {
-    label: t('bookings.status.refunded'),
-    color: 'bg-gray-100 text-gray-700 border-gray-200',
-    icon: XCircle,
-  },
-});
-
-// Payment status configuration
-const getPaymentConfig = (t) => ({
-  unpaid: { label: t('bookings.payment.unpaid'), color: 'bg-red-100 text-red-700' },
-  paid: { label: t('bookings.payment.paid'), color: 'bg-emerald-100 text-emerald-700' },
-  partial: { label: t('bookings.payment.partial'), color: 'bg-amber-100 text-amber-700' },
-  refunded: { label: t('bookings.payment.refunded'), color: 'bg-gray-100 text-gray-700' },
-});
+// Status transitions — preserved exactly from the previous modal so the
+// available status actions stay identical.
+function getTransitions(status) {
+  const transitions = {
+    pending: ['confirmed'],
+    pending_payment: ['paid'],
+    confirmed: ['scheduled', 'in_progress'],
+    scheduled: ['in_progress'],
+    in_progress: ['completed'],
+  };
+  return transitions[status] || [];
+}
 
 export default function ViewBookingModal({
   booking,
@@ -90,472 +55,204 @@ export default function ViewBookingModal({
 }) {
   const { t, isRTL, activeTenant, user } = useApp();
   const tenantId = activeTenant?.id || activeTenant;
-  
-  const statusConfig = getStatusConfig(t);
-  const paymentConfig = getPaymentConfig(t);
-  
-  const status = booking.status || 'pending';
-  const statusCfg = statusConfig[status] || statusConfig.pending;
-  const StatusIcon = statusCfg.icon;
+  const { markTargetRead } = useNotifications();
 
-  // Determine payment status
-  const getPaymentStatus = () => {
-    if (booking.is_fully_paid) return 'paid';
-    if (booking.is_deposit_paid) return 'partial';
-    if (booking.amount_paid > 0) return 'partial';
-    return 'unpaid';
-  };
-  
-  const paymentStatus = getPaymentStatus();
-  const paymentCfg = paymentConfig[paymentStatus];
+  const [tab, setTab] = useState('chat'); // mobile: overview | chat | activity
 
-  // Format currency
-  const formatCurrency = (amount) => {
-    const currency = booking.currency  || 'USD';
-    return new Intl.NumberFormat(isRTL ? 'ar-SA' : 'en-US', {
-      style: 'currency',
-      currency: currency,
-    }).format(amount || 0);
-  };
+  // Opening this booking's conversation clears its unread message
+  // notifications (backend read state) + updates the bell / sidebar dot.
+  useEffect(() => {
+    if (booking?.id) markTargetRead('booking', booking.id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [booking?.id]);
 
-  // Format date
-  const formatDate = (dateStr) => {
-    if (!dateStr) return '-';
-    const date = new Date(dateStr);
-    return new Intl.DateTimeFormat(isRTL ? 'ar-SA' : 'en-US', {
-      weekday: 'long',
-      year: 'numeric',
-      month: 'long',
-      day: 'numeric',
-    }).format(date);
-  };
-
-  // Format time
-  const formatTime = (timeStr) => {
-    if (!timeStr) return '-';
-    const [hours, minutes] = timeStr.split(':');
-    const date = new Date();
-    date.setHours(parseInt(hours), parseInt(minutes));
-    return new Intl.DateTimeFormat(isRTL ? 'ar-SA' : 'en-US', {
-      hour: 'numeric',
-      minute: '2-digit',
-      hour12: true,
-    }).format(date);
-  };
-
-  // Get initials
-  const getInitials = (name) => {
-    if (!name) return '??';
-    return name
-      .split(' ')
-      .map((n) => n[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2);
-  };
-
-  // Get service name
-  const getServiceName = () => {
-    if (booking.service_name) return booking.service_name;
-    if (booking.service?.name) {
-      return typeof booking.service.name === 'object'
-        ? booking.service.name.en || Object.values(booking.service.name)[0]
-        : booking.service.name;
-    }
-    return '-';
-  };
-
-  // Get customer info
-  const customer = {
-    name: booking.customer_name || booking.customer?.full_name || '-',
-    email: booking.customer_email || '-',
-    phone: booking.customer_phone || '-',
-  };
-
-  // Get provider info
-  const provider = {
-    name: booking.provider_name || booking.provider?.name || '-',
-  };
-
-  // Available transitions
-  const getAvailableTransitions = () => {
-    const transitions = {
-      pending: ['confirmed'],
-      pending_payment: ['paid'],
-      confirmed: ['scheduled', 'in_progress'],
-      scheduled: ['in_progress'],
-      in_progress: ['completed'],
+  // Esc to close + body scroll lock while the full-screen detail is open.
+  useEffect(() => {
+    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    document.addEventListener('keydown', onKey);
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    return () => {
+      document.removeEventListener('keydown', onKey);
+      document.body.style.overflow = prev;
     };
-    return transitions[status] || [];
-  };
+  }, [onClose]);
 
+  const status = booking.status || 'pending';
+  const statusMeta = getStatusMeta(status, t);
+  const payMeta = getPaymentMeta(booking, t);
+  const customerName = getCustomerName(booking);
+
+  const transitions = getTransitions(status);
+  const statusActions = [];
+  if (transitions.includes('confirmed')) statusActions.push({ key: 'confirmed', label: t('bookings.actions.confirm'), icon: CheckCircle });
+  if (transitions.includes('in_progress')) statusActions.push({ key: 'in_progress', label: t('bookings.actions.start'), icon: Play });
+  if (transitions.includes('completed')) statusActions.push({ key: 'completed', label: t('bookings.actions.complete'), icon: CheckCircle });
   const canCancel = !['completed', 'cancelled', 'refunded'].includes(status);
 
+  const runStatus = (key) => { onStatusChange(booking.id, key); onClose(); };
+
+  // Action buttons (used in the desktop header and the mobile action bar)
+  const ActionButtons = ({ compact = false }) => (
+    <>
+      {statusActions.map((a, i) => (
+        <Button
+          key={a.key}
+          variant={i === 0 ? 'primary' : 'secondary'}
+          size="md"
+          leftIcon={<a.icon className="w-4 h-4" />}
+          className={compact ? 'flex-1' : ''}
+          onClick={() => runStatus(a.key)}
+        >
+          {a.label}
+        </Button>
+      ))}
+      {canCancel && (
+        <Button
+          variant={statusActions.length ? 'ghost' : 'secondary'}
+          size="md"
+          leftIcon={<XCircle className="w-4 h-4" />}
+          className={`${compact ? 'flex-1' : ''} text-danger`}
+          onClick={onCancel}
+        >
+          {t('bookings.actions.cancel')}
+        </Button>
+      )}
+    </>
+  );
+
+  // The single CallDock instance (its ringing/active overlays render via
+  // its own Portal, so they show over any tab; it stays mounted because
+  // tabs toggle with `hidden`, never unmount).
+  const callDock = (
+    <CallDock
+      subjectType="booking"
+      subjectId={booking.id}
+      tenantId={tenantId}
+      authMode="jwt"
+      jwt={Cookies.get('access_token') || null}
+      selfUserId={user?.id}
+      selfName={user?.full_name || user?.name || 'You'}
+      canStart={['paid', 'scheduled'].includes(booking.status)}
+    />
+  );
+
+  const conversation = (
+    <BookingConversationPanel
+      bookingId={booking.id}
+      domain={tenantId}
+      auth={{ jwt: Cookies.get('access_token') || null }}
+      viewer="admin"
+      fill
+      showComposer={!['cancelled', 'refunded'].includes(booking.status)}
+    />
+  );
+
+  const tabItems = [
+    { value: 'overview', label: t('bookings.detail.overview'), icon: LayoutPanelLeft },
+    { value: 'chat', label: t('bookings.detail.chat'), icon: MessageSquare },
+    { value: 'activity', label: t('bookings.detail.activity'), icon: History },
+  ];
+
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-      {/* Backdrop */}
-      <div
-        className="absolute inset-0 bg-black/50 backdrop-blur-sm"
-        onClick={onClose}
-      />
-
-      {/* Modal */}
-      <div
-        className={`relative w-full max-w-2xl bg-white rounded-2xl shadow-2xl max-h-[90vh] overflow-hidden flex flex-col ${
-          isRTL ? 'rtl' : 'ltr'
-        }`}
-      >
-        {/* Header */}
-        <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
-          <h2 className="text-xl font-semibold text-gray-900">
-            {t('bookings.modal.view.title')}
-          </h2>
-          <button
+    <BrandRoot as="div" className="fixed inset-0 z-50 flex flex-col bg-background">
+      {/* Header */}
+      <header className="shrink-0 border-b border-border bg-surface">
+        <div className="flex items-center gap-3 px-3 sm:px-4 h-16">
+          <IconButton
+            label={t('bookings.detail.back')}
+            icon={ArrowLeft}
+            variant="ghost"
             onClick={onClose}
-            className="p-2 rounded-lg hover:bg-gray-100 transition"
-          >
-            <X className="w-5 h-5" />
-          </button>
-        </div>
-
-        {/* Content */}
-        <div className="flex-1 overflow-y-auto px-6 py-6 space-y-6">
-
-          {/* Live voice / video / screen-share call surface */}
-          <CallDock
-            subjectType="booking"
-            subjectId={booking.id}
-            tenantId={tenantId}
-            authMode="jwt"
-            jwt={Cookies.get('access_token') || null}
-            selfUserId={user?.id}
-            selfName={user?.full_name || user?.name || 'You'}
-            canStart={['paid', 'scheduled'].includes(booking.status)}
+            className={`shrink-0 ${isRTL ? 'rotate-180' : ''}`}
           />
-
-          {/* Conversation — chat + files + timeline */}
-          <div className={`border border-gray-200 rounded-xl overflow-hidden ${isRTL ? 'text-right' : ''}`}>
-            <div className="px-4 py-3 border-b border-gray-200 bg-gray-50">
-              <h3 className="text-sm font-semibold text-gray-700">Messages &amp; Files</h3>
+          <div className="w-9 h-9 rounded-full bg-accent text-accent-foreground hidden sm:flex items-center justify-center text-xs font-semibold shrink-0">
+            {getInitials(customerName)}
+          </div>
+          <div className="min-w-0 flex-1">
+            <div className="flex items-center gap-2 min-w-0">
+              <span className="font-semibold text-foreground truncate">{customerName}</span>
+              <span className="text-xs text-muted-foreground truncate hidden sm:inline">
+                · {booking.booking_number}
+              </span>
             </div>
-            <div className="p-3">
-              <BookingConversationPanel
-                bookingId={booking.id}
-                domain={tenantId}
-                auth={{ jwt: Cookies.get('access_token') || null }}
-                viewer="admin"
-                showComposer={!['cancelled', 'refunded'].includes(booking.status)}
+            <div className="flex items-center gap-1.5 mt-0.5">
+              <StatusPill
+                tone={statusMeta.tone}
+                size="sm"
+                label={
+                  <span className="inline-flex items-center gap-1">
+                    <statusMeta.Icon className="w-3 h-3" />{statusMeta.label}
+                  </span>
+                }
               />
+              <Badge variant={payMeta.tone}>{payMeta.label}</Badge>
             </div>
           </div>
 
-          {/* Booking Number & Status */}
-          <div className={`flex items-center justify-between p-4 bg-gray-50 rounded-xl ${
-            isRTL ? 'flex-row-reverse' : ''
-          }`}>
-            <div className={isRTL ? 'text-right' : ''}>
-              <p className="text-sm text-gray-600">
-                {t('bookings.modal.view.bookingNumber')}
-              </p>
-              <p className="text-lg font-semibold text-gray-900">
-                {booking.booking_number}
-              </p>
-            </div>
-            <div className={`flex gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <span
-                className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-medium border ${statusCfg.color} ${
-                  isRTL ? 'flex-row-reverse' : ''
-                }`}
-              >
-                <StatusIcon className="w-3.5 h-3.5" />
-                {statusCfg.label}
-              </span>
-              <span
-                className={`inline-flex items-center px-3 py-1 rounded-full text-xs font-medium ${paymentCfg.color}`}
-              >
-                {paymentCfg.label}
-              </span>
-            </div>
-          </div>
-
-          {/* Customer & Provider */}
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-            {/* Customer */}
-            <div className={isRTL ? 'text-right' : ''}>
-              <p className="text-sm text-gray-600 mb-2">
-                {t('bookings.modal.view.customer')}
-              </p>
-              <div className={`flex items-start gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-[#8B1E3F] to-[#8B1E3F]/80 flex items-center justify-center text-white font-semibold flex-shrink-0">
-                  {getInitials(customer.name)}
-                </div>
-                <div className="space-y-1">
-                  <p className="font-medium text-gray-900">{customer.name}</p>
-                  <p className={`text-sm text-gray-600 flex items-center gap-1 ${
-                    isRTL ? 'flex-row-reverse' : ''
-                  }`}>
-                    <Mail className="w-3.5 h-3.5" />
-                    {customer.email}
-                  </p>
-                  <p className={`text-sm text-gray-600 flex items-center gap-1 ${
-                    isRTL ? 'flex-row-reverse' : ''
-                  }`}>
-                    <Phone className="w-3.5 h-3.5" />
-                    {customer.phone}
-                  </p>
-                </div>
-              </div>
-            </div>
-
-            {/* Provider */}
-            <div className={isRTL ? 'text-right' : ''}>
-              <p className="text-sm text-gray-600 mb-2">
-                {t('bookings.modal.view.serviceProvider')}
-              </p>
-              <div className={`flex items-center gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <div className="w-12 h-12 rounded-xl bg-gradient-to-br from-purple-500 to-purple-600 flex items-center justify-center text-white font-semibold">
-                  {getInitials(provider.name)}
-                </div>
-                <div>
-                  <p className="font-medium text-gray-900">{provider.name}</p>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Service Details */}
-          <div className="p-4 bg-[#8B1E3F]/5 rounded-xl border border-[#8B1E3F]/20">
-            <p className={`text-sm text-gray-600 mb-2 ${isRTL ? 'text-right' : ''}`}>
-              {t('bookings.modal.view.serviceDetails')}
-            </p>
-            <p className={`font-semibold text-gray-900 mb-2 ${isRTL ? 'text-right' : ''}`}>
-              {getServiceName()}
-            </p>
-            <div className={`flex items-center gap-4 text-sm text-gray-600 ${
-              isRTL ? 'flex-row-reverse' : ''
-            }`}>
-              {booking.duration_minutes && (
-                <span className={`flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <Clock className="w-4 h-4" />
-                  {booking.duration_minutes} {t('bookings.time.minutes')}
-                </span>
-              )}
-              <span className={`flex items-center gap-1 ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <DollarSign className="w-4 h-4" />
-                {formatCurrency(booking.total_amount)}
-              </span>
-            </div>
-          </div>
-
-          {/* Date & Time */}
-          <div className="grid grid-cols-2 gap-4">
-            <div className={`p-4 bg-gray-50 rounded-xl ${isRTL ? 'text-right' : ''}`}>
-              <p className="text-sm text-gray-600 mb-1">
-                {t('bookings.modal.view.date')}
-              </p>
-              <p className="font-medium text-gray-900">
-                {formatDate(booking.scheduled_date)}
-              </p>
-            </div>
-            <div className={`p-4 bg-gray-50 rounded-xl ${isRTL ? 'text-right' : ''}`}>
-              <p className="text-sm text-gray-600 mb-1">
-                {t('bookings.modal.view.time')}
-              </p>
-              <p className="font-medium text-gray-900">
-                {formatTime(booking.scheduled_time)}
-              </p>
-            </div>
-          </div>
-
-          {/* Payment Details */}
-          <div className="p-4 bg-gray-50 rounded-xl">
-            <p className={`text-sm text-gray-600 mb-3 ${isRTL ? 'text-right' : ''}`}>
-              {t('bookings.modal.view.payments')}
-            </p>
-            <div className="space-y-2">
-              <div className={`flex justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <span className="text-gray-600">Subtotal</span>
-                <span className="font-medium">{formatCurrency(booking.subtotal)}</span>
-              </div>
-              {booking.addons_total > 0 && (
-                <div className={`flex justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <span className="text-gray-600">Add-ons</span>
-                  <span className="font-medium">{formatCurrency(booking.addons_total)}</span>
-                </div>
-              )}
-              {booking.discount_amount > 0 && (
-                <div className={`flex justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <span className="text-gray-600">Discount</span>
-                  <span className="font-medium text-emerald-600">
-                    -{formatCurrency(booking.discount_amount)}
-                  </span>
-                </div>
-              )}
-              <div className={`flex justify-between pt-2 border-t border-gray-200 ${
-                isRTL ? 'flex-row-reverse' : ''
-              }`}>
-                <span className="font-semibold">Total</span>
-                <span className="font-bold text-lg">{formatCurrency(booking.total_amount)}</span>
-              </div>
-              <div className={`flex justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-                <span className="text-gray-600">Amount Paid</span>
-                <span className="font-medium text-emerald-600">
-                  {formatCurrency(booking.amount_paid)}
-                </span>
-              </div>
-              {booking.amount_remaining > 0 && (
-                <div className={`flex justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-                  <span className="text-gray-600">Amount Remaining</span>
-                  <span className="font-medium text-red-600">
-                    {formatCurrency(booking.amount_remaining)}
-                  </span>
-                </div>
-              )}
-            </div>
-          </div>
-
-          {/* Meeting URL */}
-          {booking.meeting_url && (
-            <div className="p-4 bg-blue-50 rounded-xl border border-blue-200">
-              <p className={`text-sm text-blue-600 mb-2 ${isRTL ? 'text-right' : ''}`}>
-                Meeting Link
-              </p>
-              <a
-                href={booking.meeting_url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className={`inline-flex items-center gap-2 text-blue-700 hover:underline font-medium ${
-                  isRTL ? 'flex-row-reverse' : ''
-                }`}
-              >
-                <ExternalLink className="w-4 h-4" />
-                {booking.meeting_provider || 'Join Meeting'}
-              </a>
-            </div>
-          )}
-
-          {/* Notes */}
-          {booking.customer_notes && (
-            <div className="p-4 bg-amber-50 rounded-xl border border-amber-200">
-              <p className={`text-sm text-amber-600 mb-1 ${isRTL ? 'text-right' : ''}`}>
-                {t('bookings.modal.view.notes')}
-              </p>
-              <p className={`text-gray-900 ${isRTL ? 'text-right' : ''}`}>
-                {booking.customer_notes}
-              </p>
-            </div>
-          )}
-
-          {/* Status Timeline */}
-          {booking.status_history && booking.status_history.length > 0 && (
-            <div>
-              <p className={`text-sm text-gray-600 mb-3 ${isRTL ? 'text-right' : ''}`}>
-                {t('bookings.modal.view.timeline')}
-              </p>
-              <div className="space-y-3">
-                {booking.status_history.map((entry, index) => (
-                  <div
-                    key={index}
-                    className={`flex items-start gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}
-                  >
-                    <div className="w-2 h-2 rounded-full bg-[#8B1E3F] mt-2" />
-                    <div className={isRTL ? 'text-right' : ''}>
-                      <p className="font-medium text-gray-900">
-                        {statusConfig[entry.to_status]?.label || entry.to_status}
-                      </p>
-                      <p className="text-sm text-gray-500">
-                        {formatDate(entry.created_at)}
-                        {entry.changed_by_name && ` by ${entry.changed_by_name}`}
-                      </p>
-                      {entry.notes && (
-                        <p className="text-sm text-gray-600 mt-1">{entry.notes}</p>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            </div>
-          )}
-        </div>
-
-        {/* Footer */}
-        <div className={`px-6 py-4 border-t border-gray-200 flex items-center justify-between ${
-          isRTL ? 'flex-row-reverse' : ''
-        }`}>
-          <div className={`flex gap-2 ${isRTL ? 'flex-row-reverse' : ''}`}>
-            {getAvailableTransitions().includes('confirmed') && (
-              <button
-                onClick={() => {
-                  onStatusChange(booking.id, 'confirmed');
-                  onClose();
-                }}
-                className={`px-4 py-2 rounded-lg text-blue-700 bg-blue-50 hover:bg-blue-100 transition font-medium flex items-center gap-2 ${
-                  isRTL ? 'flex-row-reverse' : ''
-                }`}
-              >
-                <CheckCircle className="w-4 h-4" />
-                {t('bookings.actions.confirm')}
-              </button>
-            )}
-            {getAvailableTransitions().includes('in_progress') && (
-              <button
-                onClick={() => {
-                  onStatusChange(booking.id, 'in_progress');
-                  onClose();
-                }}
-                className={`px-4 py-2 rounded-lg text-purple-700 bg-purple-50 hover:bg-purple-100 transition font-medium flex items-center gap-2 ${
-                  isRTL ? 'flex-row-reverse' : ''
-                }`}
-              >
-                <Play className="w-4 h-4" />
-                {t('bookings.actions.start')}
-              </button>
-            )}
-            {getAvailableTransitions().includes('completed') && (
-              <button
-                onClick={() => {
-                  onStatusChange(booking.id, 'completed');
-                  onClose();
-                }}
-                className={`px-4 py-2 rounded-lg text-emerald-700 bg-emerald-50 hover:bg-emerald-100 transition font-medium flex items-center gap-2 ${
-                  isRTL ? 'flex-row-reverse' : ''
-                }`}
-              >
-                <CheckCircle className="w-4 h-4" />
-                {t('bookings.actions.complete')}
-              </button>
-            )}
-            {canCancel && (
-              <button
-                onClick={onCancel}
-                className={`px-4 py-2 rounded-lg text-red-700 bg-red-50 hover:bg-red-100 transition font-medium flex items-center gap-2 ${
-                  isRTL ? 'flex-row-reverse' : ''
-                }`}
-              >
-                <XCircle className="w-4 h-4" />
-                {t('bookings.actions.cancel')}
-              </button>
-            )}
-          </div>
-
-          <div className={`flex gap-3 ${isRTL ? 'flex-row-reverse' : ''}`}>
-            <button
-              onClick={onClose}
-              className="px-5 py-2.5 border border-gray-300 rounded-xl text-gray-700 font-medium hover:bg-gray-50 transition"
-            >
-              {t('bookings.modal.view.close')}
-            </button>
-            {/* <button
-              className={`px-5 py-2.5 rounded-xl text-white bg-gradient-to-br from-[#8B1E3F] to-[#8B1E3F]/80 hover:opacity-90 transition font-medium shadow-sm flex items-center gap-2 ${
-                isRTL ? 'flex-row-reverse' : ''
-              }`}
-            >
-              <Edit className="w-4 h-4" />
-              {t('bookings.modal.view.edit')}
-            </button> */}
+          {/* Desktop primary/secondary actions */}
+          <div className="hidden lg:flex items-center gap-2 shrink-0">
+            <ActionButtons />
           </div>
         </div>
+
+        {/* Mobile segmented navigation */}
+        <div className="lg:hidden px-3 pb-2">
+          <Tabs value={tab} onChange={setTab} items={tabItems} variant="segment" className="w-full" />
+        </div>
+      </header>
+
+      {/* Content */}
+      <div className="flex flex-col flex-1 min-h-0 lg:grid lg:grid-cols-[minmax(0,1fr)_360px] lg:gap-4 lg:p-4 lg:overflow-hidden">
+        {/* Left / main — conversation (chat + files + timeline + composer) */}
+        <section
+          className={`${tab === 'chat' ? 'flex' : 'hidden'} lg:flex flex-1 min-h-0 flex-col lg:rounded-xl lg:border lg:border-border lg:bg-card overflow-hidden`}
+        >
+          <div className="hidden lg:flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
+            <MessageSquare className="w-4 h-4 text-muted-foreground" />
+            <h2 className="text-sm font-semibold text-foreground">{t('bookings.detail.chat')}</h2>
+          </div>
+          {/* The conversation panel (fill) owns its own bounded scroll
+              area and keeps the composer pinned below the messages. */}
+          <div className="flex-1 min-h-0 flex flex-col">
+            {conversation}
+          </div>
+        </section>
+
+        {/* Right / sidebar — booking info + call controls */}
+        <aside
+          className={`${tab === 'overview' ? 'block' : 'hidden'} lg:block flex-1 lg:flex-none min-h-0 overflow-y-auto p-3 lg:p-0`}
+        >
+          <BookingDetailSidebar booking={booking} callSlot={callDock} />
+          {/* Activity is a sidebar card on desktop */}
+          <div className="hidden lg:block mt-4">
+            <div className="flex items-center gap-2 mb-2">
+              <History className="w-4 h-4 text-muted-foreground" />
+              <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
+                {t('bookings.detail.activity')}
+              </h3>
+            </div>
+            <BookingActivityTimeline booking={booking} />
+          </div>
+        </aside>
+
+        {/* Activity — mobile tab only */}
+        <section
+          className={`${tab === 'activity' ? 'block' : 'hidden'} lg:hidden flex-1 min-h-0 overflow-y-auto p-3`}
+        >
+          <BookingActivityTimeline booking={booking} />
+        </section>
       </div>
-    </div>
+
+      {/* Mobile action bar (hidden on chat tab, where the composer lives) */}
+      {(statusActions.length > 0 || canCancel) && (
+        <div
+          className={`${tab === 'chat' ? 'hidden' : 'flex'} lg:hidden shrink-0 items-center gap-2 border-t border-border bg-surface p-3`}
+          style={{ paddingBottom: 'calc(0.75rem + env(safe-area-inset-bottom))' }}
+        >
+          <ActionButtons compact />
+        </div>
+      )}
+    </BrandRoot>
   );
 }

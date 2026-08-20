@@ -1,104 +1,94 @@
-// src/components/bookings/BookingStats.js
+// src/app/dashboard/bookings/components/BookingStats.js
 'use client';
 
 import { useApp } from '@/contexts/AppContext';
 import {
   Calendar,
-  Clock,
+  CalendarClock,
   CheckCircle,
   XCircle,
-  DollarSign,
-  TrendingUp,
+  Wallet,
 } from 'lucide-react';
 
+/**
+ * Compact KPI row: Total, Upcoming, Completed, Cancelled (+ Revenue).
+ * Subtle cards — small icon chip using semantic tokens, no oversized
+ * dashboard tiles, no hard-coded colours.
+ */
 export default function BookingStats({ stats }) {
-  const { t, isRTL,tenants } = useApp();
+  const { t, isRTL, tenants } = useApp();
+  const currency = tenants?.[0]?.default_currency || 'SAR';
 
-  const currency = tenants[0]?.default_currency || 'SAR';
-  
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat(isRTL ? 'ar-SA' : 'en-US', {
+  const formatCurrency = (amount) =>
+    new Intl.NumberFormat(isRTL ? 'ar-SA' : 'en-US', {
       style: 'currency',
-      currency: currency,
+      currency,
       minimumFractionDigits: 0,
       maximumFractionDigits: 0,
-    }).format(amount);
-  };
+    }).format(amount || 0);
 
-  const statsConfig = [
+  const upcoming =
+    (stats.pending || 0) + (stats.confirmed || 0) + (stats.inProgress || 0);
+
+  const items = [
     {
       key: 'total',
       label: t('bookings.stats.total'),
-      value: stats.total,
+      value: stats.total ?? 0,
       icon: Calendar,
-      bgColor: 'bg-[#8B1E3F]/10',
-      textColor: 'text-[#8B1E3F]',
-      iconBg: 'bg-[#8B1E3F]/20',
+      chip: 'bg-accent text-accent-foreground',
     },
     {
-      key: 'pending',
-      label: t('bookings.stats.pending'),
-      value: stats.pending,
-      icon: Clock,
-      bgColor: 'bg-amber-50',
-      textColor: 'text-amber-600',
-      iconBg: 'bg-amber-100',
-    },
-    {
-      key: 'confirmed',
-      label: t('bookings.stats.confirmed'),
-      value: stats.confirmed,
-      icon: CheckCircle,
-      bgColor: 'bg-blue-50',
-      textColor: 'text-blue-600',
-      iconBg: 'bg-blue-100',
+      key: 'upcoming',
+      label: t('bookings.stats.upcoming'),
+      value: upcoming,
+      icon: CalendarClock,
+      chip: 'bg-info-soft text-info-soft-foreground',
     },
     {
       key: 'completed',
       label: t('bookings.stats.completed'),
-      value: stats.completed,
-      icon: TrendingUp,
-      bgColor: 'bg-emerald-50',
-      textColor: 'text-emerald-600',
-      iconBg: 'bg-emerald-100',
+      value: stats.completed ?? 0,
+      icon: CheckCircle,
+      chip: 'bg-success-soft text-success-soft-foreground',
+    },
+    {
+      key: 'cancelled',
+      label: t('bookings.stats.cancelled'),
+      value: stats.cancelled ?? 0,
+      icon: XCircle,
+      chip: 'bg-danger-soft text-danger-soft-foreground',
     },
     {
       key: 'revenue',
       label: t('bookings.stats.revenue'),
       value: formatCurrency(stats.revenue || 0),
-      icon: DollarSign,
-      bgColor: 'bg-emerald-50',
-      textColor: 'text-emerald-600',
-      iconBg: 'bg-emerald-100',
-      isRevenue: true,
+      icon: Wallet,
+      chip: 'bg-muted text-muted-foreground',
+      wide: true,
     },
   ];
 
   return (
-    <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
-      {statsConfig.map((stat) => {
-        const Icon = stat.icon;
+    <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-5 gap-3">
+      {items.map((item) => {
+        const Icon = item.icon;
         return (
           <div
-            key={stat.key}
-            className={`bg-white border border-gray-200 rounded-xl p-5 hover:shadow-lg transition-shadow ${
-              isRTL ? 'text-right' : 'text-left'
-            }`}
+            key={item.key}
+            className="rounded-xl border border-border bg-card p-3.5 flex items-center gap-3"
           >
-            <div className={`flex items-center justify-between ${isRTL ? 'flex-row-reverse' : ''}`}>
-              <div>
-                <p className="text-sm text-gray-600">{stat.label}</p>
-                <p className={`text-2xl font-bold text-gray-900 mt-1 ${
-                  stat.isRevenue && isRTL ? 'direction-ltr' : ''
-                }`}>
-                  {stat.value}
-                </p>
-              </div>
-              <div
-                className={`w-12 h-12 rounded-xl ${stat.iconBg} flex items-center justify-center`}
+            <div className={`w-9 h-9 rounded-lg flex items-center justify-center shrink-0 ${item.chip}`}>
+              <Icon className="w-4 h-4" strokeWidth={2} />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs text-muted-foreground truncate">{item.label}</p>
+              <p
+                className="text-lg font-bold text-foreground tabular-nums truncate"
+                dir={item.wide && isRTL ? 'ltr' : undefined}
               >
-                <Icon className={`w-6 h-6 ${stat.textColor}`} />
-              </div>
+                {item.value}
+              </p>
             </div>
           </div>
         );

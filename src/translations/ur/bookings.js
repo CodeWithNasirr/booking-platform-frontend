@@ -4,6 +4,7 @@ export default {
   // =====================
   "bookings.title": "بکنگز",
   "bookings.subtitle": "اپنی تمام اپائنٹمنٹس اور ریزرویشنز کا انتظام کریں",
+  "bookings.noPermission": "آپ کو بکنگز دیکھنے کی اجازت نہیں ہے",
   "bookings.newBooking": "نئی بکنگ",
   "bookings.calendarView": "کیلنڈر ویو",
 
@@ -11,6 +12,7 @@ export default {
   // STATS
   // =====================
   "bookings.stats.total": "کل بکنگز",
+  "bookings.stats.upcoming": "آنے والی",
   "bookings.stats.pending": "زیر التواء",
   "bookings.stats.confirmed": "تصدیق شدہ",
   "bookings.stats.completed": "مکمل",
@@ -141,6 +143,17 @@ export default {
   "bookings.modal.view.timeline": "ٹائم لائن",
   "bookings.modal.view.files": "فائلیں",
   "bookings.modal.view.payments": "ادائیگیاں",
+  "bookings.detail.overview": "جائزہ",
+  "bookings.detail.chat": "گفتگو",
+  "bookings.detail.activity": "سرگرمی",
+  "bookings.detail.summary": "خلاصہ",
+  "bookings.detail.location": "مقام",
+  "bookings.detail.call": "کال",
+  "bookings.detail.callControls": "کال کنٹرولز",
+  "bookings.detail.back": "واپس",
+  "bookings.detail.online": "آن لائن میٹنگ",
+  "bookings.detail.join": "میٹنگ میں شامل ہوں",
+  "bookings.detail.noActivity": "ابھی کوئی سرگرمی نہیں",
 
   // =====================
   // CANCEL BOOKING

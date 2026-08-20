@@ -2,34 +2,49 @@
 "use client";
 
 /**
- * ServiceDetailClient — Service Detail Page
+ * ServiceDetailClient — premium service-detail page.
  *
- * Fiverr/Calendly-style layout:
- *   LEFT (65%)  — Hero, description, packages, features, reviews
- *   RIGHT (35%) — Sticky sidebar with price, delivery info, CTA
+ * Calendly / Fiverr-style layout:
+ *   LEFT   — hero, description, packages, add-ons, requirements, session info
+ *   RIGHT  — sticky sidebar with price + CTA (desktop)
+ *   MOBILE — inline price + CTA and a sticky bottom action bar
  *
- * Routes to:
- *   order_type="booking" → /booking/service/{slug}
- *   order_type="order"   → /services/{slug}/order
+ * Rebuilt (Phase 10) onto the tenant-branded portal design language:
+ * PortalBrandRoot bridges the tenant accent into the Phase-1 semantic
+ * tokens, so no colour is hard-coded. Data, routing, pricing and the
+ * package/add-on selectors are UNCHANGED.
  */
 
 import { useState, useMemo } from "react";
+import Link from "next/link";
+import { Star, Clock, ChevronRight } from "lucide-react";
 
 import { useTenantLang } from "@/app/tenant-site/contexts/TenantLangContext";
-
 import { useTenantTheme } from "@/app/tenant-site/contexts/TenantThemeContext";
-
 import resolveTranslated from "../../utils/resolveTranslated";
 import {
   getServiceRoute,
   getServiceType,
   getServiceBadge,
 } from "@/lib/serviceTypeHelper";
+import { formatCurrency } from "@/lib/currency";
 
 import LayoutRenderer from "../../LayoutRenderer";
+import PortalBrandRoot from "@/app/tenant-site/components/portalBrand";
 import PackageSelector from "@/components/services/PackageSelector";
 import AddonSelector from "@/components/services/AddonSelector";
 import ServiceSidebar from "@/components/services/ServiceSidebar";
+
+// Module-level so its identity is stable across package/add-on selection
+// re-renders (avoids remounting the selectors inside it).
+function Section({ title, children }) {
+  return (
+    <section className="bg-card rounded-2xl border border-border p-6 sm:p-8">
+      <h2 className="text-lg font-bold text-foreground mb-4">{title}</h2>
+      {children}
+    </section>
+  );
+}
 
 export default function ServiceDetailClient({
   service,
@@ -41,17 +56,14 @@ export default function ServiceDetailClient({
   const { language, isRTL } = useTenantLang();
   const theme = useTenantTheme();
   const lang = language;
+  const t = (obj) => resolveTranslated(obj, lang);
 
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [selectedAddons, setSelectedAddons] = useState([]);
 
-  // Resolve multilingual fields
   const name = resolveTranslated(service.name, lang);
   const description = resolveTranslated(service.description, lang);
-  const shortDesc = resolveTranslated(
-    service.short_description || service.description,
-    lang
-  );
+  const shortDesc = resolveTranslated(service.short_description || service.description, lang);
 
   const packages = service.packages || [];
   const addons = service.addons || [];
@@ -60,28 +72,17 @@ export default function ServiceDetailClient({
   const serviceType = getServiceType(service);
   const badge = getServiceBadge(service);
   const route = getServiceRoute(service);
+  const currency = service.currency || theme?.default_currency || "SAR";
 
-  // Pricing
   const basePrice = parseFloat(service.base_price || 0);
   const activePackage = selectedPackage || (packages.length > 0 ? packages[0] : null);
-  const currentPrice = activePackage
-    ? parseFloat(activePackage.price)
-    : basePrice;
-  const addonsTotal = selectedAddons.reduce(
-    (sum, a) => sum + parseFloat(a.price || 0),
-    0
-  );
+  const currentPrice = activePackage ? parseFloat(activePackage.price) : basePrice;
+  const addonsTotal = selectedAddons.reduce((sum, a) => sum + parseFloat(a.price || 0), 0);
   const totalPrice = currentPrice + addonsTotal;
 
-  // Delivery days
-  const deliveryDays = activePackage
-    ? activePackage.delivery_days
-    : service.default_delivery_days;
-  const revisions = activePackage
-    ? activePackage.revisions
-    : service.default_revisions;
+  const deliveryDays = activePackage ? activePackage.delivery_days : service.default_delivery_days;
+  const revisions = activePackage ? activePackage.revisions : service.default_revisions;
 
-  // Build CTA URL with package/addon params
   const ctaUrl = useMemo(() => {
     const base = route.url;
     const params = new URLSearchParams();
@@ -91,93 +92,53 @@ export default function ServiceDetailClient({
     return qs ? `${base}?${qs}` : base;
   }, [route.url, activePackage, selectedAddons]);
 
-
-    console.log("Route:", route);
-    console.log("CTA URL:", ctaUrl);
-
   const ctaLabel =
     route.flow === "booking"
-      ? resolveTranslated(
-          { en: "Book Now", ar: "احجز الآن", ur: "ابھی بک کریں" },
-          lang
-        )
+      ? t({ en: "Book Now", ar: "احجز الآن", ur: "ابھی بک کریں" })
       : route.flow === "order"
-      ? resolveTranslated(
-          { en: "Order Now", ar: "اطلب الآن", ur: "ابھی آرڈر کریں" },
-          lang
-        )
-      : resolveTranslated(
-          { en: "Get Started", ar: "ابدأ الآن", ur: "شروع کریں" },
-          lang
-        );
+      ? t({ en: "Order Now", ar: "اطلب الآن", ur: "ابھی آرڈر کریں" })
+      : t({ en: "Get Started", ar: "ابدأ الآن", ur: "شروع کریں" });
 
-  // Header/footer as sections for LayoutRenderer
   const headerSection = header ? [header] : [];
   const footerSection = footer ? [footer] : [];
 
   return (
     <>
-      {/* Render header */}
       {headerSection.length > 0 && (
-        <LayoutRenderer
-          sections={headerSection}
-          language={lang}
-          site={site}
-        />
+        <LayoutRenderer sections={headerSection} language={lang} site={site} />
       )}
 
-      <main
-        className={`min-h-screen bg-gray-50 ${isRTL ? "rtl" : ""}`}
-      >
+      <PortalBrandRoot site={site} as="main" dir={isRTL ? "rtl" : "ltr"} className={`min-h-screen bg-muted ${isRTL ? "rtl" : ""}`}>
         {/* ── Hero ── */}
-        <div className="bg-white border-b border-gray-100">
-          <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
-            {/* Breadcrumb */}
-            <nav className="flex items-center gap-2 text-sm text-gray-400 mb-6">
-              <a href="/" className="hover:text-gray-600 transition-colors">
-                {resolveTranslated(
-                  { en: "Home", ar: "الرئيسية", ur: "ہوم" },
-                  lang
-                )}
-              </a>
-              <span>/</span>
-              <span className="text-gray-600">{name}</span>
+        <div className="bg-card border-b border-border">
+          <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8">
+            <nav className="flex items-center gap-1.5 text-sm text-muted-foreground mb-6">
+              <Link href="/" className="hover:text-foreground transition-colors">
+                {t({ en: "Home", ar: "الرئيسية", ur: "ہوم" })}
+              </Link>
+              <ChevronRight className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
+              <span className="text-foreground truncate">{name}</span>
             </nav>
 
             <div className="flex flex-col lg:flex-row gap-8">
-              {/* Hero image */}
               {service.image && (
                 <div className="lg:w-3/5">
-                  <div className="relative rounded-2xl overflow-hidden bg-gray-100 aspect-[16/9]">
-                    <img
-                      src={service.image}
-                      alt={name}
-                      className="w-full h-full object-cover"
-                    />
+                  <div className="relative rounded-2xl overflow-hidden bg-muted aspect-[16/9]">
+                    {/* eslint-disable-next-line @next/next/no-img-element */}
+                    <img src={service.image} alt={name} className="w-full h-full object-cover" />
                     {badge && (
-                      <span
-                        className={`absolute top-4 ${
-                          isRTL ? "right-4" : "left-4"
-                        } px-3 py-1 text-xs font-semibold rounded-full ${badge.color}`}
-                      >
+                      <span className={`absolute top-4 ${isRTL ? "right-4" : "left-4"} px-3 py-1 text-xs font-semibold rounded-full ${badge.color}`}>
                         {badge.labelKey}
                       </span>
                     )}
                   </div>
 
-                  {/* Gallery thumbnails */}
                   {gallery.length > 0 && (
                     <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
                       {gallery.map((img, i) => (
-                        <div
-                          key={i}
-                          className="w-20 h-14 rounded-lg overflow-hidden bg-gray-100 shrink-0"
-                        >
-                          <img
-                            src={img}
-                            alt=""
-                            className="w-full h-full object-cover"
-                          />
+                        <div key={i} className="w-20 h-14 rounded-lg overflow-hidden bg-muted shrink-0">
+                          {/* eslint-disable-next-line @next/next/no-img-element */}
+                          <img src={img} alt="" className="w-full h-full object-cover" />
                         </div>
                       ))}
                     </div>
@@ -185,95 +146,47 @@ export default function ServiceDetailClient({
                 </div>
               )}
 
-              {/* Hero text */}
-              <div className={`flex-1 ${service.image ? "" : "max-w-3xl"}`}>
+              <div className={`flex-1 min-w-0 ${service.image ? "" : "max-w-3xl"}`}>
                 {service.category && (
-                  <span className="text-xs font-medium text-gray-400 uppercase tracking-wider">
+                  <span className="text-xs font-medium text-muted-foreground uppercase tracking-wider">
                     {typeof service.category === "object"
                       ? resolveTranslated(service.category.name, lang)
                       : service.category.name || service.category}
                   </span>
                 )}
 
-                <h1 className="text-3xl sm:text-4xl font-bold text-gray-900 mt-2 leading-tight">
-                  {name}
-                </h1>
+                <h1 className="text-2xl sm:text-3xl font-bold text-foreground mt-2 leading-tight">{name}</h1>
 
-                {shortDesc && (
-                  <p className="text-lg text-gray-500 mt-3 leading-relaxed">
-                    {shortDesc}
-                  </p>
-                )}
+                {shortDesc && <p className="text-base text-muted-foreground mt-3 leading-relaxed">{shortDesc}</p>}
 
-                {/* Rating + stats */}
                 <div className="flex items-center gap-4 mt-5 flex-wrap">
                   {Number(service.average_rating) > 0 && (
                     <div className="flex items-center gap-1.5">
-                      <span className="text-amber-400 text-lg">★</span>
-                      <span className="font-semibold text-gray-800">
-                        {Number(service.average_rating).toFixed(1)}
-                      </span>
+                      <Star className="w-4 h-4 text-warning fill-warning" />
+                      <span className="font-semibold text-foreground">{Number(service.average_rating).toFixed(1)}</span>
                       {service.total_reviews > 0 && (
-                        <span className="text-sm text-gray-400">
-                          ({service.total_reviews}{" "}
-                          {resolveTranslated(
-                            {
-                              en: "reviews",
-                              ar: "تقييم",
-                              ur: "جائزے",
-                            },
-                            lang
-                          )}
-                          )
+                        <span className="text-sm text-muted-foreground">
+                          ({service.total_reviews} {t({ en: "reviews", ar: "تقييم", ur: "جائزے" })})
                         </span>
                       )}
                     </div>
                   )}
-
                   {service.total_bookings > 0 && (
-                    <span className="text-sm text-gray-400">
-                      {service.total_bookings}{" "}
-                      {resolveTranslated(
-                        {
-                          en: "orders completed",
-                          ar: "طلب مكتمل",
-                          ur: "مکمل آرڈرز",
-                        },
-                        lang
-                      )}
+                    <span className="text-sm text-muted-foreground">
+                      {service.total_bookings} {t({ en: "orders completed", ar: "طلب مكتمل", ur: "مکمل آرڈرز" })}
                     </span>
                   )}
                 </div>
 
                 {/* Mobile: price + CTA */}
-                <div className="lg:hidden mt-6 p-4 bg-gray-50 rounded-xl border border-gray-100">
+                <div className="lg:hidden mt-6 p-4 bg-muted rounded-xl border border-border">
                   <div className="flex items-baseline gap-2 mb-3">
-                    <span
-                      className="text-3xl font-bold"
-                      style={{ color: theme.primary_color || "#3B82F6" }}
-                    >
-                      {service.currency || "USD"} {totalPrice.toFixed(2)}
-                    </span>
+                    <span className="text-2xl font-bold text-foreground tabular-nums">{formatCurrency(totalPrice, currency)}</span>
                     {packages.length > 0 && !selectedPackage && (
-                      <span className="text-sm text-gray-400">
-                        {resolveTranslated(
-                          {
-                            en: "starting from",
-                            ar: "يبدأ من",
-                            ur: "شروع از",
-                          },
-                          lang
-                        )}
-                      </span>
+                      <span className="text-sm text-muted-foreground">{t({ en: "starting from", ar: "يبدأ من", ur: "شروع از" })}</span>
                     )}
                   </div>
-                  <a
-                    href={ctaUrl}
-                    className="block w-full py-3.5 text-white text-center rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity"
-                    style={{
-                      backgroundColor: theme.primary_color || "#3B82F6",
-                    }}
-                  >
+                  <a href={ctaUrl} className="block w-full py-3.5 bg-primary text-primary-foreground text-center rounded-xl font-semibold hover:brightness-110 transition">
                     {ctaLabel}
                   </a>
                 </div>
@@ -282,186 +195,97 @@ export default function ServiceDetailClient({
           </div>
         </div>
 
-        {/* ── Content area: 2-column ── */}
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-10">
+        {/* ── Content ── */}
+        <div className="max-w-6xl mx-auto px-4 sm:px-6 lg:px-8 py-8 sm:py-10 pb-28 lg:pb-10">
           <div className="flex flex-col lg:flex-row gap-8">
-            {/* ═══ LEFT COLUMN ═══ */}
-            <div className="flex-1 min-w-0 space-y-8">
-              {/* Description */}
+            <div className="flex-1 min-w-0 space-y-6">
               {description && (
-                <section className="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
-                  <h2 className="text-lg font-bold text-gray-900 mb-4">
-                    {resolveTranslated(
-                      {
-                        en: "About This Service",
-                        ar: "عن هذه الخدمة",
-                        ur: "اس سروس کے بارے میں",
-                      },
-                      lang
-                    )}
-                  </h2>
-                  <div className="prose prose-gray max-w-none text-gray-600 leading-relaxed whitespace-pre-line">
-                    {description}
-                  </div>
-                </section>
+                <Section title={t({ en: "About this service", ar: "عن هذه الخدمة", ur: "اس سروس کے بارے میں" })}>
+                  <div className="text-[15px] text-muted-foreground leading-relaxed whitespace-pre-line">{description}</div>
+                </Section>
               )}
 
-              {/* Packages */}
               {packages.length > 0 && (
-                <section className="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
-                  <h2 className="text-lg font-bold text-gray-900 mb-5">
-                    {resolveTranslated(
-                      {
-                        en: "Choose a Package",
-                        ar: "اختر باقة",
-                        ur: "پیکج منتخب کریں",
-                      },
-                      lang
-                    )}
-                  </h2>
+                <Section title={t({ en: "Choose a package", ar: "اختر باقة", ur: "پیکج منتخب کریں" })}>
                   <PackageSelector
                     packages={packages}
                     selected={activePackage}
                     onSelect={setSelectedPackage}
-                    currency={service.currency || "USD"}
+                    currency={currency}
                     lang={lang}
                     isRTL={isRTL}
                     theme={theme}
                   />
-                </section>
+                </Section>
               )}
 
-              {/* Add-ons */}
               {addons.length > 0 && (
-                <section className="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
-                  <h2 className="text-lg font-bold text-gray-900 mb-5">
-                    {resolveTranslated(
-                      {
-                        en: "Enhance Your Order",
-                        ar: "حسّن طلبك",
-                        ur: "اپنا آرڈر بہتر بنائیں",
-                      },
-                      lang
-                    )}
-                  </h2>
+                <Section title={t({ en: "Enhance your order", ar: "حسّن طلبك", ur: "اپنا آرڈر بہتر بنائیں" })}>
                   <AddonSelector
                     addons={addons}
                     selected={selectedAddons}
                     onToggle={(addon) => {
                       setSelectedAddons((prev) => {
                         const exists = prev.find((a) => a.id === addon.id);
-                        return exists
-                          ? prev.filter((a) => a.id !== addon.id)
-                          : [...prev, addon];
+                        return exists ? prev.filter((a) => a.id !== addon.id) : [...prev, addon];
                       });
                     }}
-                    currency={service.currency || "USD"}
+                    currency={currency}
                     lang={lang}
                     isRTL={isRTL}
                     theme={theme}
                   />
-                </section>
+                </Section>
               )}
 
-              {/* Requirements preview */}
               {requirements.length > 0 && (
-                <section className="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
-                  <h2 className="text-lg font-bold text-gray-900 mb-4">
-                    {resolveTranslated(
-                      {
-                        en: "What We'll Need From You",
-                        ar: "ما نحتاجه منك",
-                        ur: "ہمیں آپ سے کیا چاہیے",
-                      },
-                      lang
-                    )}
-                  </h2>
+                <Section title={t({ en: "What we'll need from you", ar: "ما نحتاجه منك", ur: "ہمیں آپ سے کیا چاہیے" })}>
                   <div className="space-y-3">
                     {requirements.map((req, i) => {
                       const reqName =
                         typeof req === "object"
-                          ? resolveTranslated(req.name || req.label, lang) ||
-                            req.name
+                          ? resolveTranslated(req.name || req.label, lang) || req.name
                           : req;
                       return (
-                        <div
-                          key={i}
-                          className="flex items-start gap-3 text-sm"
-                        >
-                          <span className="w-6 h-6 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
+                        <div key={i} className="flex items-start gap-3 text-sm">
+                          <span className="w-6 h-6 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-xs font-bold shrink-0 mt-0.5">
                             {i + 1}
                           </span>
                           <div>
-                            <span className="text-gray-700 font-medium">
-                              {reqName}
-                            </span>
-                            {req.required && (
-                              <span className="text-red-400 ml-1 text-xs">
-                                *
-                              </span>
-                            )}
+                            <span className="text-foreground font-medium">{reqName}</span>
+                            {req.required && <span className="text-danger ms-1 text-xs">*</span>}
                           </div>
                         </div>
                       );
                     })}
                   </div>
-                </section>
+                </Section>
               )}
 
-              {/* Duration / availability note for booking services */}
               {serviceType === "online" && service.duration_minutes && (
-                <section className="bg-white rounded-2xl border border-gray-100 p-6 sm:p-8">
-                  <h2 className="text-lg font-bold text-gray-900 mb-4">
-                    {resolveTranslated(
-                      {
-                        en: "Session Details",
-                        ar: "تفاصيل الجلسة",
-                        ur: "سیشن کی تفصیلات",
-                      },
-                      lang
-                    )}
-                  </h2>
-                  <div className="flex flex-wrap gap-6">
-                    <div className="flex items-center gap-3">
-                      <div className="w-10 h-10 rounded-xl bg-blue-50 flex items-center justify-center text-lg">
-                        ⏱️
-                      </div>
-                      <div>
-                        <p className="text-xs text-gray-400">
-                          {resolveTranslated(
-                            {
-                              en: "Duration",
-                              ar: "المدة",
-                              ur: "مدت",
-                            },
-                            lang
-                          )}
-                        </p>
-                        <p className="text-sm font-semibold text-gray-800">
-                          {service.duration_minutes}{" "}
-                          {resolveTranslated(
-                            {
-                              en: "minutes",
-                              ar: "دقيقة",
-                              ur: "منٹ",
-                            },
-                            lang
-                          )}
-                        </p>
-                      </div>
+                <Section title={t({ en: "Session details", ar: "تفاصيل الجلسة", ur: "سیشن کی تفصیلات" })}>
+                  <div className="flex items-center gap-3">
+                    <div className="w-10 h-10 rounded-xl bg-accent text-accent-foreground flex items-center justify-center shrink-0">
+                      <Clock className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <p className="text-xs text-muted-foreground">{t({ en: "Duration", ar: "المدة", ur: "مدت" })}</p>
+                      <p className="text-sm font-semibold text-foreground">
+                        {service.duration_minutes} {t({ en: "minutes", ar: "دقيقة", ur: "منٹ" })}
+                      </p>
                     </div>
                   </div>
-                </section>
+                </Section>
               )}
             </div>
 
-            {/* ═══ RIGHT COLUMN — Sticky Sidebar ═══ */}
+            {/* Sticky sidebar (desktop) */}
             <div className="hidden lg:block w-[360px] shrink-0">
               <ServiceSidebar
                 price={totalPrice}
                 basePrice={currentPrice}
                 addonsTotal={addonsTotal}
-                currency={service.currency || "USD"}
+                currency={currency}
                 deliveryDays={deliveryDays}
                 revisions={revisions}
                 duration={service.duration_minutes}
@@ -471,11 +295,7 @@ export default function ServiceDetailClient({
                 theme={theme}
                 lang={lang}
                 isRTL={isRTL}
-                packageName={
-                  activePackage
-                    ? resolveTranslated(activePackage.name, lang)
-                    : null
-                }
+                packageName={activePackage ? resolveTranslated(activePackage.name, lang) : null}
                 selectedAddons={selectedAddons}
               />
             </div>
@@ -483,37 +303,18 @@ export default function ServiceDetailClient({
         </div>
 
         {/* Mobile sticky CTA bar */}
-        <div className="lg:hidden fixed bottom-0 left-0 right-0 bg-white border-t border-gray-200 p-4 z-40">
+        <div className="lg:hidden fixed bottom-0 inset-x-0 bg-card border-t border-border p-4 z-40" style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
           <div className="flex items-center justify-between gap-4 max-w-lg mx-auto">
-            <div>
-              <span
-                className="text-xl font-bold"
-                style={{ color: theme.primary_color || "#3B82F6" }}
-              >
-                {service.currency || "USD"} {totalPrice.toFixed(2)}
-              </span>
-            </div>
-            <a
-              href={ctaUrl}
-              className="flex-1 max-w-[200px] py-3 text-white text-center rounded-xl font-semibold hover:opacity-90 transition-opacity"
-              style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
-            >
+            <span className="text-lg font-bold text-foreground tabular-nums">{formatCurrency(totalPrice, currency)}</span>
+            <a href={ctaUrl} className="flex-1 max-w-[220px] py-3 bg-primary text-primary-foreground text-center rounded-xl font-semibold hover:brightness-110 transition">
               {ctaLabel}
             </a>
           </div>
         </div>
+      </PortalBrandRoot>
 
-        {/* Bottom padding for mobile sticky bar */}
-        <div className="lg:hidden h-20" />
-      </main>
-
-      {/* Render footer */}
       {footerSection.length > 0 && (
-        <LayoutRenderer
-          sections={footerSection}
-          language={lang}
-          site={site}
-        />
+        <LayoutRenderer sections={footerSection} language={lang} site={site} />
       )}
     </>
   );

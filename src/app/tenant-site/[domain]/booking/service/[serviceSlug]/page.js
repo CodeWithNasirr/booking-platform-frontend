@@ -87,7 +87,7 @@ export default async function TenantPage({ params }) {
   const fullSections = [
     ...(header ? [header] : []),
     ...pageSections,
-    ...(footer ? [footer] : []),
+    // ...(footer ? [footer] : []),
   ];
   return (
     <LayoutRenderer 

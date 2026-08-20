@@ -24,6 +24,7 @@ import { apiFetch } from "@/lib/apiClient";
 import DateTimePicker from "./booking/steps/DateTimePicker";
 import { formatCurrency } from "@/lib/currency";
 import IntegrationRequiredModal from "@/components/shared/IntegrationRequiredModal";
+import { Check, ChevronLeft, Search, Star, Loader2, Video } from "lucide-react";
 
 // ─── NEW IMPORTS ────────────────────────────────────────────────────────────
 import {
@@ -45,6 +46,55 @@ import { saveBookingState, loadBookingState,clearBookingState,} from "../[domain
 // API Configuration
 // =============================================================================
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000";
+
+// =============================================================================
+// Tenant branding → semantic tokens
+// Bridge the tenant's primary colour into the Phase-1 design tokens so every
+// primitive (bg-primary, ring-ring, text-primary …) renders in the tenant's
+// colour. Never hard-codes a brand colour: when the tenant hasn't set one we
+// return undefined and the site's existing --primary is inherited.
+// =============================================================================
+function hexToHslChannels(hex) {
+  if (!hex || typeof hex !== "string") return null;
+  let h = hex.replace("#", "").trim();
+  if (h.length === 3) h = h.split("").map((c) => c + c).join("");
+  if (h.length !== 6) return null;
+  const r = parseInt(h.slice(0, 2), 16) / 255;
+  const g = parseInt(h.slice(2, 4), 16) / 255;
+  const b = parseInt(h.slice(4, 6), 16) / 255;
+  const max = Math.max(r, g, b), min = Math.min(r, g, b);
+  const l = (max + min) / 2;
+  let s = 0, hue = 0;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: hue = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: hue = (b - r) / d + 2; break;
+      default: hue = (r - g) / d + 4;
+    }
+    hue /= 6;
+  }
+  return `${Math.round(hue * 360)} ${Math.round(s * 100)}% ${Math.round(l * 100)}%`;
+}
+function readableFg(hex) {
+  const m = (hex || "").replace("#", "").match(/.{1,2}/g);
+  if (!m || m.length < 3) return "#FFFFFF";
+  const [r, g, b] = m.slice(0, 3).map((c) => parseInt(c, 16) / 255);
+  const lum = (c) => (c <= 0.03928 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4);
+  const L = 0.2126 * lum(r) + 0.7152 * lum(g) + 0.0722 * lum(b);
+  return L > 0.5 ? "#0F172A" : "#FFFFFF";
+}
+function brandStyle(theme) {
+  const hex = theme?.primary_color;
+  if (!hex) return undefined;
+  const ch = hexToHslChannels(hex);
+  if (!ch) return undefined;
+  const style = { "--primary": ch, "--ring": ch, "--brand-primary": hex };
+  const fg = hexToHslChannels(readableFg(hex));
+  if (fg) style["--primary-foreground"] = fg;
+  return style;
+}
 
 // =============================================================================
 // MAIN BOOKING MODULE
@@ -271,13 +321,17 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
 
   // Variant handling
   const variant = resolvedSettings.variant || "full_page";
-  const containerClass = variant === "inline" 
-    ? "bg-white rounded-2xl shadow-lg p-6" 
-    : "bg-white";
+  const containerClass = variant === "inline"
+    ? "bg-card rounded-2xl border border-border shadow-sm overflow-hidden"
+    : "bg-card";
 
   return (
     <>
-    <div className={`booking-module ${containerClass} ${isRTL ? "rtl" : ""}`}>
+    <div
+      className={`booking-module max-w-3xl mx-auto ${containerClass} ${isRTL ? "rtl" : ""}`}
+      style={brandStyle(theme)}
+      dir={isRTL ? "rtl" : "ltr"}
+    >
       {/* ================= STEPS HEADER ================= */}
       <StepsHeader
         steps={steps}
@@ -490,16 +544,17 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
       </div>
 
       {/* ================= NAVIGATION BUTTONS ================= */}
-      {currentStepId !== "confirm" && (
-        <div className={`flex justify-between p-6 border-t ${isRTL ? "flex-row-reverse" : ""}`}>
+      {currentStepId !== "confirm" && currentStep > 0 && (
+        <div className="flex justify-start p-4 sm:p-6 border-t border-border">
           <button
             onClick={goToPrevStep}
             disabled={currentStep === 0}
-            className="px-6 py-3 text-gray-600 font-medium disabled:opacity-50 disabled:cursor-not-allowed hover:text-gray-900 transition-colors"
+            className="inline-flex items-center gap-1.5 h-10 px-3 -ms-1 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
+            <ChevronLeft className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
             {resolveTranslated({ en: "Back", ar: "رجوع", ur: "واپس" }, lang)}
           </button>
-          
+
           {/* Next button is typically handled by each step's selection */}
         </div>
       )}
@@ -525,59 +580,52 @@ export default function BookingModule({ data, settings: propSettings, tenantId, 
 // STEPS HEADER COMPONENT
 // =============================================================================
 function StepsHeader({ steps, currentStep, onStepClick, theme, lang, isRTL }) {
+  const pct = steps.length > 1 ? (currentStep / (steps.length - 1)) * 100 : 0;
+
   return (
-    <div className="p-6 border-b">
-      <div className={`flex items-center justify-between ${isRTL ? "flex-row-reverse" : ""}`}>
+    <div className="p-4 sm:p-6 border-b border-border">
+      {/* Mobile: compact progress bar + current label */}
+      <div className="sm:hidden">
+        <div className="flex items-center justify-between mb-2">
+          <span className="text-xs font-medium text-muted-foreground">
+            {resolveTranslated({ en: "Step", ar: "خطوة", ur: "مرحلہ" }, lang)} {currentStep + 1} / {steps.length}
+          </span>
+          <span className="text-sm font-semibold text-foreground truncate ps-3">
+            {resolveTranslated(steps[currentStep]?.label, lang)}
+          </span>
+        </div>
+        <div className="h-1.5 rounded-full bg-muted overflow-hidden">
+          <div className="h-full rounded-full bg-primary transition-all duration-300" style={{ width: `${pct}%` }} />
+        </div>
+      </div>
+
+      {/* Desktop: full stepper */}
+      <div className="hidden sm:flex items-center">
         {steps.map((step, idx) => {
           const isActive = idx === currentStep;
           const isCompleted = idx < currentStep;
           const isClickable = idx <= currentStep;
 
           return (
-            <div key={step.id} className="flex items-center flex-1">
-              {/* Step Circle */}
+            <div key={step.id} className="flex items-center flex-1 last:flex-none">
               <button
                 onClick={() => isClickable && onStepClick(idx)}
                 disabled={!isClickable}
-                className={`
-                  w-10 h-10 rounded-full flex items-center justify-center font-semibold text-sm transition-all
-                  ${isCompleted 
-                    ? "text-white" 
-                    : isActive 
-                    ? "text-white" 
-                    : "bg-gray-200 text-gray-500"
-                  }
-                  ${isClickable ? "cursor-pointer hover:scale-105" : "cursor-not-allowed"}
-                `}
-                style={{
-                  backgroundColor: isCompleted || isActive 
-                    ? theme.primary_color || "#3B82F6" 
-                    : undefined
-                }}
+                className={`shrink-0 w-9 h-9 rounded-full flex items-center justify-center font-semibold text-sm transition-all border ${
+                  isCompleted || isActive
+                    ? "bg-primary text-primary-foreground border-transparent"
+                    : "bg-muted text-muted-foreground border-border"
+                } ${isClickable ? "cursor-pointer hover:brightness-110" : "cursor-not-allowed"}`}
               >
-                {isCompleted ? (
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-                  </svg>
-                ) : (
-                  idx + 1
-                )}
+                {isCompleted ? <Check className="w-4 h-4" /> : idx + 1}
               </button>
 
-              {/* Step Label */}
-              <span className={`ml-3 text-sm font-medium hidden sm:block ${
-                isActive ? "text-gray-900" : "text-gray-500"
-              }`}>
+              <span className={`ms-2.5 text-sm font-medium whitespace-nowrap ${isActive ? "text-foreground" : "text-muted-foreground"}`}>
                 {resolveTranslated(step.label, lang)}
               </span>
 
-              {/* Connector Line */}
               {idx < steps.length - 1 && (
-                <div className={`flex-1 h-0.5 mx-4 ${
-                  isCompleted ? "" : "bg-gray-200"
-                }`} style={{
-                  backgroundColor: isCompleted ? theme.primary_color || "#3B82F6" : undefined
-                }} />
+                <div className={`flex-1 h-0.5 mx-3 rounded-full ${isCompleted ? "bg-primary" : "bg-border"}`} />
               )}
             </div>
           );
@@ -600,6 +648,7 @@ function ServiceSelector({
   onCategorySelect,
   onServiceSelect,
   onStaffSelect,
+  onIntegrationBlocked,
   theme,
   lang,
   isRTL,
@@ -701,58 +750,56 @@ function ServiceSelector({
   // Staff Selection View
   if (view === "staff" && settings.show_staff_selection && selectedService) {
     return (
-      <div className="p-6">
+      <div className="p-4 sm:p-6">
         {/* Back to Services */}
         <button
           onClick={() => {
             setView("services");
             onServiceSelect(null);
           }}
-          className={`flex items-center gap-2 text-gray-600 hover:text-gray-900 mb-6 ${isRTL ? "flex-row-reverse" : ""}`}
+          className="inline-flex items-center gap-1.5 h-9 px-2 -ms-1 mb-5 rounded-lg text-sm font-medium text-muted-foreground hover:text-foreground hover:bg-muted transition-colors"
         >
-          <svg className={`w-5 h-5 ${isRTL ? "rotate-180" : ""}`} fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
-          </svg>
+          <ChevronLeft className={`w-4 h-4 ${isRTL ? "rotate-180" : ""}`} />
           {resolveTranslated({ en: "Back to Services", ar: "العودة للخدمات", ur: "سروسز پر واپس" }, lang)}
         </button>
 
         {/* Selected Service Summary */}
-        <div className="bg-gray-50 rounded-xl p-4 mb-6">
-          <p className="text-sm text-gray-500">
+        <div className="bg-muted rounded-xl p-4 mb-6 border border-border">
+          <p className="text-xs text-muted-foreground">
             {resolveTranslated({ en: "Selected Service", ar: "الخدمة المختارة", ur: "منتخب سروس" }, lang)}
           </p>
-          <p className="font-semibold text-gray-900">
+          <p className="font-semibold text-foreground mt-0.5">
             {resolveTranslated(selectedService.title || selectedService.name, lang)}
           </p>
-         <p className="text-sm text-gray-600">
-          {selectedService.duration_minutes} min •
-          {formatCurrency(
-            selectedService.base_price || selectedService.price,
-            selectedService.currency || currency
-          )}
-        </p>
+          <p className="text-sm text-muted-foreground mt-0.5">
+            {selectedService.duration_minutes} min •{" "}
+            {formatCurrency(
+              selectedService.base_price || selectedService.price,
+              selectedService.currency || currency
+            )}
+          </p>
         </div>
 
         {/* Staff Title */}
-        <h3 className="text-xl font-bold text-gray-900 mb-4">
+        <h3 className="text-lg font-bold text-foreground mb-4">
           {resolveTranslated({ en: "Choose Service Expert", ar: "اختر خبير الخدمة", ur: "اپنا تھراپسٹ منتخب کریں" }, lang)}
         </h3>
 
         {/* Any Available Option */}
         <button
           onClick={() => onStaffSelect(null)}
-          className="w-full p-4 border-2 border-dashed border-gray-300 rounded-xl mb-4 hover:border-blue-400 hover:bg-blue-50 transition-colors"
+          className="w-full p-4 border-2 border-dashed border-border rounded-xl mb-4 text-start hover:border-primary hover:bg-primary/5 transition-colors"
         >
-          <p className="font-medium text-gray-700">
+          <p className="font-medium text-foreground">
             {resolveTranslated({ en: "No Preference", ar: "لا تفضيل", ur: "کوئی ترجیح نہیں" }, lang)}
           </p>
-          <p className="text-sm text-gray-500">
+          <p className="text-sm text-muted-foreground">
             {resolveTranslated({ en: "First available", ar: "أول متاح", ur: "پہلا دستیاب" }, lang)}
           </p>
         </button>
 
       {/* Staff Grid */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid sm:grid-cols-2 gap-3">
         {staff.map((member) => (
           <button
             key={member.id}
@@ -773,44 +820,38 @@ function ServiceSelector({
               onStaffSelect(member);
             }}
 
-            className={`
-              p-4 rounded-xl border-2 text-left transition-all
-              ${
-                !member.integrations_ready
-                  ? "opacity-50 cursor-not-allowed border-red-200 bg-red-50"
-                  : selectedStaff?.id === member.id
-                  ? "border-blue-500 bg-blue-50"
-                  : "border-gray-200 hover:border-gray-300 hover:shadow-md"
-              }
-            `}
+            className={`p-4 rounded-xl border text-start transition-all ${
+              !member.integrations_ready
+                ? "opacity-60 cursor-not-allowed border-danger/30 bg-danger-soft"
+                : selectedStaff?.id === member.id
+                ? "border-primary ring-1 ring-primary bg-primary/5"
+                : "border-border hover:border-primary/40 hover:shadow-sm"
+            }`}
           >
-              <div className={`flex items-center gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+              <div className="flex items-center gap-4">
                 {member.photo ? (
                   <img
                     src={member.photo}
                     alt={member.name}
-                    className="w-16 h-16 rounded-full object-cover"
+                    className="w-14 h-14 rounded-full object-cover shrink-0"
                   />
                 ) : (
-                  <div 
-                    className="w-16 h-16 rounded-full flex items-center justify-center text-white text-xl font-bold"
-                    style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
-                  >
+                  <div className="w-14 h-14 rounded-full flex items-center justify-center bg-primary text-primary-foreground text-lg font-bold shrink-0">
                     {member.name?.charAt(0)}
                   </div>
                 )}
-                <div className={isRTL ? "text-right" : ""}>
-                  <p className="font-semibold text-gray-900">{member.name}</p>
-                  <p className="text-sm text-gray-500">{member.specialization || member.role}</p>
+                <div className="min-w-0">
+                  <p className="font-semibold text-foreground truncate">{member.name}</p>
+                  <p className="text-sm text-muted-foreground truncate">{member.specialization || member.role}</p>
                   {!member.integrations_ready && (
-                    <div className="mt-2 text-xs text-red-600 font-medium">
+                    <div className="mt-1 text-xs text-danger font-medium">
                       Google Calendar not connected
                     </div>
                   )}
                   {member.rating && (
                     <div className="flex items-center gap-1 mt-1">
-                      <span className="text-yellow-400">★</span>
-                      <span className="text-sm text-gray-600">{member.rating}</span>
+                      <Star className="w-3.5 h-3.5 text-warning fill-warning" />
+                      <span className="text-sm text-muted-foreground">{member.rating}</span>
                     </div>
                   )}
                 </div>
@@ -824,36 +865,30 @@ function ServiceSelector({
 
   // Services View
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6">
       {/* Category Tabs */}
       {settings.show_categories && categories.length > 0 && (
-        <div className={`flex gap-2 mb-6 overflow-x-auto pb-2 ${isRTL ? "flex-row-reverse" : ""}`}>
+        <div className="flex gap-2 mb-5 overflow-x-auto pb-1 -mx-1 px-1">
           <button
             onClick={() => onCategorySelect(null)}
-            className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
-               selectedCategory === null
-                ? "text-white"
-                : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+            className={`h-9 px-3.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              selectedCategory === null
+                ? "bg-primary text-primary-foreground"
+                : "bg-muted text-muted-foreground hover:bg-muted/70"
             }`}
-            style={{
-              backgroundColor: selectedCategory === null ? theme.primary_color || "#3B82F6" : undefined
-            }}
           >
             {resolveTranslated({ en: "All Services", ar: "جميع الخدمات", ur: "تمام سروسز" }, lang)}
           </button>
-          
+
           {categories.map((cat) => (
             <button
               key={cat.id}
               onClick={() => onCategorySelect(cat)}
-              className={`px-4 py-2 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
+              className={`h-9 px-3.5 rounded-full text-sm font-medium whitespace-nowrap transition-colors ${
                 selectedCategory?.id === cat.id
-                  ? "text-white"
-                  : "bg-gray-100 text-gray-700 hover:bg-gray-200"
+                  ? "bg-primary text-primary-foreground"
+                  : "bg-muted text-muted-foreground hover:bg-muted/70"
               }`}
-              style={{
-                backgroundColor: selectedCategory?.id === cat.id ? theme.primary_color || "#3B82F6" : undefined
-              }}
             >
               {resolveTranslated(cat.name, lang)}
             </button>
@@ -862,7 +897,7 @@ function ServiceSelector({
       )}
 
       {/* Services Grid */}
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid sm:grid-cols-2 gap-3">
         {filteredServices.map((service) => (
           <ServiceCard
             key={service.id}
@@ -881,9 +916,11 @@ function ServiceSelector({
 
       {/* Empty State */}
       {filteredServices.length === 0 && (
-        <div className="text-center py-12">
-          <div className="text-4xl mb-4">🔍</div>
-          <p className="text-gray-500">
+        <div className="rounded-2xl border border-border bg-muted/40 py-14 text-center">
+          <div className="w-12 h-12 rounded-2xl bg-muted text-muted-foreground flex items-center justify-center mx-auto mb-3">
+            <Search className="w-6 h-6" />
+          </div>
+          <p className="text-sm text-muted-foreground">
             {resolveTranslated({ en: "No services found", ar: "لم يتم العثور على خدمات", ur: "کوئی سروس نہیں ملی" }, lang)}
           </p>
         </div>
@@ -907,42 +944,37 @@ function ServiceCard({ service, isSelected, onSelect, showPrice, showDuration, s
   return (
     <button
       onClick={onSelect}
-      className={`p-4 rounded-xl border-2 text-left transition-all hover:shadow-md ${
+      className={`p-4 rounded-xl border text-start transition-all hover:shadow-sm ${
         isSelected
-          ? "border-blue-500 bg-blue-50"
-          : "border-gray-200 hover:border-gray-300"
+          ? "border-primary ring-1 ring-primary bg-primary/5"
+          : "border-border hover:border-primary/40"
       }`}
     >
-      <div className={`flex gap-4 ${isRTL ? "flex-row-reverse" : ""}`}>
+      <div className="flex gap-4">
         {/* Image */}
         {showImage && service.image && (
           <img
             src={service.image}
             alt={title}
-            className="w-20 h-20 rounded-lg object-cover flex-shrink-0"
+            className="w-16 h-16 rounded-lg object-cover flex-shrink-0"
           />
         )}
 
         {/* Content */}
-        <div className={`flex-1 ${isRTL ? "text-right" : ""}`}>
-          <h4 className="font-semibold text-gray-900 mb-1">{title}</h4>
-          
+        <div className="flex-1 min-w-0">
+          <h4 className="font-semibold text-foreground mb-1 line-clamp-1">{title}</h4>
+
           {description && (
-            <p className="text-sm text-gray-500 line-clamp-2 mb-2">{description}</p>
+            <p className="text-sm text-muted-foreground line-clamp-2 mb-2">{description}</p>
           )}
 
-          <div className={`flex items-center gap-3 text-sm ${isRTL ? "flex-row-reverse" : ""}`}>
+          <div className="flex items-center gap-3 text-sm">
             {showPrice && price && (
-              <span 
-                className="font-semibold"
-                style={{ color: theme.primary_color || "#3B82F6" }}
-              >
-                {price}
-              </span>
+              <span className="font-semibold text-primary">{price}</span>
             )}
-            
+
             {showDuration && service.duration_minutes && (
-              <span className="text-gray-400">
+              <span className="text-muted-foreground">
                 {service.duration_minutes} min
               </span>
             )}
@@ -950,14 +982,9 @@ function ServiceCard({ service, isSelected, onSelect, showPrice, showDuration, s
         </div>
 
         {/* Selection Indicator */}
-        <div className={`flex-shrink-0 ${isSelected ? "opacity-100" : "opacity-0"}`}>
-          <div 
-            className="w-6 h-6 rounded-full flex items-center justify-center text-white"
-            style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
-          >
-            <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fillRule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clipRule="evenodd" />
-            </svg>
+        <div className={`flex-shrink-0 transition-opacity ${isSelected ? "opacity-100" : "opacity-0"}`}>
+          <div className="w-6 h-6 rounded-full flex items-center justify-center bg-primary text-primary-foreground">
+            <Check className="w-4 h-4" />
           </div>
         </div>
       </div>
@@ -1037,29 +1064,32 @@ function CustomerForm({ customerData, onDataChange, onSubmit, theme, lang, isRTL
     },
   ];
 
+  const inputClass = (id) =>
+    `w-full h-12 px-4 rounded-xl border bg-input-background text-foreground placeholder:text-muted-foreground transition-colors focus:outline-none focus:ring-2 ${
+      errors[id] ? "border-danger focus:ring-danger/30" : "border-border focus:ring-ring/40 focus:border-ring"
+    }`;
+
   return (
-    <div className="p-6 max-w-lg mx-auto">
-      <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">
+    <div className="p-4 sm:p-6 max-w-lg mx-auto">
+      <h3 className="text-lg font-bold text-foreground mb-5">
         {resolveTranslated({ en: "Your Information", ar: "معلوماتك", ur: "آپ کی معلومات" }, lang)}
       </h3>
 
       <form onSubmit={handleSubmit} className="space-y-4">
         {fields.map((field) => (
           <div key={field.id}>
-            <label className={`block text-sm font-medium text-gray-700 mb-2 ${isRTL ? "text-right" : ""}`}>
+            <label className="block text-sm font-medium text-foreground mb-1.5">
               {resolveTranslated(field.label, lang)}
-              {field.required && <span className="text-red-500 ml-1">*</span>}
+              {field.required && <span className="text-danger ms-1">*</span>}
             </label>
-            
+
             {field.type === "textarea" ? (
               <textarea
                 value={customerData[field.id] || ""}
                 onChange={(e) => handleChange(field.id, e.target.value)}
                 placeholder={resolveTranslated(field.placeholder, lang)}
                 rows={3}
-                className={`w-full px-4 py-3 rounded-xl border transition-colors focus:ring-2 focus:border-transparent ${
-                  errors[field.id] ? "border-red-300 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200"
-                } ${isRTL ? "text-right" : ""}`}
+                className={`${inputClass(field.id)} h-auto py-3 resize-none`}
                 dir={isRTL ? "rtl" : "ltr"}
               />
             ) : (
@@ -1068,25 +1098,20 @@ function CustomerForm({ customerData, onDataChange, onSubmit, theme, lang, isRTL
                 value={customerData[field.id] || ""}
                 onChange={(e) => handleChange(field.id, e.target.value)}
                 placeholder={resolveTranslated(field.placeholder, lang)}
-                className={`w-full px-4 py-3 rounded-xl border transition-colors focus:ring-2 focus:border-transparent ${
-                  errors[field.id] ? "border-red-300 focus:ring-red-200" : "border-gray-300 focus:ring-blue-200"
-                } ${isRTL ? "text-right" : ""}`}
+                className={inputClass(field.id)}
                 dir={isRTL ? "rtl" : "ltr"}
               />
             )}
-            
+
             {errors[field.id] && (
-              <p className={`mt-1 text-sm text-red-500 ${isRTL ? "text-right" : ""}`}>
-                {errors[field.id]}
-              </p>
+              <p className="mt-1 text-sm text-danger">{errors[field.id]}</p>
             )}
           </div>
         ))}
 
         <button
           type="submit"
-          className="w-full py-4 text-white rounded-xl font-semibold text-lg mt-6 hover:opacity-90 transition-opacity"
-          style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
+          className="w-full h-12 bg-primary text-primary-foreground rounded-xl font-semibold mt-6 hover:brightness-110 transition"
         >
           {resolveTranslated({ en: "Continue", ar: "متابعة", ur: "جاری رکھیں" }, lang)}
         </button>
@@ -1155,78 +1180,62 @@ function ConfirmAndPay({
   // Success State
   if (bookingResult) {
     return (
-      <div className="p-6 text-center">
-        <div 
-          className="w-20 h-20 rounded-full flex items-center justify-center mx-auto mb-6 text-white text-4xl"
-          style={{ backgroundColor: "#10B981" }}
-        >
-          ✓
+      <div className="p-4 sm:p-6 text-center">
+        <div className="w-16 h-16 rounded-full flex items-center justify-center mx-auto mb-5 bg-success text-success-foreground">
+          <Check className="w-8 h-8" strokeWidth={2.5} />
         </div>
-        
-        <h3 className="text-2xl font-bold text-gray-900 mb-2">
+
+        <h3 className="text-xl font-bold text-foreground mb-2">
           {resolveTranslated({ en: "Booking Confirmed!", ar: "تم تأكيد الحجز!", ur: "بکنگ کی تصدیق!" }, lang)}
         </h3>
-        
-        <p className="text-gray-600 mb-6">
-          {resolveTranslated({ 
-            en: "A confirmation email has been sent to your email address.", 
-            ar: "تم إرسال رسالة تأكيد إلى بريدك الإلكتروني.", 
-            ur: "آپ کے ای میل ایڈریس پر تصدیقی ای میل بھیج دی گئی ہے۔" 
+
+        <p className="text-sm text-muted-foreground mb-6 max-w-sm mx-auto">
+          {resolveTranslated({
+            en: "A confirmation email has been sent to your email address.",
+            ar: "تم إرسال رسالة تأكيد إلى بريدك الإلكتروني.",
+            ur: "آپ کے ای میل ایڈریس پر تصدیقی ای میل بھیج دی گئی ہے۔"
           }, lang)}
         </p>
 
         {/* Booking Details Card */}
-        <div className="bg-gray-50 rounded-2xl p-6 max-w-md mx-auto mb-6 text-left">
+        <div className="bg-muted rounded-2xl border border-border p-5 max-w-md mx-auto mb-6 text-start">
           <div className="space-y-3">
-            <div className={`flex justify-between ${isRTL ? "flex-row-reverse" : ""}`}>
-              <span className="text-gray-500">
-                {resolveTranslated({ en: "Booking ID", ar: "رقم الحجز", ur: "بکنگ آئی ڈی" }, lang)}
-              </span>
-              <span className="font-semibold text-gray-900">
-                {bookingResult.booking_id || bookingResult.id || bookingResult.booking_number || "—"}
-              </span>
-            </div>
-            
-            <div className={`flex justify-between ${isRTL ? "flex-row-reverse" : ""}`}>
-              <span className="text-gray-500">
-                {resolveTranslated({ en: "Service", ar: "الخدمة", ur: "سروس" }, lang)}
-              </span>
-              <span className="font-semibold text-gray-900">
-                {resolveTranslated(service?.title || service?.name, lang)}
-              </span>
-            </div>
-            
-            <div className={`flex justify-between ${isRTL ? "flex-row-reverse" : ""}`}>
-              <span className="text-gray-500">
-                {resolveTranslated({ en: "Date & Time", ar: "التاريخ والوقت", ur: "تاریخ اور وقت" }, lang)}
-              </span>
-              <span className="font-semibold text-gray-900">
-                {formatDate(date, lang, timezone)} • {formatTime(time)}
-              </span>
-            </div>
-            
+            <DetailRow
+              label={resolveTranslated({ en: "Booking ID", ar: "رقم الحجز", ur: "بکنگ آئی ڈی" }, lang)}
+              value={bookingResult.booking_id || bookingResult.id || bookingResult.booking_number || "—"}
+              isRTL={isRTL}
+            />
+            <DetailRow
+              label={resolveTranslated({ en: "Service", ar: "الخدمة", ur: "سروس" }, lang)}
+              value={resolveTranslated(service?.title || service?.name, lang)}
+              isRTL={isRTL}
+            />
+            <DetailRow
+              label={resolveTranslated({ en: "Date & Time", ar: "التاريخ والوقت", ur: "تاریخ اور وقت" }, lang)}
+              value={`${formatDate(date, lang, timezone)} • ${formatTime(time)}`}
+              isRTL={isRTL}
+            />
             {staff && (
-              <div className={`flex justify-between ${isRTL ? "flex-row-reverse" : ""}`}>
-                <span className="text-gray-500">
-                  {resolveTranslated({ en: "Therapist", ar: "المعالج", ur: "تھراپسٹ" }, lang)}
-                </span>
-                <span className="font-semibold text-gray-900">{staff.name}</span>
-              </div>
+              <DetailRow
+                label={resolveTranslated({ en: "Therapist", ar: "المعالج", ur: "تھراپسٹ" }, lang)}
+                value={staff.name}
+                isRTL={isRTL}
+              />
             )}
           </div>
         </div>
 
         {/* Action Buttons */}
-        <div className={`flex flex-wrap gap-4 justify-center ${isRTL ? "flex-row-reverse" : ""}`}>
-        
+        <div className="flex flex-col sm:flex-row flex-wrap gap-3 justify-center max-w-md mx-auto">
+
         {bookingResult.meeting_url && (
           <a
             href={bookingResult.meeting_url}
             target="_blank"
             rel="noopener noreferrer"
-            className="px-6 py-3 rounded-xl font-semibold text-white hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: "#10B981" }}
+            className="inline-flex items-center justify-center gap-2 h-11 px-5 rounded-xl font-semibold bg-success text-success-foreground hover:brightness-110 transition"
           >
+            <Video className="w-4 h-4" />
             {resolveTranslated(
               { en: "Join Meeting", ar: "الانضمام للاجتماع", ur: "میٹنگ میں شامل ہوں" },
               lang
@@ -1240,16 +1249,14 @@ function ConfirmAndPay({
         {bookingResult.project_id ? (
           <a
             href={`/projects/${bookingResult.project_id}`}
-            className="px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
+            className="inline-flex items-center justify-center h-11 px-5 bg-primary text-primary-foreground rounded-xl font-semibold hover:brightness-110 transition"
           >
             {resolveTranslated({ en: "View Project", ar: "عرض المشروع", ur: "پروجیکٹ دیکھیں" }, lang)}
           </a>
         ) : (
           <button
             onClick={onReset}
-            className="px-6 py-3 text-white rounded-xl font-semibold hover:opacity-90 transition-opacity"
-            style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
+            className="inline-flex items-center justify-center h-11 px-5 bg-primary text-primary-foreground rounded-xl font-semibold hover:brightness-110 transition"
           >
             {resolveTranslated({ en: "Book Another", ar: "حجز آخر", ur: "ایک اور بک کریں" }, lang)}
           </button>
@@ -1257,7 +1264,7 @@ function ConfirmAndPay({
 
         <a
           href={`/booking/id/${bookingResult.booking_id || bookingResult.id}`}
-          className="px-6 py-3 bg-gray-100 text-gray-700 rounded-xl font-semibold hover:bg-gray-200 transition-colors"
+          className="inline-flex items-center justify-center h-11 px-5 bg-muted border border-border text-foreground rounded-xl font-semibold hover:bg-muted/70 transition-colors"
         >
           {resolveTranslated({ en: "View Details", ar: "عرض التفاصيل", ur: "تفصیلات دیکھیں" }, lang)}
         </a>
@@ -1269,29 +1276,29 @@ function ConfirmAndPay({
 
   // Confirmation Form
   return (
-    <div className="p-6">
-      <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">
+    <div className="p-4 sm:p-6">
+      <h3 className="text-lg font-bold text-foreground mb-5">
         {resolveTranslated({ en: "Review Your Booking", ar: "مراجعة حجزك", ur: "اپنی بکنگ کا جائزہ لیں" }, lang)}
       </h3>
 
       {/* Booking Summary */}
-      <div className="bg-gray-50 rounded-2xl p-6 max-w-lg mx-auto mb-6">
+      <div className="bg-muted rounded-2xl border border-border p-5 max-w-lg mx-auto mb-6">
         {/* Service */}
-        <div className={`flex gap-4 mb-6 pb-6 border-b ${isRTL ? "flex-row-reverse" : ""}`}>
+        <div className="flex gap-4 mb-5 pb-5 border-b border-border">
           {service?.image && (
             <img
               src={service.image}
               alt={resolveTranslated(service.title || service.name, lang)}
-              className="w-20 h-20 rounded-xl object-cover"
+              className="w-16 h-16 rounded-xl object-cover shrink-0"
             />
           )}
-          <div className={isRTL ? "text-right" : ""}>
-            <h4 className="font-semibold text-gray-900 text-lg">
+          <div className="min-w-0">
+            <h4 className="font-semibold text-foreground">
               {resolveTranslated(service?.title || service?.name, lang)}
             </h4>
-            <p className="text-gray-500">{service?.duration_minutes} min</p>
+            <p className="text-sm text-muted-foreground">{service?.duration_minutes} min</p>
             {staff && (
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 {resolveTranslated({ en: "with", ar: "مع", ur: "کے ساتھ" }, lang)} {staff.name}
               </p>
             )}
@@ -1305,25 +1312,21 @@ function ConfirmAndPay({
             value={formatDate(date, lang, timezone)}
             isRTL={isRTL}
           />
-          
           <DetailRow
             label={resolveTranslated({ en: "Time", ar: "الوقت", ur: "وقت" }, lang)}
             value={formatTime(time)}
             isRTL={isRTL}
           />
-          
           <DetailRow
             label={resolveTranslated({ en: "Name", ar: "الاسم", ur: "نام" }, lang)}
             value={customer.name}
             isRTL={isRTL}
           />
-          
           <DetailRow
             label={resolveTranslated({ en: "Email", ar: "البريد", ur: "ای میل" }, lang)}
             value={customer.email}
             isRTL={isRTL}
           />
-          
           <DetailRow
             label={resolveTranslated({ en: "Phone", ar: "الهاتف", ur: "فون" }, lang)}
             value={customer.phone}
@@ -1332,28 +1335,25 @@ function ConfirmAndPay({
         </div>
 
         {/* Price Summary */}
-        <div className="mt-6 pt-6 border-t">
-          <div className={`flex justify-between items-center ${isRTL ? "flex-row-reverse" : ""}`}>
-            <span className="text-lg font-semibold text-gray-900">
+        <div className="mt-5 pt-5 border-t border-border">
+          <div className="flex justify-between items-center">
+            <span className="text-base font-semibold text-foreground">
               {resolveTranslated({ en: "Total", ar: "المجموع", ur: "کل" }, lang)}
             </span>
-            <span
-            className="text-2xl font-bold"
-            style={{ color: theme.primary_color || "#3B82F6" }}
-          >
-            {formatCurrency(
-              service?.base_price || service?.price,
-              service?.currency || currency
-            )}
-          </span>
+            <span className="text-xl font-bold text-primary tabular-nums">
+              {formatCurrency(
+                service?.base_price || service?.price,
+                service?.currency || currency
+              )}
+            </span>
           </div>
         </div>
       </div>
 
       {/* Notes */}
       {customer.notes && (
-        <div className="max-w-lg mx-auto mb-6 p-4 bg-yellow-50 rounded-xl">
-          <p className={`text-sm text-yellow-800 ${isRTL ? "text-right" : ""}`}>
+        <div className="max-w-lg mx-auto mb-6 p-4 bg-warning-soft rounded-xl">
+          <p className="text-sm text-warning-soft-foreground">
             <strong>{resolveTranslated({ en: "Special Requests:", ar: "طلبات خاصة:", ur: "خصوصی درخواستیں:" }, lang)}</strong>{" "}
             {customer.notes}
           </p>
@@ -1361,14 +1361,14 @@ function ConfirmAndPay({
       )}
 
       {/* Terms */}
-      <div className="max-w-lg mx-auto mb-6">
-        <label className={`flex items-start gap-3 ${isRTL ? "flex-row-reverse" : ""}`}>
+      <div className="max-w-lg mx-auto mb-5">
+        <label className="flex items-start gap-3">
           <input
             type="checkbox"
             id="terms"
-            className="mt-1 w-4 h-4 rounded border-gray-300 text-blue-600 focus:ring-blue-500"
+            className="mt-0.5 w-4 h-4 rounded border-border text-primary focus:ring-ring accent-[color:var(--brand-primary,currentColor)]"
           />
-          <span className={`text-sm text-gray-600 ${isRTL ? "text-right" : ""}`}>
+          <span className="text-sm text-muted-foreground">
             {resolveTranslated({
               en: "I agree to the cancellation policy and terms of service",
               ar: "أوافق على سياسة الإلغاء وشروط الخدمة",
@@ -1379,30 +1379,26 @@ function ConfirmAndPay({
       </div>
 
       {/* Confirm Button */}
-      <div className="max-w-lg mx-auto mb-6">
-         <PaymentElement />
+      <div className="max-w-lg mx-auto">
+        <div className="rounded-xl border border-border bg-card p-4 mb-4">
+          <PaymentElement />
+        </div>
         <button
           onClick={handlePay}
           disabled={!stripe || isPaying}
-          className="w-full py-4 text-white rounded-xl font-semibold text-lg hover:opacity-90 transition-opacity disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 mt-4"
-          style={{ backgroundColor: theme.primary_color || "#3B82F6" }}
+          className="w-full h-12 bg-primary text-primary-foreground rounded-xl font-semibold hover:brightness-110 transition disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
         >
           {isPaying ? (
             <>
-              <svg className="animate-spin w-5 h-5" viewBox="0 0 24 24">
-                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
-                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-              </svg>
+              <Loader2 className="animate-spin w-5 h-5" />
               {resolveTranslated({ en: "Processing...", ar: "جاري المعالجة...", ur: "پروسیسنگ..." }, lang)}
             </>
-          ) : ( 
-            <>
-              {resolveTranslated({ en: "Confirm & Pay", ar: "تأكيد الحجز", ur: "بکنگ کی تصدیق" }, lang)}
-            </>
+          ) : (
+            resolveTranslated({ en: "Confirm & Pay", ar: "تأكيد الحجز", ur: "بکنگ کی تصدیق" }, lang)
           )}
         </button>
         {error && (
-          <div className="max-w-lg mx-auto mb-4 p-4 bg-red-50 border border-red-200 rounded-xl text-red-700 text-sm mt-4">
+          <div className="mt-4 p-4 bg-danger-soft border border-danger/20 rounded-xl text-danger-soft-foreground text-sm">
             {error}
           </div>
         )}
@@ -1443,34 +1439,34 @@ function ConfirmAndPayHyperPay({
    * No stripe.confirmPayment() — the widget handles everything.
    */
   return (
-    <div className="p-6">
-      <h3 className="text-xl font-bold text-gray-900 mb-6 text-center">
+    <div className="p-4 sm:p-6">
+      <h3 className="text-lg font-bold text-foreground mb-5">
         {resolveTranslated({ en: "Review & Pay", ar: "مراجعة والدفع", ur: "جائزہ اور ادائیگی" }, lang)}
       </h3>
- 
+
       {/* Booking Summary (reuse same layout as Stripe variant) */}
-      <div className="bg-gray-50 rounded-2xl p-6 max-w-lg mx-auto mb-6">
-        <div className={`flex gap-4 mb-6 pb-6 border-b ${isRTL ? "flex-row-reverse" : ""}`}>
+      <div className="bg-muted rounded-2xl border border-border p-5 max-w-lg mx-auto mb-6">
+        <div className="flex gap-4 mb-5 pb-5 border-b border-border">
           {service?.image && (
             <img
               src={service.image}
               alt={resolveTranslated(service.title || service.name, lang)}
-              className="w-20 h-20 rounded-xl object-cover"
+              className="w-16 h-16 rounded-xl object-cover shrink-0"
             />
           )}
-          <div className={isRTL ? "text-right" : ""}>
-            <h4 className="font-semibold text-gray-900 text-lg">
+          <div className="min-w-0">
+            <h4 className="font-semibold text-foreground">
               {resolveTranslated(service?.title || service?.name, lang)}
             </h4>
-            <p className="text-gray-500">{service?.duration_minutes} min</p>
+            <p className="text-sm text-muted-foreground">{service?.duration_minutes} min</p>
             {staff && (
-              <p className="text-sm text-gray-600">
+              <p className="text-sm text-muted-foreground">
                 {resolveTranslated({ en: "with", ar: "مع", ur: "کے ساتھ" }, lang)} {staff.name}
               </p>
             )}
           </div>
         </div>
- 
+
         <div className="space-y-3">
           <DetailRow
             label={resolveTranslated({ en: "Date", ar: "التاريخ", ur: "تاریخ" }, lang)}
@@ -1488,16 +1484,13 @@ function ConfirmAndPayHyperPay({
             isRTL={isRTL}
           />
         </div>
- 
-        <div className="mt-6 pt-6 border-t">
-          <div className={`flex justify-between items-center ${isRTL ? "flex-row-reverse" : ""}`}>
-            <span className="text-lg font-semibold text-gray-900">
+
+        <div className="mt-5 pt-5 border-t border-border">
+          <div className="flex justify-between items-center">
+            <span className="text-base font-semibold text-foreground">
               {resolveTranslated({ en: "Total", ar: "المجموع", ur: "کل" }, lang)}
             </span>
-            <span
-              className="text-2xl font-bold"
-              style={{ color: theme.primary_color || "#3B82F6" }}
-            >
+            <span className="text-xl font-bold text-primary tabular-nums">
               {formatCurrency(
                 service?.base_price || service?.price,
                 service?.currency || currency
@@ -1506,9 +1499,9 @@ function ConfirmAndPayHyperPay({
           </div>
         </div>
       </div>
- 
+
       {/* HyperPay Widget */}
-      <div className="max-w-lg mx-auto">
+      <div className="max-w-lg mx-auto rounded-xl border border-border bg-card p-4">
         <HyperPayWidget
           checkoutId={hyperPayData.checkout_id}
           widgetUrl={hyperPayData.widget_url}
@@ -1531,24 +1524,24 @@ function ConfirmAndPayHyperPay({
 
 function DetailRow({ label, value, isRTL }) {
   return (
-    <div className={`flex justify-between ${isRTL ? "flex-row-reverse" : ""}`}>
-      <span className="text-gray-500">{label}</span>
-      <span className="font-medium text-gray-900">{value}</span>
+    <div className="flex justify-between gap-3">
+      <span className="text-muted-foreground">{label}</span>
+      <span className="font-medium text-foreground text-end">{value}</span>
     </div>
   );
 }
 
 function ServiceSelectorSkeleton() {
   return (
-    <div className="p-6">
-      <div className="flex gap-2 mb-6">
+    <div className="p-4 sm:p-6">
+      <div className="flex gap-2 mb-5">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-10 w-24 bg-gray-200 rounded-full animate-pulse" />
+          <div key={i} className="h-9 w-24 bg-muted rounded-full animate-pulse" />
         ))}
       </div>
-      <div className="grid md:grid-cols-2 gap-4">
+      <div className="grid sm:grid-cols-2 gap-3">
         {[...Array(4)].map((_, i) => (
-          <div key={i} className="h-32 bg-gray-200 rounded-xl animate-pulse" />
+          <div key={i} className="h-24 bg-muted rounded-xl animate-pulse" />
         ))}
       </div>
     </div>

@@ -33,7 +33,7 @@ export default async function OrderCheckoutPage({ params }) {
       serviceSlug={slug}
       site={site}
       header={header}
-      footer={footer}
+      // footer={footer}
     />
   );
 }

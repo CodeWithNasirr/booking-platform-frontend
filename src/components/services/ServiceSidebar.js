@@ -172,7 +172,7 @@ export default function ServiceSidebar({
             {ctaLabel}
           </a>
 
-          <p className="text-center text-[11px] text-gray-400 mt-3">
+          {/* <p className="text-center text-[11px] text-gray-400 mt-3">
             {resolveTranslated(
               {
                 en: "Secure checkout powered by Stripe",
@@ -181,7 +181,7 @@ export default function ServiceSidebar({
               },
               lang
             )}
-          </p>
+          </p> */}
         </div>
       </div>
     </div>

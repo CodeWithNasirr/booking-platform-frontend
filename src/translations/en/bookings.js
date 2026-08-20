@@ -4,6 +4,7 @@ export default {
   // =====================
   'bookings.title': 'Bookings',
   'bookings.subtitle': 'Manage all your appointments and reservations',
+  'bookings.noPermission': "You don't have permission to view bookings",
   'bookings.newBooking': 'New Booking',
   'bookings.calendarView': 'Calendar View',
 
@@ -11,6 +12,7 @@ export default {
   // STATS
   // =====================
   'bookings.stats.total': 'Total Bookings',
+  'bookings.stats.upcoming': 'Upcoming',
   'bookings.stats.pending': 'Pending',
   'bookings.stats.confirmed': 'Confirmed',
   'bookings.stats.completed': 'Completed',
@@ -134,6 +136,17 @@ export default {
   'bookings.modal.view.timeline': 'Timeline',
   'bookings.modal.view.files': 'Files',
   'bookings.modal.view.payments': 'Payments',
+  'bookings.detail.overview': 'Overview',
+  'bookings.detail.chat': 'Chat',
+  'bookings.detail.activity': 'Activity',
+  'bookings.detail.summary': 'Summary',
+  'bookings.detail.location': 'Location',
+  'bookings.detail.call': 'Call',
+  'bookings.detail.callControls': 'Call controls',
+  'bookings.detail.back': 'Back',
+  'bookings.detail.online': 'Online meeting',
+  'bookings.detail.join': 'Join meeting',
+  'bookings.detail.noActivity': 'No activity yet',
 
   // =====================
   // CANCEL MODAL

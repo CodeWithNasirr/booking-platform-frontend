@@ -13,23 +13,23 @@ export default function MetricCard({
     <Card padding="lg" className={className}>
       <div className="flex items-start justify-between gap-2">
         <div className="min-w-0">
-          <p className="text-xs uppercase tracking-wide text-gray-500 font-semibold">
+          <p className="text-xs uppercase tracking-wide text-muted-foreground font-semibold">
             {label}
           </p>
-          <p className="text-2xl sm:text-3xl font-extrabold text-gray-900 mt-1">
+          <p className="text-2xl sm:text-3xl font-extrabold text-foreground mt-1">
             {value}
           </p>
           {(delta || hint) && (
-            <p className={`text-xs mt-1 ${delta && delta < 0 ? "text-rose-600" : "text-emerald-600"}`}>
+            <p className={`text-xs mt-1 ${delta && delta < 0 ? "text-danger" : "text-success"}`}>
               {typeof delta === "number" && (
                 <>{delta >= 0 ? "▲ " : "▼ "}{Math.abs(delta)}% </>
               )}
-              {hint && <span className="text-gray-500">{hint}</span>}
+              {hint && <span className="text-muted-foreground">{hint}</span>}
             </p>
           )}
         </div>
         {Icon && (
-          <div className="w-9 h-9 rounded-xl bg-gray-100 flex items-center justify-center text-gray-500 shrink-0">
+          <div className="w-9 h-9 rounded-xl bg-muted flex items-center justify-center text-muted-foreground shrink-0">
             <Icon className="w-4 h-4" />
           </div>
         )}

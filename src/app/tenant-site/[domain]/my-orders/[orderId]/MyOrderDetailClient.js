@@ -22,9 +22,13 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import LayoutRenderer from "../../LayoutRenderer";
 import { tenantRoutes } from "@/lib/tenantRoutes";
-import {
-  BrandRoot, Card, PageHeader, Button, EmptyState,
-} from "@/components/ui";
+import { Button, EmptyState } from "@/components/ui";
+import PortalBrandRoot from "@/app/tenant-site/components/portalBrand";
+import Badge from "@/components/ui/Badge";
+import Tabs from "@/components/ui/Tabs";
+import Spinner from "@/components/ui/Spinner";
+import Textarea from "@/components/ui/Textarea";
+import { getPaymentState, makeFormatters } from "@/app/dashboard/orders/components/orderPresentation";
 import {
   OrderStatusBadge, OrderStatusTimeline, OrderProgressCard,
   OrderTimelineFeed, OrderConversation,
@@ -33,6 +37,10 @@ import { useRealtime } from "@/lib/realtime";
 import { CallDock } from "@/components/collaboration";
 import { applyOrderEnvelope } from "@/lib/realtimePatches";
 import { uploadWithProgress } from "@/lib/uploadWithProgress";
+import {
+  ArrowLeft, Info, MessageSquare, Wallet, Truck, User, Package, Clock,
+  Download, CheckCircle, XCircle, Star,
+} from "lucide-react";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
@@ -223,6 +231,7 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
   // ─── Request Revision ───
   const [revisionMessage, setRevisionMessage] = useState("");
   const [showRevisionForm, setShowRevisionForm] = useState(false);
+  const [tab, setTab] = useState("chat"); // mobile: details | chat
 
   const handleRequestRevision = async () => {
     if (!revisionMessage.trim()) return;
@@ -313,323 +322,268 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
     }
   };
 
-  // ─── Loading ───
+  // ─── Branded chrome ──
+  const Chrome = ({ children }) => (
+    <>
+      {headerSection.length > 0 && <LayoutRenderer sections={headerSection} site={site} />}
+      <main className="min-h-screen bg-muted">{children}</main>
+      {footerSection.length > 0 && <LayoutRenderer sections={footerSection} site={site} />}
+    </>
+  );
+
   if (loading) {
-    return (
-      <div className="max-w-4xl mx-auto px-4 py-8">
-        <div className="space-y-4">
-          <div className="h-8 w-48 bg-gray-100 rounded-lg animate-pulse" />
-          <div className="h-48 bg-gray-100 rounded-xl animate-pulse" />
-          <div className="h-32 bg-gray-100 rounded-xl animate-pulse" />
-        </div>
-      </div>
-    );
+    return <Chrome><div className="flex justify-center py-24"><Spinner size="lg" /></div></Chrome>;
   }
 
-  // ─── Error / Not Found ───
-  if (error || !order) {
+  if (!order) {
     return (
-      <BrandRoot>
-        <div className="max-w-4xl mx-auto px-4 py-16">
+      <Chrome>
+        <PortalBrandRoot site={site} className="max-w-md mx-auto px-4 py-16">
           <EmptyState
             title={error || "Order not found"}
             hint="This order may have been removed or you no longer have access to it."
-            action={
-              <Button variant="secondary" onClick={() => router.push(tenantRoutes.myOrders())}>
-                Back to My Orders
-              </Button>
-            }
+            action={<Button variant="primary" onClick={() => router.push(tenantRoutes.myOrders())}>Back to my orders</Button>}
           />
-        </div>
-      </BrandRoot>
+        </PortalBrandRoot>
+      </Chrome>
     );
   }
 
   const isTerminal = ["completed", "cancelled", "refunded"].includes(order.status);
+  const pay = getPaymentState(order, null);
+  const { money } = makeFormatters(false, order.currency || "USD");
+  const hide = (name) => (tab !== name ? "max-lg:hidden" : "");
+  const deliverables = (order.files || []).filter((f) => (f.file_type || f.category) === "delivery");
+  const primaryAction =
+    order.status === "pending_payment" ? { label: actionLoading === "pay" ? "Starting…" : "Pay now", onClick: handlePayNow, busy: actionLoading === "pay" }
+    : order.status === "delivered" ? { label: actionLoading === "accept" ? "Accepting…" : "Accept delivery", onClick: handleAcceptDelivery, busy: actionLoading === "accept" }
+    : null;
+
+  const Section = ({ icon: Icon, title, action, children }) => (
+    <section className="rounded-xl border border-border bg-card p-4">
+      {(title || action) && (
+        <div className="flex items-center justify-between gap-2 mb-3">
+          <div className="flex items-center gap-2 min-w-0">
+            {Icon && <Icon className="w-4 h-4 text-muted-foreground shrink-0" />}
+            <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground truncate">{title}</h3>
+          </div>
+          {action}
+        </div>
+      )}
+      {children}
+    </section>
+  );
+  const Row = ({ label, children, tone }) => (
+    <div className="flex items-baseline justify-between gap-3 py-1">
+      <span className="text-sm text-muted-foreground">{label}</span>
+      <span className={`text-sm text-end tabular-nums ${tone === "danger" ? "text-danger" : tone === "success" ? "text-success" : "text-foreground"}`}>{children}</span>
+    </div>
+  );
 
   return (
-  <BrandRoot>
-   {headerSection.length > 0 && (
-    <LayoutRenderer sections={headerSection} site={site} />
-   )}
+    <Chrome>
+      <PortalBrandRoot site={site} className="max-w-5xl mx-auto px-4 py-6">
+        <button onClick={() => router.push(tenantRoutes.myOrders())} className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5">
+          <ArrowLeft className="w-4 h-4" /> Back to my orders
+        </button>
 
-   <main className="min-h-screen bg-gray-50">
-
-    <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Back link */}
-      <button
-        onClick={() => router.push(tenantRoutes.myOrders())}
-        aria-label="Back to My Orders"
-        className="text-sm text-gray-400 hover:text-gray-600 mb-6 flex items-center gap-1.5 transition-colors"
-      >
-        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
-        Back to My Orders
-      </button>
-
-      {/* Status Timeline — visual lifecycle at a glance */}
-      <div className="mb-6">
-        <OrderStatusTimeline status={order.status} />
-      </div>
-
-      {/* Progress hero — status-aware "what happens next" copy */}
-      <OrderProgressCard
-        order={order}
-        viewer="customer"
-        onAction={order.status === "pending_payment" ? handlePayNow : undefined}
-        actionLoading={actionLoading === "pay"}
-        providerName={order.provider_name}
-        customerName={order.customer_name}
-        className="mb-6"
-      />
-
-      {/* Order Header */}
-      <Card padding="lg" className="mb-6">
-        <PageHeader
-          title={order.service_name || "Order"}
-          subtitle={<span className="font-mono text-gray-400">#{order.order_number}</span>}
-          actions={<OrderStatusBadge status={order.status} />}
-        />
-
-        <div className="mt-5 pt-4 border-t border-gray-100 grid grid-cols-2 sm:grid-cols-4 gap-4 text-sm">
-          <div>
-            <span className="text-gray-400 text-xs uppercase">Amount</span>
-            <p className="font-semibold text-gray-800">
-              {order.currency || "USD"} {order.total_amount}
-            </p>
-          </div>
-          <div>
-            <span className="text-gray-400 text-xs uppercase">Delivery</span>
-            <p className="font-semibold text-gray-800">
-              {order.delivery_days ? `${order.delivery_days} days` : "—"}
-            </p>
-          </div>
-          <div>
-            <span className="text-gray-400 text-xs uppercase">Created</span>
-            <p className="font-semibold text-gray-800">
-              {new Date(order.created_at).toLocaleDateString()}
-            </p>
-          </div>
-          {order.provider_name && (
-            <div>
-              <span className="text-gray-400 text-xs uppercase">Provider</span>
-              <p className="font-semibold text-gray-800">{order.provider_name}</p>
+        {/* Header */}
+        <header className="rounded-xl border border-border bg-card p-4 mb-4">
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0">
+              <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">{order.service_name || "Order"}</h1>
+              <p className="text-xs font-mono text-muted-foreground mt-0.5">#{order.order_number}</p>
             </div>
-          )}
+            <div className="flex flex-col items-end gap-1.5 shrink-0">
+              <OrderStatusBadge status={order.status} />
+              <Badge variant={pay.tone}>{pay.label}</Badge>
+            </div>
+          </div>
+        </header>
+
+        {/* Mobile tabs */}
+        <div className="lg:hidden mb-4">
+          <Tabs value={tab} onChange={setTab} variant="segment" className="w-full" items={[
+            { value: "details", label: "Details", icon: Info },
+            { value: "chat", label: "Chat", icon: MessageSquare },
+          ]} />
         </div>
-      </Card>
 
-      {/* Delivery actions — accept or revise the delivery */}
-      {order.status === "delivered" && (
-        <Card padding="lg" className="mb-6 !bg-emerald-50 !border-emerald-200">
-          <h3 className="font-bold text-emerald-800 mb-2">Your order has been delivered</h3>
-          <p className="text-sm text-emerald-700 mb-4">
-            Review the deliverables and accept, or request changes.
-          </p>
-
-          {!showRevisionForm ? (
-            <div className="flex flex-col sm:flex-row gap-3">
-              <Button
-                variant="primary"
-                onClick={handleAcceptDelivery}
-                loading={actionLoading === "accept"}
-                disabled={actionLoading !== null}
-                className="flex-1 !bg-emerald-600 hover:!bg-emerald-700"
-              >
-                Accept delivery
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => setShowRevisionForm(true)}
-                disabled={actionLoading !== null}
-                className="flex-1"
-              >
-                Request revision
-                {order.can_request_revision === false && " (unavailable)"}
-              </Button>
+        {/* Workspace */}
+        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-6 lg:items-start">
+          {/* LEFT — details */}
+          <div className={`space-y-4 min-w-0 ${hide("details")}`}>
+            {/* Progress */}
+            <div className="rounded-xl border border-border bg-card p-4">
+              <OrderStatusTimeline status={order.status} />
             </div>
-          ) : (
-            <div className="space-y-3">
-              <label htmlFor="order-revision-msg" className="sr-only">Revision notes</label>
-              <textarea
-                id="order-revision-msg"
-                value={revisionMessage}
-                onChange={(e) => setRevisionMessage(e.target.value)}
-                placeholder="Describe what needs to be changed…"
-                rows={3}
-                className="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-[color:var(--brand-primary,#3B82F6)]/30"
-              />
-              <div className="flex gap-3">
-                <Button
-                  variant="primary"
-                  onClick={handleRequestRevision}
-                  loading={actionLoading === "revision"}
-                  disabled={actionLoading !== null || !revisionMessage.trim()}
-                  className="flex-1"
-                >
-                  Submit revision request
-                </Button>
-                <Button
-                  variant="ghost"
-                  onClick={() => { setShowRevisionForm(false); setRevisionMessage(""); }}
-                >
-                  Cancel
-                </Button>
+            <OrderProgressCard
+              order={order}
+              viewer="customer"
+              onAction={order.status === "pending_payment" ? handlePayNow : undefined}
+              actionLoading={actionLoading === "pay"}
+              providerName={order.provider_name}
+              customerName={order.customer_name}
+            />
+
+            {/* Overview */}
+            <Section icon={Package} title="Service details">
+              <Row label="Amount">{money(order.total_amount)}</Row>
+              <Row label="Delivery">{order.delivery_days ? `${order.delivery_days} days` : "—"}</Row>
+              <Row label="Created">{new Date(order.created_at).toLocaleDateString()}</Row>
+            </Section>
+
+            {/* Provider */}
+            {order.provider_name && (
+              <Section icon={User} title="Provider">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-sm font-semibold shrink-0">
+                    {(order.provider_name || "?").split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
+                  </div>
+                  <p className="text-sm font-medium text-foreground">{order.provider_name}</p>
+                </div>
+              </Section>
+            )}
+
+            {/* Pricing / payment */}
+            <Section icon={Wallet} title="Pricing & payment">
+              <Row label="Total">{money(order.total_amount)}</Row>
+              {order.amount_paid != null && <Row label="Amount paid" tone="success">{money(order.amount_paid)}</Row>}
+              {order.amount_remaining > 0 && <Row label="Remaining" tone="danger">{money(order.amount_remaining)}</Row>}
+            </Section>
+
+            {/* Delivery — deliverables + accept/revise */}
+            {(deliverables.length > 0 || order.status === "delivered") && (
+              <Section icon={Truck} title="Delivery">
+                {deliverables.length > 0 && (
+                  <ul className="space-y-2 mb-3">
+                    {deliverables.map((file) => {
+                      const name = file.file_name || file.original_filename || "File";
+                      const kb = file.file_size ? `${(file.file_size / 1024).toFixed(1)} KB` : "";
+                      return (
+                        <li key={file.id}>
+                          <a href={file.download_url || file.file_url || file.file} target="_blank" rel="noopener noreferrer"
+                            className="flex items-center gap-3 p-2.5 rounded-lg border border-border hover:bg-muted transition-colors">
+                            <span className="w-8 h-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center shrink-0"><Package className="w-4 h-4" /></span>
+                            <span className="text-sm text-foreground truncate flex-1">{name}</span>
+                            {kb && <span className="text-xs text-muted-foreground shrink-0 tabular-nums">{kb}</span>}
+                            <Download className="w-4 h-4 text-muted-foreground shrink-0" />
+                          </a>
+                        </li>
+                      );
+                    })}
+                  </ul>
+                )}
+                {order.status === "delivered" && (
+                  !showRevisionForm ? (
+                    <div className="flex flex-col sm:flex-row gap-2">
+                      <Button variant="success" onClick={handleAcceptDelivery} loading={actionLoading === "accept"} disabled={actionLoading !== null} className="flex-1" leftIcon={<CheckCircle className="w-4 h-4" />}>Accept delivery</Button>
+                      <Button variant="secondary" onClick={() => setShowRevisionForm(true)} disabled={actionLoading !== null} className="flex-1">Request revision{order.can_request_revision === false && " (unavailable)"}</Button>
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      <Textarea value={revisionMessage} onChange={(e) => setRevisionMessage(e.target.value)} rows={3} placeholder="Describe what needs to be changed…" />
+                      <div className="flex gap-2">
+                        <Button variant="primary" onClick={handleRequestRevision} loading={actionLoading === "revision"} disabled={actionLoading !== null || !revisionMessage.trim()} className="flex-1">Submit revision request</Button>
+                        <Button variant="ghost" onClick={() => { setShowRevisionForm(false); setRevisionMessage(""); }}>Cancel</Button>
+                      </div>
+                    </div>
+                  )
+                )}
+              </Section>
+            )}
+
+            {/* Activity */}
+            {(order.timeline_events || []).length > 0 && (
+              <Section icon={Clock} title="Activity">
+                <OrderTimelineFeed events={order.timeline_events || []} />
+              </Section>
+            )}
+
+            {/* Review (read-only) */}
+            {order.review && (
+              <Section icon={Star} title="Your review">
+                <div className="flex items-center gap-1 mb-2">
+                  {[1, 2, 3, 4, 5].map((s) => (<Star key={s} className={`w-4 h-4 ${s <= order.review.rating ? "text-warning fill-warning" : "text-border"}`} />))}
+                  <span className="text-sm text-muted-foreground ms-1">{order.review.rating}/5</span>
+                </div>
+                {order.review.comment && <p className="text-sm text-foreground">{order.review.comment}</p>}
+              </Section>
+            )}
+
+            {/* Cancel */}
+            {["paid", "accepted"].includes(order.status) && (
+              <Button variant="secondary" onClick={handleCancel} loading={actionLoading === "cancel"} disabled={actionLoading !== null} className="w-full text-danger border-danger/30 hover:bg-danger-soft" leftIcon={<XCircle className="w-4 h-4" />}>
+                Cancel order
+              </Button>
+            )}
+          </div>
+
+          {/* RIGHT — chat + call */}
+          <div className={`space-y-3 ${hide("chat")}`}>
+            <CallDock
+              subjectType="order"
+              subjectId={orderId}
+              tenantId={order?.tenant || order?.tenant_id}
+              authMode={auth.type === "guest" ? "guest" : "jwt"}
+              jwt={auth.type === "jwt" ? auth.token : null}
+              guestToken={auth.type === "guest" ? auth.token : null}
+              selfName={order?.customer_name || "You"}
+              canStart={!!(order.provider || order.provider_id) && ["accepted", "in_progress", "delivered", "revision_requested"].includes(order.status)}
+            />
+            <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col h-[70dvh] min-h-[380px] lg:h-[72vh]">
+              <div className="flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
+                <MessageSquare className="w-4 h-4 text-muted-foreground" />
+                <div className="min-w-0">
+                  <h2 className="text-sm font-semibold text-foreground leading-tight">Messages</h2>
+                  <p className="text-[11px] text-muted-foreground leading-tight">Chat with the team &amp; share files</p>
+                </div>
+              </div>
+              <div className="flex-1 min-h-0">
+                <OrderConversation
+                  order={order}
+                  viewer="customer"
+                  fill
+                  locked={isTerminal}
+                  lockedMessage="This order is closed."
+                  showComposer={!isTerminal}
+                  onSendMessage={async (content) => {
+                    await apiFetch(`${API_BASE}/api/v1/orders/${orderId}/messages/`, domain, authRef.current.token, authRef.current.type, { method: "POST", body: JSON.stringify({ content }) });
+                  }}
+                  onUploadFile={async (file, { onProgress, signal }) => {
+                    const fd = new FormData();
+                    fd.append("file", file);
+                    fd.append("category", "delivery");
+                    const headers = {};
+                    if (domain) headers["X-Tenant"] = domain;
+                    if (authRef.current.token) {
+                      headers[authRef.current.type === "guest" ? "X-Order-Token" : "Authorization"] =
+                        authRef.current.type === "guest" ? authRef.current.token : `Bearer ${authRef.current.token}`;
+                    }
+                    await uploadWithProgress(`${API_BASE}/api/v1/orders/${orderId}/upload_file/`, fd, { headers, onProgress, signal });
+                  }}
+                />
               </div>
             </div>
-          )}
-        </Card>
-      )}
-
-      {/* Cancel button */}
-      {["paid", "accepted"].includes(order.status) && (
-        <div className="mb-6">
-          <button
-            onClick={handleCancel}
-            disabled={actionLoading !== null}
-            className="w-full py-2.5 bg-red-50 text-red-600 border border-red-200 rounded-xl font-semibold hover:bg-red-100 disabled:opacity-50 text-sm"
-          >
-            {actionLoading === "cancel" ? "Cancelling..." : "Cancel Order"}
-          </button>
+          </div>
         </div>
-      )}
 
-      {/* Deliverables — one row per file, no visual noise */}
-      {order.files?.filter((f) => (f.file_type || f.category) === "delivery").length > 0 && (
-        <Card padding="none" className="mb-6 overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-            <h2 className="font-bold text-gray-900">Deliverables</h2>
-            <span className="text-xs text-gray-400">
-              {order.files.filter((f) => (f.file_type || f.category) === "delivery").length} file(s)
-            </span>
+        {/* Mobile sticky action bar (bottom action controls) */}
+        {primaryAction && (
+          <div className={`${tab === "chat" ? "hidden" : "flex"} lg:hidden fixed inset-x-0 bottom-0 z-30 items-center gap-2 border-t border-border bg-surface p-3`} style={{ paddingBottom: "calc(0.75rem + env(safe-area-inset-bottom))" }}>
+            <Button variant="primary" size="md" className="flex-1" onClick={primaryAction.onClick} loading={primaryAction.busy} disabled={actionLoading !== null}>{primaryAction.label}</Button>
           </div>
-          <ul className="divide-y divide-gray-100" aria-label="Delivery files">
-            {order.files
-              .filter((f) => (f.file_type || f.category) === "delivery")
-              .map((file) => {
-                const name = file.file_name || file.original_filename || "File";
-                const kb = file.file_size ? `${(file.file_size / 1024).toFixed(1)} KB` : "";
-                return (
-                  <li key={file.id}>
-                    <a
-                      href={file.download_url || file.file_url || file.file}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors"
-                    >
-                      <span className="text-sm text-gray-900 truncate flex-1">{name}</span>
-                      {kb && <span className="text-xs text-gray-400 shrink-0 tabular-nums">{kb}</span>}
-                      <span className="text-xs font-medium text-[color:var(--brand-primary,#3B82F6)] shrink-0">
-                        Download
-                      </span>
-                    </a>
-                  </li>
-                );
-              })}
-          </ul>
-        </Card>
-      )}
-
-      {/* Activity — chronological lifecycle feed (dense rows) */}
-      {(order.timeline_events || []).length > 0 && (
-        <Card padding="none" className="mb-6 overflow-hidden">
-          <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100">
-            <h2 className="font-bold text-gray-900">Activity</h2>
-            <span className="text-xs text-gray-400">
-              {order.timeline_events.length} event(s)
-            </span>
-          </div>
-          <div className="px-5">
-            <OrderTimelineFeed events={order.timeline_events || []} />
-          </div>
-        </Card>
-      )}
-
-      {/* Conversation — feed + composer + upload queue tray */}
-      <Card padding="none" className="mb-6 overflow-hidden">
-        <div className="p-4 sm:p-5">
-          {/* Live voice / video / screen-share call surface */}
-          <CallDock
-            subjectType="order"
-            subjectId={orderId}
-            tenantId={order?.tenant || order?.tenant_id}
-            authMode={auth.type === "guest" ? "guest" : "jwt"}
-            jwt={auth.type === "jwt" ? auth.token : null}
-            guestToken={auth.type === "guest" ? auth.token : null}
-            selfName={order?.customer_name || "You"}
-            canStart={
-              !!(order.provider || order.provider_id) &&
-              ["accepted", "in_progress", "delivered", "revision_requested"].includes(order.status)
-            }
-            className="mb-3"
-          />
-          <OrderConversation
-            order={order}
-            viewer="customer"
-            locked={isTerminal}
-            lockedMessage="This order is closed."
-            showComposer={!isTerminal}
-            onSendMessage={async (content) => {
-              await apiFetch(
-                `${API_BASE}/api/v1/orders/${orderId}/messages/`,
-                domain,
-                authRef.current.token,
-                authRef.current.type,
-                { method: "POST", body: JSON.stringify({ content }) },
-              );
-            }}
-            onUploadFile={async (file, { onProgress, signal }) => {
-              const fd = new FormData();
-              fd.append("file", file);
-              fd.append("category", "delivery");
-              const headers = {};
-              if (domain) headers["X-Tenant"] = domain;
-              if (authRef.current.token) {
-                headers[authRef.current.type === "guest" ? "X-Order-Token" : "Authorization"] =
-                  authRef.current.type === "guest"
-                    ? authRef.current.token
-                    : `Bearer ${authRef.current.token}`;
-              }
-              await uploadWithProgress(
-                `${API_BASE}/api/v1/orders/${orderId}/upload_file/`,
-                fd,
-                { headers, onProgress, signal },
-              );
-            }}
-          />
-        </div>
-      </Card>
-
-      {/* Review */}
-      {order.review && (
-        <div className="bg-amber-50 rounded-xl border border-amber-200 p-5">
-          <h2 className="font-bold text-gray-900 mb-2">Your Review</h2>
-          <div className="flex items-center gap-1 mb-2">
-            {[1, 2, 3, 4, 5].map((s) => (
-              <span key={s} className={`text-lg ${s <= order.review.rating ? "text-amber-400" : "text-gray-200"}`}>★</span>
-            ))}
-            <span className="text-sm text-gray-500 ml-1">{order.review.rating}/5</span>
-          </div>
-          {order.review.comment && (
-            <p className="text-sm text-gray-600">{order.review.comment}</p>
-          )}
-        </div>
-      )}
+        )}
+        {primaryAction && tab !== "chat" && <div className="h-20 lg:hidden" aria-hidden="true" />}
+      </PortalBrandRoot>
 
       {/* Error toast */}
-      {error && (
-        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-red-600 text-white px-5 py-3 rounded-xl text-sm shadow-lg z-50 flex items-center gap-3">
+      {error && order && (
+        <div className="fixed bottom-4 left-1/2 -translate-x-1/2 bg-danger text-danger-foreground px-5 py-3 rounded-xl text-sm shadow-lg z-50 flex items-center gap-3">
           {error}
-          <button onClick={() => setError(null)} className="font-bold hover:opacity-80">×</button>
+          <button onClick={() => setError(null)} className="font-bold hover:opacity-80" aria-label="Dismiss">×</button>
         </div>
       )}
-    </div>
-    
-
-   </main>
-
-   {/* {footerSection.length > 0 && (
-    <LayoutRenderer sections={footerSection} site={site} />
-   )} */}
-  </BrandRoot>
+    </Chrome>
   );
 }

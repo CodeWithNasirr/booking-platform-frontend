@@ -18,7 +18,7 @@ export default function OrderCheckoutClient({
   serviceSlug,
   site,
   header,
-  footer,
+  // footer,
 }) {
   const { language, isRTL } = useTenantLang();
   const theme = useTenantTheme();
@@ -28,7 +28,7 @@ export default function OrderCheckoutClient({
   const [error, setError] = useState(null);
 
   const headerSection = header ? [header] : [];
-  const footerSection = footer ? [footer] : [];
+  // const footerSection = footer ? [footer] : [];
 
   useEffect(() => {
     async function fetchService() {
@@ -134,13 +134,13 @@ export default function OrderCheckoutClient({
       </main>
 
       {/* Footer */}
-      {footerSection.length > 0 && (
+      {/* {footerSection.length > 0 && (
         <LayoutRenderer
           sections={footerSection}
           language={language}
           site={site}
         />
-      )}
+      )} */}
     </>
   );
 }
