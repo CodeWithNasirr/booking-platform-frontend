@@ -66,5 +66,19 @@ export default {
 
 "time_minutes_ago": "{{m}}m ago",
 "time_hours_ago": "{{h}}h ago",
-"time_days_ago": "{{d}}d ago"
+"time_days_ago": "{{d}}d ago",
+
+"monitoring_refund_issue_title": "Issue Refund",
+"monitoring_refund_tenant_search": "Search a business by name…",
+"monitoring_refund_no_tenants": "No businesses found.",
+"monitoring_refund_no_records": "No refundable payments for this business.",
+"monitoring_refund_change": "Change",
+"monitoring_refund_refundable": "Refundable",
+"monitoring_refund_full": "Full refund",
+"monitoring_refund_partial": "Partial",
+"monitoring_refund_note": "Reason / note (optional)",
+"monitoring_refund_warning": "You are about to refund {{amount}} on behalf of {{tenant}}. This cannot be undone.",
+"monitoring_refund_review": "Review",
+"monitoring_refund_confirm": "Confirm refund",
+"monitoring_refund_success": "Refund initiated"
 }
