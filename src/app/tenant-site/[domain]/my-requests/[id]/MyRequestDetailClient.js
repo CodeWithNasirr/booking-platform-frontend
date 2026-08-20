@@ -376,19 +376,9 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   const headerSection = header ? [header] : [];
   const footerSection = footer ? [footer] : [];
 
-  const Chrome = ({ children }) => (
-    <>
-      {headerSection.length > 0 && <LayoutRenderer sections={headerSection} site={site} />}
-      <main className={`min-h-screen bg-muted ${isRTL ? "rtl" : ""}`} dir={isRTL ? "rtl" : undefined}>
-        {children}
-      </main>
-      {footerSection.length > 0 && <LayoutRenderer sections={footerSection} site={site} />}
-    </>
-  );
-
   if (needsAuth) {
     return (
-      <Chrome>
+      <Chrome header={headerSection} footer={footerSection} site={site} isRTL={isRTL}>
         <PortalBrandRoot site={site} className="max-w-md mx-auto px-4 py-16">
           <div className="rounded-2xl border border-border bg-card p-8 text-center shadow-sm">
             <div className="w-12 h-12 rounded-2xl bg-muted text-muted-foreground flex items-center justify-center mx-auto mb-3"><Inbox className="w-6 h-6" /></div>
@@ -407,7 +397,7 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
 
   if (loading && !request) {
     return (
-      <Chrome>
+      <Chrome header={headerSection} footer={footerSection} site={site} isRTL={isRTL}>
         <PortalBrandRoot site={site} className="max-w-5xl mx-auto px-4 py-6">
           <RequestDetailSkeleton />
         </PortalBrandRoot>
@@ -417,7 +407,7 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
 
   if (error && !request) {
     return (
-      <Chrome>
+      <Chrome header={headerSection} footer={footerSection} site={site} isRTL={isRTL}>
         <PortalBrandRoot site={site} className="max-w-md mx-auto px-4 py-16">
           <EmptyState
             icon={Inbox}
@@ -437,7 +427,7 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
   const activityEvents = (request.timeline || []).filter((ev) => TIMELINE_LABELS[ev.event] !== null);
 
   return (
-    <Chrome>
+    <Chrome header={headerSection} footer={footerSection} site={site} isRTL={isRTL}>
       <PortalBrandRoot site={site} className="max-w-5xl mx-auto px-4 py-6">
         {/* Back + brand */}
         <div className="flex items-center justify-between gap-3 mb-4">
@@ -595,6 +585,22 @@ function CustomerPortalDetail({ domain, requestId, site, header, footer }) {
 }
 
 // ── Local presentational helpers (shared visual language) ──
+
+// Module-level so its identity is stable across renders. Defining it
+// inside CustomerPortalDetail would give it a new function type on every
+// keystroke (reply state lives there), remounting the whole subtree —
+// including the composer textarea — and dropping input focus.
+function Chrome({ header, footer, site, isRTL, children }) {
+  return (
+    <>
+      {header.length > 0 && <LayoutRenderer sections={header} site={site} />}
+      <main className={`min-h-screen bg-muted ${isRTL ? "rtl" : ""}`} dir={isRTL ? "rtl" : undefined}>
+        {children}
+      </main>
+      {footer.length > 0 && <LayoutRenderer sections={footer} site={site} />}
+    </>
+  );
+}
 
 function Section({ icon: Icon, title, children }) {
   return (
