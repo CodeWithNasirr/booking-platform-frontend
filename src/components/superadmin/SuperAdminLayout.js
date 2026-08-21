@@ -49,6 +49,7 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
     "/superadmin/tenants": "platform",
     "/superadmin/support": "support",
     "/superadmin/billing": "billing",
+    "/superadmin/enterprise": "enterprise",
     "/superadmin/integrations": "integrations",
   };
 
