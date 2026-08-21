@@ -80,5 +80,10 @@ export default {
 "monitoring_refund_warning": "You are about to refund {{amount}} on behalf of {{tenant}}. This cannot be undone.",
 "monitoring_refund_review": "Review",
 "monitoring_refund_confirm": "Confirm refund",
-"monitoring_refund_success": "Refund initiated"
+"monitoring_refund_success": "Refund initiated",
+"monitoring_refund_step_requested": "Refund requested",
+"monitoring_refund_step_processing": "Processing with gateway",
+"monitoring_refund_step_refunded": "Refunded",
+"monitoring_refund_step_failed": "Refund failed",
+"monitoring_refund_awaiting_webhook": "Waiting for the gateway to confirm the refund…"
 }
