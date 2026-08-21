@@ -99,6 +99,40 @@ export async function cancelEnterpriseRequest(tenantId) {
   return data;
 }
 
+/** Enterprise — the negotiated contract + its real payment/subscription status */
+export async function fetchEnterpriseContract(tenantId) {
+  const res = await fetch(`${API}/api/v1/billing/enterprise/contract/`, {
+    headers: headers(tenantId),
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to load enterprise contract");
+  return res.json();
+}
+
+/** Enterprise — start a Moyasar payment for the approved contract.
+ *  Amount + currency are derived by the backend from the contract. */
+export async function createEnterpriseCheckout(tenantId) {
+  const res = await fetch(`${API}/api/v1/billing/enterprise/checkout/`, {
+    method: "POST",
+    headers: headers(tenantId),
+    credentials: "include",
+    body: JSON.stringify({}),
+  });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.detail || "Failed to start enterprise payment");
+  return data;
+}
+
+/** Enterprise — poll the verified payment status after checkout */
+export async function fetchEnterprisePaymentStatus(tenantId) {
+  const res = await fetch(`${API}/api/v1/billing/enterprise/payment-status/`, {
+    headers: headers(tenantId),
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to load enterprise payment status");
+  return res.json();
+}
+
 /** Open Stripe billing portal */
 export async function openBillingPortal(tenantId) {
   const res = await fetch(`${API}/api/v1/billing/portal/`, {
