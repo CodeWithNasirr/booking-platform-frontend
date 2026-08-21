@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSuperAdmin } from "@/contexts/Superadmincontext";
 import SuperAdminLayout from "@/components/superadmin/SuperAdminLayout";
 import { useTranslation } from "@/lib/t";
@@ -80,6 +80,7 @@ function SuperadminRefundModal({ onClose, onDone, t }) {
   const [confirming, setConfirming] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [error, setError] = useState("");
+  const [result, setResult] = useState(null);   // created refund; then polled
 
   // Tenant search
   useEffect(() => {
@@ -122,15 +123,17 @@ function SuperadminRefundModal({ onClose, onDone, t }) {
     if (!record || !amountValid) return;
     setSubmitting(true); setError("");
     try {
-      await platformPostBody("/api/v1/platform/refunds/by-record/", {
+      const created = await platformPostBody("/api/v1/platform/refunds/by-record/", {
         tenant_id: tenant.id,
         [record.kind === "booking" ? "booking_id" : "order_id"]: record.id,
         amount: amount.toFixed(2),
         reason: "admin_initiated",
         reason_detail: detail,
       });
+      // Do NOT declare success from the 201 — show the real lifecycle and
+      // poll the actual gateway/webhook-driven status.
+      setResult(created);
       onDone?.();
-      onClose();
     } catch (e) {
       setError(e.message || "Refund failed");
       setConfirming(false);
@@ -138,6 +141,23 @@ function SuperadminRefundModal({ onClose, onDone, t }) {
       setSubmitting(false);
     }
   }
+
+  // Poll the created refund's real status until it reaches a terminal state.
+  useEffect(() => {
+    if (!result?.id) return undefined;
+    const terminal = (s) => ["completed", "failed", "cancelled"].includes(s);
+    if (terminal(result.status)) return undefined;
+    let stop = false;
+    const h = setInterval(async () => {
+      try {
+        const d = await platformFetch(`/api/v1/platform/refunds/${result.id}/`);
+        if (stop) return;
+        setResult(d);
+        if (terminal(d.status)) clearInterval(h);
+      } catch { /* keep polling */ }
+    }, 3000);
+    return () => { stop = true; clearInterval(h); };
+  }, [result?.id, result?.status]);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
@@ -154,8 +174,13 @@ function SuperadminRefundModal({ onClose, onDone, t }) {
             <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700">{error}</div>
           )}
 
+          {/* Result — real lifecycle from gateway/webhook, not the 201 */}
+          {result && (
+            <RefundStatusView result={result} money={money} t={t} />
+          )}
+
           {/* 1 — tenant */}
-          {!tenant && (
+          {!result && !tenant && (
             <>
               <div className="relative">
                 <Search className="absolute top-1/2 -translate-y-1/2 start-3 w-4 h-4 text-gray-400" />
@@ -179,7 +204,7 @@ function SuperadminRefundModal({ onClose, onDone, t }) {
           )}
 
           {/* 2 — record */}
-          {tenant && !record && (
+          {!result && tenant && !record && (
             <>
               <div className="flex items-center justify-between text-sm">
                 <span className="font-medium text-gray-900">{tenant.name}</span>
@@ -210,7 +235,7 @@ function SuperadminRefundModal({ onClose, onDone, t }) {
           )}
 
           {/* 3 — amount + confirm */}
-          {record && (
+          {!result && record && (
             <>
               <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm">
                 <div className="flex items-center justify-between">
@@ -257,7 +282,17 @@ function SuperadminRefundModal({ onClose, onDone, t }) {
           )}
         </div>
 
-        {record && (
+        {result && (
+          <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-200 sticky bottom-0 bg-white">
+            <button onClick={onClose}
+              className="px-5 py-2 text-sm font-medium text-white rounded-lg"
+              style={{ backgroundColor: MAROON }}>
+              {t("common.done") || "Done"}
+            </button>
+          </div>
+        )}
+
+        {!result && record && (
           <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-200 sticky bottom-0 bg-white">
             <button onClick={onClose} disabled={submitting}
               className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
@@ -280,6 +315,67 @@ function SuperadminRefundModal({ onClose, onDone, t }) {
           </div>
         )}
       </div>
+    </div>
+  );
+}
+
+/* Refund lifecycle view — requested → processing → refunded / failed,
+   driven by the polled backend status (never assumed from the 201). */
+function RefundStatusView({ result, money, t }) {
+  const status = result.status;
+  const steps = [
+    { key: "requested", label: t("monitoring_refund_step_requested") },
+    { key: "processing", label: t("monitoring_refund_step_processing") },
+    { key: "completed", label: t("monitoring_refund_step_refunded") },
+  ];
+  const order = { requested: 0, approved: 0, processing: 1, completed: 2 };
+  const failed = status === "failed";
+  const idx = failed ? 1 : (order[status] ?? 0);
+
+  return (
+    <div className="py-2">
+      <div className="text-center mb-4">
+        <div className="text-sm text-gray-500">{result.refund_number}</div>
+        <div className="text-2xl font-semibold text-gray-900 mt-1">
+          {result.currency} {result.customer_refund}
+        </div>
+      </div>
+
+      {failed ? (
+        <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-center">
+          <XCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+          <div className="text-sm font-medium text-red-800">{t("monitoring_refund_step_failed")}</div>
+          {result.last_error && (
+            <div className="text-xs text-red-600 mt-1">{result.last_error.slice(0, 160)}</div>
+          )}
+        </div>
+      ) : (
+        <ol className="space-y-3">
+          {steps.map((s, i) => {
+            const done = i < idx || status === "completed" && i <= idx;
+            const active = i === idx && status !== "completed";
+            return (
+              <li key={s.key} className="flex items-center gap-3">
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  done ? "bg-emerald-500 text-white" : active ? "bg-amber-400 text-white" : "bg-gray-200 text-gray-400"}`}>
+                  {done ? <CheckCircle className="w-4 h-4" />
+                    : active ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <Clock className="w-3.5 h-3.5" />}
+                </span>
+                <span className={`text-sm ${done || active ? "text-gray-900 font-medium" : "text-gray-400"}`}>
+                  {s.label}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+
+      {status !== "completed" && !failed && (
+        <p className="text-xs text-gray-400 text-center mt-4">
+          {t("monitoring_refund_awaiting_webhook")}
+        </p>
+      )}
     </div>
   );
 }
@@ -383,6 +479,8 @@ export default function PlatformMonitoringPage() {
 
   const [toast, setToast] = useState(null);
   const [showRefund, setShowRefund] = useState(false);
+  // Snapshot "now" once at mount (lazy init keeps Date.now() out of render).
+  const [nowMs] = useState(() => Date.now());
   function showToast(msg, type = "success") {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
@@ -567,7 +665,7 @@ export default function PlatformMonitoringPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {disputes.map(d => {
-                      const hoursLeft = d.evidence_due_by ? Math.max(0, (new Date(d.evidence_due_by) - Date.now()) / 3600000) : null;
+                      const hoursLeft = d.evidence_due_by ? Math.max(0, (new Date(d.evidence_due_by).getTime() - nowMs) / 3600000) : null;
                       const isUrgent = hoursLeft !== null && hoursLeft < 24;
                       return (
                         <tr key={d.id} className={`hover:bg-gray-50/60 ${isUrgent ? "bg-red-50/30" : ""}`}>
