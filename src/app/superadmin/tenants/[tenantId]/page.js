@@ -407,9 +407,13 @@ export default function TenantDetailPage() {
 
   async function handleCancelSubscription() {
     if (!window.confirm(t("superadmin.tenant_detail.confirm_cancel_subscription"))) return;
+    // Default is end-of-period (safer). Offer an immediate cut-off explicitly.
+    const immediately = window.confirm(
+      t("superadmin.tenant_detail.confirm_cancel_immediately")
+    );
     try {
       setActionLoading(true);
-      const result = await cancelTenantSubscription(tenantId);
+      const result = await cancelTenantSubscription(tenantId, { immediately });
       if (result.tenant) setTenant(result.tenant);
       else await loadTenant();
       showToast(result.detail || t("superadmin.tenant_detail.toast.cancelled"));

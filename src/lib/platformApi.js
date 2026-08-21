@@ -730,9 +730,10 @@ export function changeTenantPlan(id, planTier, billingInterval = "month") {
   });
 }
 
-export function cancelTenantSubscription(id) {
+export function cancelTenantSubscription(id, { immediately = false } = {}) {
   return platformFetch(`/api/v1/platform/tenants/${id}/cancel-subscription/`, {
     method: "POST",
+    body: JSON.stringify({ immediately }),
   });
 }
 
