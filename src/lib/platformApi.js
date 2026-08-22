@@ -413,13 +413,15 @@ export async function runDunningBatch() {
 // ═══════════════════════════════════════════════════════════════
 
 export async function startImpersonation(tenantId) {
-  return platformFetch(`/api/v1/platform/impersonate/${tenantId}/`, {
+  // Route must match the DRF ViewSet registered as `impersonation` with a
+  // detail `start` action: POST /platform/impersonation/<tenant_id>/start/.
+  return platformFetch(`/api/v1/platform/impersonation/${tenantId}/start/`, {
     method: "POST",
   });
 }
 
 export async function stopImpersonation(token) {
-  return platformFetch("/api/v1/platform/impersonate/stop/", {
+  return platformFetch("/api/v1/platform/impersonation/stop/", {
     method: "POST",
     body: JSON.stringify({ token }),
   });
@@ -737,9 +739,10 @@ export function changeTenantPlan(id, planTier, billingInterval = "month") {
   });
 }
 
-export function cancelTenantSubscription(id) {
+export function cancelTenantSubscription(id, { immediately = false } = {}) {
   return platformFetch(`/api/v1/platform/tenants/${id}/cancel-subscription/`, {
     method: "POST",
+    body: JSON.stringify({ immediately }),
   });
 }
 
