@@ -15,6 +15,7 @@ import {
 } from 'lucide-react'
 import useBlockBackNavigation from '@/lib/useBlockBackNavigation'
 import TenantPermissionGate from "@/components/dashboard/TenantPermissionGate";
+import PlanFeatureGate from "@/components/dashboard/PlanFeatureGate";
 
 function ManageWhatsAppPageInner() {
   const { user, loadingUser, requiresOnboarding, activeTenant, t } = useApp()
@@ -694,8 +695,10 @@ function QRLinkModal({ activeTenant, onClose, onConnected, t }) {
 
 export default function ManageWhatsAppPage(props) {
   return (
-    <TenantPermissionGate permission="whatsapp.view">
-      <ManageWhatsAppPageInner {...props} />
-    </TenantPermissionGate>
+    <PlanFeatureGate feature="whatsapp_integration">
+      <TenantPermissionGate permission="whatsapp.view">
+        <ManageWhatsAppPageInner {...props} />
+      </TenantPermissionGate>
+    </PlanFeatureGate>
   );
 }

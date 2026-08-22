@@ -13,6 +13,7 @@ import {
 } from 'lucide-react'
 import useBlockBackNavigation from '@/lib/useBlockBackNavigation'
 import TenantPermissionGate from "@/components/dashboard/TenantPermissionGate";
+import PlanFeatureGate from "@/components/dashboard/PlanFeatureGate";
 
 const STATUS_TABS = [
   { key: 'all', labelKey: 'campaigns.status.all', color: 'bg-gray-800' },
@@ -284,8 +285,10 @@ function CampaignStatusBadge({ status, t }) {
 
 export default function CampaignsPage(props) {
   return (
-    <TenantPermissionGate permission="campaigns.view">
-      <CampaignsPageInner {...props} />
-    </TenantPermissionGate>
+    <PlanFeatureGate feature="marketing_campaigns">
+      <TenantPermissionGate permission="campaigns.view">
+        <CampaignsPageInner {...props} />
+      </TenantPermissionGate>
+    </PlanFeatureGate>
   );
 }
