@@ -88,6 +88,7 @@ const financeAPI = {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const DATE_RANGES = (t) => [
+  { label: t('finance.dateRanges.today') || 'Today', value: 'today' },
   { label: t('finance.dateRanges.thisWeek'), value: '7d' },
   { label: t('finance.dateRanges.thisMonth'), value: '30d' },
   { label: t('finance.dateRanges.thisQuarter'), value: '90d' },
@@ -170,6 +171,8 @@ function getDateRangeParams(rangeValue) {
   const daysAgo = (n) => new Date(now - n * 86400000);
 
   switch (rangeValue) {
+    case "today":
+      return { start_date: fmt(now), end_date: fmt(now) };
     case "7d":
       return { start_date: fmt(daysAgo(7)), end_date: fmt(now) };
     case "30d":
@@ -1203,7 +1206,7 @@ export default function FinancePage() {
         />
         <StatCard
           title="Refunds Issued"
-          value={formatCurrency(stats?.total_refunds || 0)}
+          value={formatCurrency(stats?.total_refunds || 0, stats?.currency)}
           change={
             stats?.refund_count
               ? `${stats.refund_count} refund${stats.refund_count !== 1 ? "s" : ""}`
@@ -1211,6 +1214,51 @@ export default function FinancePage() {
           }
           icon={RefreshCw}
           color="from-red-500 to-red-600"
+          loading={statsLoading}
+        />
+      </div>
+
+      {/* ── Net revenue + booking/order split + payment states ─────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Net Revenue"
+          value={formatCurrency(stats?.net_revenue || 0, stats?.currency)}
+          change={stats?.net_revenue_change}
+          detail="Gross − refunds"
+          icon={DollarSign}
+          color="from-emerald-500 to-emerald-600"
+          loading={statsLoading}
+        />
+        <StatCard
+          title="Booking Revenue"
+          value={formatCurrency(stats?.booking_revenue || 0, stats?.currency)}
+          detail={stats?.avg_booking_value
+            ? `Avg ${formatCurrency(stats.avg_booking_value, stats?.currency)}` : "This period"}
+          icon={CheckCircle}
+          color="from-[#8B1E3F] to-[#6B1630]"
+          loading={statsLoading}
+        />
+        <StatCard
+          title="Order Revenue"
+          value={formatCurrency(stats?.order_revenue || 0, stats?.currency)}
+          detail={stats?.avg_order_value
+            ? `Avg ${formatCurrency(stats.avg_order_value, stats?.currency)}` : "This period"}
+          icon={CheckCircle}
+          color="from-indigo-500 to-indigo-600"
+          loading={statsLoading}
+        />
+        <StatCard
+          title="Payments"
+          value={`${stats?.successful_payments?.count || 0} ok`}
+          change={
+            (stats?.failed_payments?.count || stats?.pending_payments?.count)
+              ? `${stats?.failed_payments?.count || 0} failed · ${stats?.pending_payments?.count || 0} pending`
+              : undefined
+          }
+          detail={stats?.pending_payouts
+            ? `${formatCurrency(stats.pending_payouts, stats?.currency)} payouts pending` : undefined}
+          icon={Clock}
+          color="from-slate-500 to-slate-600"
           loading={statsLoading}
         />
       </div>
