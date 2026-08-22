@@ -5,9 +5,15 @@ const API = process.env.NEXT_PUBLIC_API_URL || "http://localhost:8000/api";
 
 const headers = (tenantId) => {
   const token = Cookies.get("access_token");
+  // Impersonation authenticates via X-Impersonate (no tenant access_token in
+  // that session). Without this header every billing call 401s under
+  // impersonation and the whole page renders empty — so forward it exactly
+  // like the shared apiFetch does.
+  const impersonation = Cookies.get("impersonation_token");
   return {
     Authorization: token ? `Bearer ${token}` : "",
     "X-Tenant": tenantId,
+    ...(impersonation ? { "X-Impersonate": impersonation } : {}),
     "Content-Type": "application/json",
   };
 };
@@ -42,6 +48,18 @@ export async function fetchSubscriptionHistory(tenantId) {
   });
   if (!res.ok) throw new Error("Failed to load history");
   return res.json();
+}
+
+/** Download an invoice PDF from the authenticated, tenant-scoped endpoint.
+ *  Fetched as a blob so the Bearer/X-Impersonate header is sent (a plain <a>
+ *  can't authenticate). Returns a Blob the caller saves. */
+export async function downloadInvoicePdf(tenantId, invoiceId) {
+  const res = await fetch(`${API}/api/v1/payments/invoices/${invoiceId}/pdf/`, {
+    headers: headers(tenantId),
+    credentials: "include",
+  });
+  if (!res.ok) throw new Error("Failed to download invoice");
+  return res.blob();
 }
 
 /** Public plans */
