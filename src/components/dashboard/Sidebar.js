@@ -119,11 +119,13 @@ const menuItems = [
     key: "tenant-custom-requests",
     label: t("tenant.customRequests") || "Custom Requests",
     icon: FileText,
+    featureCode: "custom_requests",
   },
   {
     key: "tenant-subscriptions",
     label: t("tenant.subscriptions") || "Subscriptions",
     icon: RefreshCw,
+    featureCode: "subscription_services",
   },
   {
     key: "tenant-users",
@@ -193,12 +195,14 @@ const menuItems = [
     label: t("tenant.whatsapp"),
     icon: MessageCircle,
     integrationFeature: "whatsapp_notifications",
+    featureCode: "whatsapp_integration",
   },
   {
     key: "tenant-campaigns",
     label: t("tenant.campaigns"),
     icon: Send,
     integrationFeature: "whatsapp_notifications",
+    featureCode: "marketing_campaigns",
   },
   {
     key: "tenant-settings",

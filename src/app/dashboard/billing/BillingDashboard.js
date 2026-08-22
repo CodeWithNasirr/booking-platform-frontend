@@ -14,6 +14,7 @@ import {
   cancelEnterpriseRequest,
   fetchEnterpriseContract,
   createEnterpriseCheckout,
+  downloadInvoicePdf,
 } from "@/lib/billingApi";
 import { formatCurrency } from "@/lib/currency";
 import {
@@ -86,6 +87,26 @@ export default function BillingDashboard() {
   const [enterpriseSubmitting, setEnterpriseSubmitting] = useState(false);
   const [enterpriseContract, setEnterpriseContract] = useState(null);
   const [payingEnterprise, setPayingEnterprise] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(null);
+
+  const handleDownloadInvoice = async (inv) => {
+    setDownloadingInvoice(inv.id);
+    try {
+      const blob = await downloadInvoicePdf(activeTenant, inv.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${inv.invoice_number || "invoice"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message || "Failed to download invoice");
+    } finally {
+      setDownloadingInvoice(null);
+    }
+  };
 
   // Check URL for checkout result
   useEffect(() => {
@@ -409,11 +430,20 @@ export default function BillingDashboard() {
                     <td className="px-4 py-3 text-gray-500">{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : "—"}</td>
                     <td className="px-4 py-3"><StatusBadge status={inv.status} /></td>
                     <td className="px-4 py-3">
-                      {inv.stripe_url && (
-                        <a href={inv.stripe_url} target="_blank" rel="noopener noreferrer" className="text-[#8B1E3F] hover:underline text-xs flex items-center gap-1">
-                          <Download className="w-3 h-3" /> PDF
-                        </a>
-                      )}
+                      {/* The PDF endpoint is authenticated + tenant-scoped, so
+                          we fetch it as a blob (with the auth/impersonation
+                          headers) rather than a plain link — a bare <a> can't
+                          send the Bearer/X-Impersonate header. The old code
+                          referenced inv.stripe_url, which never existed, so no
+                          download ever showed. */}
+                      <button
+                        onClick={() => handleDownloadInvoice(inv)}
+                        disabled={downloadingInvoice === inv.id}
+                        className="text-[#8B1E3F] hover:underline text-xs flex items-center gap-1 disabled:opacity-50"
+                      >
+                        <Download className="w-3 h-3" />
+                        {downloadingInvoice === inv.id ? "…" : "PDF"}
+                      </button>
                     </td>
                   </tr>
                 ))}

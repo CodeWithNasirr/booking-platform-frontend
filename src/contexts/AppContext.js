@@ -151,29 +151,13 @@ export function AppProvider({ children }) {
         const impersonation =
           Cookies.get("impersonation_token");
 
-       if (
-        impersonation &&
-        !access &&
-        !refresh
-      ) {
-        Cookies.remove(
-          "impersonation_token",
-          
-          COOKIE_OPTIONS
-        );
-
-        Cookies.remove(
-          "impersonation_tenant",
-          COOKIE_OPTIONS
-        );
-
-        setUser(null);
-        setLoadingUser(false);
-
-        return;
-      }
-
-        if (!access && !refresh) {
+        // Impersonation is a valid auth path: it authenticates via the
+        // X-Impersonate header (apiFetch attaches it) and deliberately has NO
+        // tenant access_token. So we must NOT bail (and must NOT delete the
+        // impersonation cookie) just because access/refresh are absent — that
+        // is exactly the impersonated-tenant case. Only truly-anonymous
+        // sessions (no access, no refresh, no impersonation) short-circuit.
+        if (!access && !refresh && !impersonation) {
           setUser(null);
           setTenants([]);
           setLoadingUser(false);
