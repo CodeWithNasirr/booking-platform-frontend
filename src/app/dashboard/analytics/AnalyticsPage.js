@@ -76,6 +76,9 @@ async function fetchWithAuth(endpoint, activeTenant, options = {}) {
 const analyticsAPI = {
   getKPIs: (params, tenant) =>
     apiFetch(`/api/v1/analytics/kpis/?${new URLSearchParams(params)}`, tenant),
+  // Booking + ORDER + customer + money overview in one call.
+  getOverview: (params, tenant) =>
+    apiFetch(`/api/v1/analytics/overview/?${new URLSearchParams(params)}`, tenant),
   getBookingsOverTime: (params, tenant) =>
     apiFetch(
       `/api/v1/analytics/bookings-over-time/?${new URLSearchParams(params)}`,
@@ -282,6 +285,7 @@ export default function AnalyticsPage() {
   const [topServices, setTopServices] = useState([]);
   const [topProviders, setTopProviders] = useState([]);
   const [bookingStatus, setBookingStatus] = useState(null);
+  const [overview, setOverview] = useState(null);
 
   const loadAnalytics = useCallback(
     async (showFullLoader = true) => {
@@ -300,6 +304,7 @@ export default function AnalyticsPage() {
           svcRes,
           provRes,
           statusRes,
+          overviewRes,
         ] = await Promise.allSettled([
           analyticsAPI.getKPIs(params, activeTenant),
           analyticsAPI.getBookingsOverTime(params, activeTenant),
@@ -309,6 +314,7 @@ export default function AnalyticsPage() {
           analyticsAPI.getTopServices(params, activeTenant),
           analyticsAPI.getTopProviders(params, activeTenant),
           analyticsAPI.getBookingStatusOverview(params, activeTenant),
+          analyticsAPI.getOverview(params, activeTenant),
         ]);
 
         const val = (r) =>
@@ -326,6 +332,7 @@ export default function AnalyticsPage() {
         setTopServices(list(svcRes));
         setTopProviders(list(provRes));
         if (val(statusRes)) setBookingStatus(val(statusRes));
+        if (val(overviewRes)) setOverview(val(overviewRes));
       } catch (err) {
         console.error("Failed to load analytics:", err);
       } finally {
@@ -542,6 +549,35 @@ export default function AnalyticsPage() {
               );
             })}
       </div>
+
+      {/* ── Orders + Customers + Money (booking+order unified) ────────── */}
+      {!loading && overview && (
+        <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-6 gap-4">
+          {[
+            { label: t("analytics.metric.orders") || "Orders",
+              value: formatNumber(overview.counts?.orders?.total || 0),
+              sub: `${overview.counts?.orders?.completed || 0} completed` },
+            { label: t("analytics.metric.orderRevenue") || "Order revenue",
+              value: formatCurrency(overview.money?.order_revenue || 0) },
+            { label: t("analytics.metric.bookingRevenue") || "Booking revenue",
+              value: formatCurrency(overview.money?.booking_revenue || 0) },
+            { label: t("analytics.metric.netRevenue") || "Net revenue",
+              value: formatCurrency(overview.money?.net_revenue || 0),
+              sub: `${formatCurrency(overview.money?.refunds || 0)} refunded` },
+            { label: t("analytics.metric.customers") || "Customers",
+              value: formatNumber(overview.customers?.total || 0),
+              sub: `${overview.customers?.new || 0} new` },
+            { label: t("analytics.metric.returning") || "Returning",
+              value: formatNumber(overview.customers?.returning || 0) },
+          ].map((m, i) => (
+            <div key={i} className="p-4 rounded-xl bg-white border border-[#8B1E3F]/10">
+              <div className="text-lg font-bold text-gray-900 truncate">{m.value}</div>
+              <div className="text-xs text-gray-600 font-medium mt-0.5">{m.label}</div>
+              {m.sub && <div className="text-[11px] text-gray-400 mt-0.5 truncate">{m.sub}</div>}
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* ── Charts Row 1: Bookings Over Time + Revenue by Category ────── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
