@@ -79,6 +79,8 @@ const analyticsAPI = {
   // Booking + ORDER + customer + money overview in one call.
   getOverview: (params, tenant) =>
     apiFetch(`/api/v1/analytics/overview/?${new URLSearchParams(params)}`, tenant),
+  getOrdersOverTime: (params, tenant) =>
+    apiFetch(`/api/v1/analytics/orders-over-time/?${new URLSearchParams(params)}`, tenant),
   getBookingsOverTime: (params, tenant) =>
     apiFetch(
       `/api/v1/analytics/bookings-over-time/?${new URLSearchParams(params)}`,
@@ -119,11 +121,12 @@ const analyticsAPI = {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const DATE_RANGES = [
-  { labelKey: "analytics.dateRange.7d", value: "7d" },
-  { labelKey: "analytics.dateRange.30d", value: "30d" },
-  { labelKey: "analytics.dateRange.90d", value: "90d" },
-  { labelKey: "analytics.dateRange.lastMonth", value: "last_month" },
-  { labelKey: "analytics.dateRange.thisYear", value: "this_year" },
+  { labelKey: "analytics.dateRange.today", value: "today", fallback: "Today" },
+  { labelKey: "analytics.dateRange.7d", value: "7d", fallback: "7 days" },
+  { labelKey: "analytics.dateRange.30d", value: "30d", fallback: "30 days" },
+  { labelKey: "analytics.dateRange.90d", value: "90d", fallback: "3 months" },
+  { labelKey: "analytics.dateRange.12m", value: "12m", fallback: "12 months" },
+  { labelKey: "analytics.dateRange.custom", value: "custom", fallback: "Custom" },
 ];
 
 // Maroon combination palette
@@ -205,18 +208,22 @@ function formatPercent(value) {
   return `${value >= 0 ? "+" : ""}${value.toFixed(1)}%`;
 }
 
-function getDateRangeParams(rangeValue) {
+function getDateRangeParams(rangeValue, customStart, customEnd) {
   const now = new Date();
   const fmt = (d) => d.toISOString().split("T")[0];
   const daysAgo = (n) => new Date(now - n * 86400000);
 
   switch (rangeValue) {
+    case "today":
+      return { start_date: fmt(now), end_date: fmt(now) };
     case "7d":
       return { start_date: fmt(daysAgo(7)), end_date: fmt(now) };
     case "30d":
       return { start_date: fmt(daysAgo(30)), end_date: fmt(now) };
     case "90d":
       return { start_date: fmt(daysAgo(90)), end_date: fmt(now) };
+    case "12m":
+      return { start_date: fmt(daysAgo(365)), end_date: fmt(now) };
     case "last_month":
       return {
         start_date: fmt(
@@ -229,6 +236,12 @@ function getDateRangeParams(rangeValue) {
         start_date: fmt(new Date(now.getFullYear(), 0, 1)),
         end_date: fmt(now),
       };
+    case "custom":
+      // Fall back to last 30 days until BOTH ends are chosen.
+      if (customStart && customEnd) {
+        return { start_date: customStart, end_date: customEnd };
+      }
+      return { start_date: fmt(daysAgo(30)), end_date: fmt(now) };
     default:
       return { start_date: fmt(daysAgo(30)), end_date: fmt(now) };
   }
@@ -286,13 +299,18 @@ export default function AnalyticsPage() {
   const [topProviders, setTopProviders] = useState([]);
   const [bookingStatus, setBookingStatus] = useState(null);
   const [overview, setOverview] = useState(null);
+  const [ordersOverTime, setOrdersOverTime] = useState([]);
+  const [error, setError] = useState(null);
+  const [customStart, setCustomStart] = useState("");
+  const [customEnd, setCustomEnd] = useState("");
 
   const loadAnalytics = useCallback(
     async (showFullLoader = true) => {
       if (!activeTenant) return;
-      const params = getDateRangeParams(dateRange);
+      const params = getDateRangeParams(dateRange, customStart, customEnd);
       if (showFullLoader) setLoading(true);
       else setRefreshing(true);
+      setError(null);
 
       try {
         const [
@@ -305,6 +323,7 @@ export default function AnalyticsPage() {
           provRes,
           statusRes,
           overviewRes,
+          ordersRes,
         ] = await Promise.allSettled([
           analyticsAPI.getKPIs(params, activeTenant),
           analyticsAPI.getBookingsOverTime(params, activeTenant),
@@ -315,7 +334,17 @@ export default function AnalyticsPage() {
           analyticsAPI.getTopProviders(params, activeTenant),
           analyticsAPI.getBookingStatusOverview(params, activeTenant),
           analyticsAPI.getOverview(params, activeTenant),
+          analyticsAPI.getOrdersOverTime(params, activeTenant),
         ]);
+
+        // If EVERYTHING failed (e.g. network / 402 upgrade / auth), surface a
+        // page-level error rather than silent empty charts.
+        const results = [kpiRes, bookingsRes, catRes, trendsRes, peakRes,
+          svcRes, provRes, statusRes, overviewRes];
+        if (results.every((r) => r.status === "rejected")) {
+          const first = results.find((r) => r.status === "rejected");
+          setError(first?.reason?.message || "Failed to load analytics.");
+        }
 
         const val = (r) =>
           r.status === "fulfilled" ? r.value : null;
@@ -333,6 +362,7 @@ export default function AnalyticsPage() {
         setTopProviders(list(provRes));
         if (val(statusRes)) setBookingStatus(val(statusRes));
         if (val(overviewRes)) setOverview(val(overviewRes));
+        setOrdersOverTime(list(ordersRes));
       } catch (err) {
         console.error("Failed to load analytics:", err);
       } finally {
@@ -340,12 +370,14 @@ export default function AnalyticsPage() {
         setRefreshing(false);
       }
     },
-    [dateRange, activeTenant]
+    [dateRange, activeTenant, customStart, customEnd]
   );
 
   useEffect(() => {
+    // For a custom range, only reload once both ends are picked.
+    if (dateRange === "custom" && (!customStart || !customEnd)) return;
     loadAnalytics(true);
-  }, [loadAnalytics]);
+  }, [loadAnalytics, dateRange, customStart, customEnd]);
 
   // ── Derived data ─────────────────────────────────────────────────────────
 
@@ -471,7 +503,7 @@ export default function AnalyticsPage() {
             {t("analytics.subtitle")}
           </p>
         </div>
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
           <select
             value={dateRange}
             onChange={(e) => setDateRange(e.target.value)}
@@ -479,10 +511,32 @@ export default function AnalyticsPage() {
           >
             {DATE_RANGES.map((r) => (
               <option key={r.value} value={r.value}>
-                {t(r.labelKey)}
+                {t(r.labelKey) === r.labelKey ? r.fallback : t(r.labelKey)}
               </option>
             ))}
           </select>
+
+          {dateRange === "custom" && (
+            <div className="flex items-center gap-2">
+              <input
+                type="date"
+                value={customStart}
+                max={customEnd || undefined}
+                onChange={(e) => setCustomStart(e.target.value)}
+                className="px-3 py-2.5 rounded-xl border border-gray-300 focus:border-[#8B1E3F] outline-none bg-white text-sm shadow-sm"
+                aria-label="Start date"
+              />
+              <span className="text-gray-400">–</span>
+              <input
+                type="date"
+                value={customEnd}
+                min={customStart || undefined}
+                onChange={(e) => setCustomEnd(e.target.value)}
+                className="px-3 py-2.5 rounded-xl border border-gray-300 focus:border-[#8B1E3F] outline-none bg-white text-sm shadow-sm"
+                aria-label="End date"
+              />
+            </div>
+          )}
 
           <button
             onClick={() => loadAnalytics(false)}
@@ -500,6 +554,19 @@ export default function AnalyticsPage() {
           </button>
         </div>
       </div>
+
+      {/* ── Page-level error state ─────────────────────────────────────── */}
+      {!loading && error && (
+        <div className="flex items-center justify-between gap-4 p-4 rounded-xl border border-red-200 bg-red-50 text-sm text-red-700">
+          <span>{error}</span>
+          <button
+            onClick={() => loadAnalytics(true)}
+            className="px-3 py-1.5 rounded-lg bg-red-600 text-white text-xs font-medium hover:bg-red-700"
+          >
+            {t("analytics.retry") === "analytics.retry" ? "Retry" : t("analytics.retry")}
+          </button>
+        </div>
+      )}
 
       {/* ── KPI Cards ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
@@ -557,18 +624,19 @@ export default function AnalyticsPage() {
             { label: t("analytics.metric.orders") || "Orders",
               value: formatNumber(overview.counts?.orders?.total || 0),
               sub: `${overview.counts?.orders?.completed || 0} completed` },
-            { label: t("analytics.metric.orderRevenue") || "Order revenue",
-              value: formatCurrency(overview.money?.order_revenue || 0) },
+            { label: t("analytics.metric.customRequests") || "Custom Requests",
+              value: formatNumber(overview.counts?.custom_requests?.total || 0),
+              sub: `${overview.counts?.custom_requests?.converted || 0} converted` },
             { label: t("analytics.metric.bookingRevenue") || "Booking revenue",
               value: formatCurrency(overview.money?.booking_revenue || 0) },
+            { label: t("analytics.metric.orderRevenue") || "Order revenue",
+              value: formatCurrency(overview.money?.order_revenue || 0) },
             { label: t("analytics.metric.netRevenue") || "Net revenue",
               value: formatCurrency(overview.money?.net_revenue || 0),
               sub: `${formatCurrency(overview.money?.refunds || 0)} refunded` },
             { label: t("analytics.metric.customers") || "Customers",
               value: formatNumber(overview.customers?.total || 0),
-              sub: `${overview.customers?.new || 0} new` },
-            { label: t("analytics.metric.returning") || "Returning",
-              value: formatNumber(overview.customers?.returning || 0) },
+              sub: `${overview.customers?.new || 0} new · ${overview.customers?.returning || 0} returning` },
           ].map((m, i) => (
             <div key={i} className="p-4 rounded-xl bg-white border border-[#8B1E3F]/10">
               <div className="text-lg font-bold text-gray-900 truncate">{m.value}</div>
@@ -829,6 +897,83 @@ export default function AnalyticsPage() {
             </div>
           </div>
         )}
+      </div>
+
+      {/* ── Orders (own detailed section, distinct from bookings) ─────── */}
+      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+        {/* Orders Over Time */}
+        {loading ? (
+          <SkeletonChart />
+        ) : (
+          <div className="bg-white rounded-xl border border-[#8B1E3F]/10 p-6 shadow-sm">
+            <div className="flex items-center justify-between mb-6">
+              <h2 className="text-lg font-bold text-gray-900">
+                {t("analytics.chart.ordersOverTime") === "analytics.chart.ordersOverTime"
+                  ? "Orders Over Time" : t("analytics.chart.ordersOverTime")}
+              </h2>
+            </div>
+            {ordersOverTime.length === 0 ? (
+              <div className="h-[280px] flex items-center justify-center text-sm text-gray-400">
+                {t("analytics.empty.noOrderData") === "analytics.empty.noOrderData"
+                  ? "No orders in this period" : t("analytics.empty.noOrderData")}
+              </div>
+            ) : (
+              <div style={{ width: "100%", height: 300 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <BarChart data={ordersOverTime}>
+                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
+                    <XAxis dataKey="date" stroke="#9CA3AF" style={{ fontSize: "12px" }} />
+                    <YAxis stroke="#9CA3AF" style={{ fontSize: "12px" }} allowDecimals={false} />
+                    <Tooltip content={(props) => (
+                      <MaroonTooltip {...props} formatter={(v) => `${v} orders`} />
+                    )} />
+                    <Bar dataKey="count" name="Orders" fill="#6366F1" radius={[8, 8, 0, 0]} />
+                  </BarChart>
+                </ResponsiveContainer>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Order Status breakdown (from the unified overview counts) */}
+        <div className="bg-white rounded-xl border border-[#8B1E3F]/10 p-6 shadow-sm">
+          <div className="flex items-center justify-between mb-6">
+            <h2 className="text-lg font-bold text-gray-900">
+              {t("analytics.chart.orderStatus") === "analytics.chart.orderStatus"
+                ? "Order Status" : t("analytics.chart.orderStatus")}
+            </h2>
+          </div>
+          {loading ? (
+            <div className="grid grid-cols-2 gap-4">
+              {[...Array(4)].map((_, i) => (
+                <div key={i} className="h-24 bg-gray-100 rounded-xl animate-pulse" />
+              ))}
+            </div>
+          ) : !overview?.counts?.orders?.total ? (
+            <div className="h-[280px] flex items-center justify-center text-sm text-gray-400">
+              {t("analytics.empty.noOrderData") === "analytics.empty.noOrderData"
+                ? "No orders in this period" : t("analytics.empty.noOrderData")}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-4">
+              {Object.entries(overview.counts.orders.by_status || {}).map(([st, count]) => {
+                const total = overview.counts.orders.total || 1;
+                return (
+                  <div key={st} className="p-4 rounded-xl border border-gray-200">
+                    <div className="text-xl font-bold text-gray-900">{formatNumber(count)}</div>
+                    <div className="text-xs text-gray-600 capitalize mt-0.5">
+                      {st.replace(/_/g, " ")}
+                    </div>
+                    <div className="mt-2 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                      <div className="h-full rounded-full bg-indigo-500"
+                        style={{ width: `${(count / total) * 100}%` }} />
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* ── Top Performers ─────────────────────────────────────────────── */}

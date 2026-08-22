@@ -92,6 +92,7 @@ const DATE_RANGES = (t) => [
   { label: t('finance.dateRanges.thisWeek'), value: '7d' },
   { label: t('finance.dateRanges.thisMonth'), value: '30d' },
   { label: t('finance.dateRanges.thisQuarter'), value: '90d' },
+  { label: t('finance.dateRanges.last12Months') || '12 months', value: '12m' },
   { label: t('finance.dateRanges.lastMonth'), value: 'last_month' },
   { label: t('finance.dateRanges.thisYear'), value: 'this_year' },
 ]
@@ -179,6 +180,8 @@ function getDateRangeParams(rangeValue) {
       return { start_date: fmt(daysAgo(30)), end_date: fmt(now) };
     case "90d":
       return { start_date: fmt(daysAgo(90)), end_date: fmt(now) };
+    case "12m":
+      return { start_date: fmt(daysAgo(365)), end_date: fmt(now) };
     case "last_month":
       return {
         start_date: fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
@@ -588,18 +591,31 @@ function TransactionsTab({ dateRange, activeTenant, t }) {
                     </td>
                     <td className="py-4 px-4">
                       <div className="text-sm">
-                        {txn.booking_number && (
-                          <span className="text-[#8B1E3F] font-semibold">
+                        {txn.booking_number ? (
+                          <a
+                            href="/dashboard/bookings"
+                            className="text-[#8B1E3F] font-semibold hover:underline"
+                          >
                             {txn.booking_number}
+                          </a>
+                        ) : txn.order_number ? (
+                          <a
+                            href={txn.order_id ? `/dashboard/orders/${txn.order_id}` : "/dashboard/orders"}
+                            className="text-indigo-600 font-semibold hover:underline"
+                          >
+                            {txn.order_number}
+                          </a>
+                        ) : txn.source && txn.source !== "other" ? (
+                          <span className="text-gray-500 text-xs capitalize">
+                            {String(txn.source).replace(/_/g, " ")}
                           </span>
-                        )}
-                        {txn.project_number && (
-                          <span className="text-gray-500 text-xs ml-1">
-                            / {txn.project_number}
-                          </span>
-                        )}
-                        {!txn.booking_number && !txn.project_number && (
+                        ) : (
                           <span className="text-gray-300">—</span>
+                        )}
+                        {txn.external_id && (
+                          <div className="text-[10px] text-gray-400 mt-0.5 font-mono truncate max-w-[140px]">
+                            {txn.external_id}
+                          </div>
                         )}
                       </div>
                     </td>
