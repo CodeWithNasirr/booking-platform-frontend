@@ -93,17 +93,40 @@ export default {
   "billing.status.rejected": "مرفوض",
   "billing.status.approved": "معتمد",
 
-  // Enterprise
-  "billing.enterprise.badge": "مؤسسات",
-  "billing.enterprise.customPrice": "مخصص",
-  "billing.enterprise.contactSales": "تواصل مع المبيعات",
+ // Enterprise
 
-  "billing.enterprise.submittedTitle": "تم استلام الطلب",
-  "billing.enterprise.submittedDesc": "سيتواصل معك فريق المبيعات قريبًا.",
+"billing.enterprise.badge": "المؤسسات",
+"billing.enterprise.title": "المؤسسات",
+"billing.enterprise.contractStatus": "حالة العقد",
+"billing.enterprise.paymentRequired": "الدفع مطلوب",
+"billing.enterprise.customPrice": "مخصص",
+"billing.enterprise.contactSales": "تواصل مع المبيعات",
 
-  "billing.enterprise.requestTitle": "طلب خطة المؤسسات",
-  "billing.enterprise.statusPending": "بانتظار المراجعة",
-  "billing.enterprise.statusUnderReview": "قيد المراجعة",
+"billing.enterprise.billing": "الفوترة",
+"billing.enterprise.monthly": "شهري",
+"billing.enterprise.paymentTerms": "شروط الدفع",
+"billing.enterprise.contractPeriod": "مدة العقد",
+"billing.enterprise.renewal": "التجديد",
+
+"billing.enterprise.submittedTitle": "تم استلام الطلب",
+"billing.enterprise.submittedDesc": "سيتواصل معك فريق المبيعات قريبًا.",
+"billing.enterprise.requestTitle": "طلب خطة المؤسسات",
+"billing.enterprise.statusPending": "بانتظار المراجعة",
+"billing.enterprise.statusUnderReview": "قيد المراجعة",
+// Arabic
+"billing.enterprise.payNow": "ادفع الآن",
+// Arabic
+"billing.status.incomplete": "غير مكتمل",
+// Arabic
+"billing.enterprise.paymentPending": "الدفع قيد الانتظار",
+// Arabic
+"billing.enterprise.paid": "مدفوع",
+"billing.enterprise.periodEnd": "نهاية الفترة",
+// ar
+"plan.feature_locked_title": "الميزة غير متاحة",
+"plan.feature_locked_body": "هذه الميزة غير متوفرة في خطتك الحالية. قم بترقية خطتك لفتح هذه الميزة.",
+"plan.view_plans": "عرض الخطط",
+
   "billing.enterprise.requestPendingDesc": "يقوم فريق المبيعات لدينا بمراجعة طلبك وسيتواصل معك قريبًا. يمكنك سحب الطلب في أي وقت قبل الموافقة عليه.",
   "billing.enterprise.submittedOn": "تم التقديم",
   "billing.enterprise.withdraw": "سحب الطلب",

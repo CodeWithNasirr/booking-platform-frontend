@@ -189,6 +189,7 @@ const menuItems = [
     key: "tenant-support",
     label: t("tenant.support"),
     icon: LifeBuoy,
+    featureCode:"priority_support",
   },
   {
     key: "tenant-whatsapp",

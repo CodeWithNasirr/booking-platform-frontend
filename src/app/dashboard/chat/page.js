@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { useApp } from '@/contexts/AppContext'
+import PlanFeatureGate from "@/components/dashboard/PlanFeatureGate";
+
 import {
   Search,
   Filter,
@@ -821,8 +823,10 @@ function TenantChatPageInner() {
 
 export default function TenantChatPage(props) {
   return (
+    <PlanFeatureGate feature="priority_support">
     <TenantPermissionGate permission="chat.view">
       <TenantChatPageInner {...props} />
     </TenantPermissionGate>
+    </PlanFeatureGate>
   );
 }

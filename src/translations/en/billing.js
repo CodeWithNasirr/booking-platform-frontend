@@ -94,34 +94,57 @@ export default {
   "billing.status.approved": "Approved",
 
   // Enterprise
-  "billing.enterprise.badge": "Enterprise",
-  "billing.enterprise.customPrice": "Custom",
-  "billing.enterprise.contactSales": "Contact Sales",
 
-  "billing.enterprise.submittedTitle": "Request received",
-  "billing.enterprise.submittedDesc": "Our sales team will reach out shortly.",
+"billing.enterprise.badge": "Enterprise",
+"billing.enterprise.title": "Enterprise",
+"billing.enterprise.contractStatus": "Contract Status",
+"billing.enterprise.paymentRequired": "Payment Required",
+"billing.enterprise.customPrice": "Custom",
+"billing.enterprise.contactSales": "Contact Sales",
 
-  "billing.enterprise.requestTitle": "Enterprise request",
-  "billing.enterprise.statusPending": "Pending review",
-  "billing.enterprise.statusUnderReview": "Under review",
-  "billing.enterprise.requestPendingDesc":
-    "Our sales team is reviewing your request and will be in touch. You can withdraw it any time before it's approved.",
-  "billing.enterprise.submittedOn": "Submitted",
-  "billing.enterprise.withdraw": "Withdraw",
-  "billing.enterprise.cancelConfirm": "Withdraw this Enterprise request?",
-  "billing.enterprise.requestPending": "Request pending",
+"billing.enterprise.billing": "Billing",
+"billing.enterprise.monthly": "Monthly",
+"billing.enterprise.paymentTerms": "Payment Terms",
+"billing.enterprise.contractPeriod": "Contract Period",
+"billing.enterprise.renewal": "Renewal",
 
-  "billing.enterprise.modalIntro":
-    "Tell us about your needs and our sales team will prepare a tailored Enterprise quote for you.",
+"billing.enterprise.submittedTitle": "Request received",
+"billing.enterprise.submittedDesc": "Our sales team will reach out shortly.",
+"billing.enterprise.requestTitle": "Enterprise request",
+"billing.enterprise.statusPending": "Pending review",
+"billing.enterprise.statusUnderReview": "Under review",
 
-  "billing.enterprise.contactName": "Contact name",
-  "billing.enterprise.contactEmail": "Work email",
-  "billing.enterprise.contactPhone": "Phone",
-  "billing.enterprise.companySize": "Company size",
-  "billing.enterprise.expectedVolume": "Expected monthly volume",
-  "billing.enterprise.message": "Anything else?",
-  "billing.enterprise.sendRequest": "Send request",
+"billing.enterprise.requestPendingDesc":
+  "Our sales team is reviewing your request and will be in touch. You can withdraw it any time before it's approved.",
 
+"billing.enterprise.submittedOn": "Submitted",
+"billing.enterprise.withdraw": "Withdraw",
+"billing.enterprise.cancelConfirm": "Withdraw this Enterprise request?",
+"billing.enterprise.requestPending": "Request pending",
+
+"billing.enterprise.modalIntro":
+  "Tell us about your needs and our sales team will prepare a tailored Enterprise quote for you.",
+
+"billing.enterprise.contactName": "Contact name",
+"billing.enterprise.contactEmail": "Work email",
+"billing.enterprise.contactPhone": "Phone",
+"billing.enterprise.companySize": "Company size",
+"billing.enterprise.expectedVolume": "Expected monthly volume",
+"billing.enterprise.message": "Anything else?",
+"billing.enterprise.sendRequest": "Send request",
+// English
+"billing.enterprise.payNow": "Pay Now",
+// English
+"billing.status.incomplete": "Incomplete",
+// English
+"billing.enterprise.paymentPending": "Payment Pending",
+// English
+"billing.enterprise.paid": "Paid",
+// en
+"plan.feature_locked_title": "Feature not available",
+"plan.feature_locked_body": "This feature isn't included in your current plan. Upgrade your plan to unlock it.",
+"plan.view_plans": "View Plans",
+"billing.enterprise.periodEnd": "Period End",
   "billing.downgradeScheduled": "Downgrade scheduled",
   "billing.downgradeScheduledDesc": "Your current plan stays active until the end of this billing period, then the downgrade takes effect. You were not charged.",
   "billing.status.scheduled": "Scheduled",

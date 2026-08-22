@@ -18,14 +18,26 @@ import {
   MessageSquare,
 } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
+import { usePlan } from "@/contexts/PlanContext";
+import { useNotifications } from "@/contexts/NotificationsContext";
 import { useProviderStatus } from "./useProviderStatus";
 import { useIntegrationStatus } from "@/app/dashboard/integrations/hooks/useIntegrationStatus";
 import SidebarIntegrationDot from "@/components/shared/SidebarIntegrationDot";
+
+// Provider nav route → notification category (unread sidebar badges), same
+// feed the tenant sidebar uses.
+const NOTIF_CATEGORY = {
+  "/provider/orders": "orders",
+  "/provider/bookings": "bookings",
+  "/provider/custom-requests": "custom_requests",
+};
 
 export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
   const pathname = usePathname();
   const router = useRouter();
   const { logout, t } = useApp();
+  const { hasFeature, loading: planLoading } = usePlan();
+  const { byCategory, markCategoryRead } = useNotifications();
   const { isActive, isApproved } = useProviderStatus();
   const {
     getWarningsForFeature,
@@ -43,6 +55,9 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
 
   const go = (href) => {
     if (isDeactivated) return;
+    // Clear the unread badge for the section being opened (backend read state).
+    const category = NOTIF_CATEGORY[href];
+    if (category && (byCategory?.[category] || 0) > 0) markCategoryRead(category);
     router.push(href);
     setSidebarOpen(false);
   };
@@ -78,6 +93,9 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       label: t("sidebar_custom_requests") || "Custom Requests",
       icon: MessageSquare,
       disabled: isDeactivated,
+      // Plan-gated: hidden when the tenant's plan doesn't include custom
+      // requests (same effective-feature source of truth as the tenant panel).
+      featureCode: "custom_requests",
     },
     {
       key: "/provider/availability",
@@ -99,6 +117,30 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
       disabled: false,
     },
   ];
+
+  // Hide plan-gated items the tenant's plan doesn't include. While the plan is
+  // still loading we keep the item (avoid a flash of disappearing menu); once
+  // resolved, an excluded feature is removed.
+  const visibleNavItems = navItems.filter((item) => {
+    if (!item.featureCode) return true;
+    if (planLoading) return true;
+    return hasFeature(item.featureCode);
+  });
+
+  // ── Resolve unread notification badge for a nav item ──
+  const getNotificationBadge = (item) => {
+    const category = NOTIF_CATEGORY[item.key];
+    if (!category) return null;
+    const count = byCategory?.[category] || 0;
+    if (count <= 0) return null;
+    return (
+      <div className="h-[20px] px-[8px] rounded-full ml-auto flex items-center justify-center bg-[#800020]">
+        <span className="text-[12px] text-white font-medium leading-[16px]">
+          {count > 99 ? "99+" : count}
+        </span>
+      </div>
+    );
+  };
 
   // ── Resolve integration dot ──
   const getIntegrationDot = (item) => {
@@ -153,7 +195,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
 
         {/* Navigation */}
         <nav className="flex-1 p-4 space-y-1 overflow-y-auto">
-          {navItems.map((item) => {
+          {visibleNavItems.map((item) => {
             const Icon = item.icon;
             const isItemActive =
               item.key === "/provider"
@@ -161,6 +203,7 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
                 : pathname?.startsWith(item.key);
             const isDisabled = item.disabled;
             const dot = !isDisabled ? getIntegrationDot(item) : null;
+            const notifBadge = !isDisabled ? getNotificationBadge(item) : null;
 
             return (
               <button
@@ -186,11 +229,14 @@ export default function Sidebar({ sidebarOpen, setSidebarOpen }) {
                   {item.label}
                 </span>
 
+                {/* Unread notification badge (bookings/orders/custom requests) */}
+                {notifBadge}
+
                 {/* Integration dot (pushed right, before badge) */}
                 {dot}
 
-                {/* Badge */}
-                {item.badge && !isDisabled && (
+                {/* Static badge (legacy, if any) */}
+                {item.badge && !notifBadge && !isDisabled && (
                   <div
                     className={`h-[20px] px-[8px] rounded-full ml-auto flex items-center justify-center ${
                       isItemActive ? "bg-white/20" : "bg-[#800020]"
