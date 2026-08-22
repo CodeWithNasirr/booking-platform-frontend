@@ -5,13 +5,14 @@
 import { useState } from "react";
 import { Menu, Bell, Loader2 } from "lucide-react";
 import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
+import NotificationBell from "@/components/dashboard/NotificationBell";
 import { useApp } from "@/contexts/AppContext";
 import { useIntegrationStatus } from "@/app/dashboard/integrations/hooks/useIntegrationStatus";
 import IntegrationWarningBanner from "@/components/shared/IntegrationWarningBanner";
 import { getGoogleCalendarOAuthUrl } from "@/app/dashboard/integrations/lib/integrationsApi";
 
 export default function TopBar({ setSidebarOpen, pageName }) {
-  const { user, activeTenant, t } = useApp();
+  const { user, activeTenant, t, isRTL } = useApp();
   const { warnings, loading: warningsLoading } = useIntegrationStatus();
   const [connecting, setConnecting] = useState(false);
 
@@ -105,10 +106,9 @@ export default function TopBar({ setSidebarOpen, pageName }) {
               <LanguageSwitcher />
             </div>
 
-            <button className="relative p-2 hover:bg-gray-100 rounded-lg transition-colors">
-              <Bell className="w-5 h-5 text-[#4A5565]" />
-              <div className="absolute bg-[#fb2c36] right-1.5 top-1.5 rounded-full w-2 h-2" />
-            </button>
+            {/* Real notification bell — same shared feed as the tenant topbar
+                (unread count badge + dropdown), replacing the old static dot. */}
+            <NotificationBell isRTL={isRTL} />
 
             <div className="flex items-center gap-2 border border-[#e5e7eb] rounded-xl px-2 lg:px-3 py-2 bg-white">
               <div className="bg-gradient-to-b from-[#800020] to-[#600018] text-white rounded-lg w-8 h-8 flex items-center justify-center text-sm font-medium">
