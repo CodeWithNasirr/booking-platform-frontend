@@ -96,6 +96,13 @@ const CustomerRequestsDashboard = dynamic(() => import("../../modules/CustomerRe
   loading: () => <ModulePlaceholder type="customer_requests" />
 });
 
+// Public reviews display — renders nothing when the tenant has no public
+// reviews or lacks the reviews_ratings plan feature, so it's safe anywhere.
+const ReviewsModule = dynamic(() => import("../../modules/ReviewsModule"), {
+  ssr: false,
+  loading: () => null,
+});
+
 // =============================================================================
 // PLACEHOLDER COMPONENT
 // =============================================================================
@@ -229,6 +236,7 @@ const MODULE_MAP = {
   customer_requests: CustomerRequestsDashboard,
   order_checkout: OrderCheckoutModule,
   order_dashboard: OrderDashboardModule,
+  reviews: ReviewsModule,
   // provider_orders: ProviderOrdersModule,
 };
 
