@@ -28,6 +28,7 @@ import {
   RotateCcw,
   FileText,
   RefreshCw,
+  Star,
 } from "lucide-react";
 
 // Module-scope side effect helper — writing document.cookie inside the
@@ -148,6 +149,12 @@ const menuItems = [
     key: "tenant-customers",
     label: t("tenant.customers"),
     icon: UsersRound,
+  },
+  {
+    key: "tenant-reviews",
+    label: t("tenant.reviews") || "Reviews",
+    icon: Star,
+    featureCode: "reviews_ratings",
   },
   {
     key: "tenant-finance",
