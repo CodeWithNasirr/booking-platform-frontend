@@ -8,11 +8,22 @@ export default {
   "analytics.dateRange.90d": "هذا الربع",
   "analytics.dateRange.lastMonth": "الشهر الماضي",
   "analytics.dateRange.thisYear": "هذا العام",
-
   "analytics.kpi.totalBookings": "إجمالي الحجوزات",
   "analytics.kpi.revenue": "الإيرادات",
   "analytics.kpi.conversionRate": "معدل التحويل",
   "analytics.kpi.avgRating": "متوسط التقييم",
+
+  "analytics.metric.orders": "الطلبات",
+"analytics.metric.customRequests": "الطلبات المخصصة",
+"analytics.metric.bookingRevenue": "إيرادات الحجوزات",
+"analytics.metric.orderRevenue": "إيرادات الطلبات",
+"analytics.metric.netRevenue": "صافي الإيرادات",
+"analytics.metric.customers": "العملاء",
+"analytics.common.completed": "مكتملة",
+"analytics.common.converted": "تم تحويلها",
+"analytics.common.refunded": "مستردة",
+"analytics.common.new": "جدد",
+"analytics.common.returning": "عائدون",
 
   "analytics.chart.bookingsOverTime": "الحجوزات عبر الوقت",
   "analytics.chart.revenueByCategory": "الإيرادات حسب الفئة",

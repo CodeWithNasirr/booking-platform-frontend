@@ -10,12 +10,26 @@ export default {
   "analytics.dateRange.90d": "This Quarter",
   "analytics.dateRange.lastMonth": "Last Month",
   "analytics.dateRange.thisYear": "This Year",
-
   // ── KPI Cards ──
   "analytics.kpi.totalBookings": "Total Bookings",
   "analytics.kpi.revenue": "Revenue",
   "analytics.kpi.conversionRate": "Conversion Rate",
   "analytics.kpi.avgRating": "Avg. Rating",
+
+ // ── Analytics Metrics ──
+"analytics.metric.orders": "Orders",
+"analytics.metric.customRequests": "Custom Requests",
+"analytics.metric.bookingRevenue": "Booking Revenue",
+"analytics.metric.orderRevenue": "Order Revenue",
+"analytics.metric.netRevenue": "Net Revenue",
+"analytics.metric.customers": "Customers",
+
+// ── Common Metric Labels ──
+"analytics.common.completed": "completed",
+"analytics.common.converted": "converted",
+"analytics.common.refunded": "refunded",
+"analytics.common.new": "new",
+"analytics.common.returning": "returning",
 
   // ── Chart Titles ──
   "analytics.chart.bookingsOverTime": "Bookings Over Time",

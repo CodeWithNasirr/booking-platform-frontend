@@ -66,13 +66,22 @@ function SummaryHeader({ summary }) {
           })}
         </div>
         <div className="mt-3 pt-3 border-t border-gray-100 text-xs text-gray-500 flex flex-wrap gap-x-4 gap-y-1">
-          <span>Bookings: {summary?.by_source?.booking ?? 0}</span>
-          <span>Orders: {summary?.by_source?.order ?? 0}</span>
-          <span>Responded: {summary?.response_rate ?? 0}%</span>
+          <span>Bookings: {getText(summary?.by_source?.booking, 0)}</span>
+          <span>Orders: {getText(summary?.by_source?.order, 0)}</span>
+          <span>Responded: {getText(summary?.response_rate, 0)}%</span>
         </div>
       </div>
     </div>
   );
+}
+
+
+function getText(value, fallback = "") {
+  if (typeof value === "string") return value;
+  if (value && typeof value === "object") {
+    return value.en || Object.values(value)[0] || fallback;
+  }
+  return fallback;
 }
 
 function ReviewCard({ review, canManage, onToggle, onRespond, busy }) {
@@ -95,9 +104,9 @@ function ReviewCard({ review, canManage, onToggle, onRespond, busy }) {
             )}
           </div>
           <div className="mt-1 text-sm font-medium text-gray-900 truncate">
-            {review.reviewer_name || "Customer"}
+            {getText(review.reviewer_name, "Customer")}
             {review.service_name ? (
-              <span className="text-gray-400 font-normal"> · {review.service_name}</span>
+              <span className="text-gray-400 font-normal"> · {getText(review.service_name)}</span>
             ) : null}
           </div>
         </div>
@@ -107,10 +116,10 @@ function ReviewCard({ review, canManage, onToggle, onRespond, busy }) {
       </div>
 
       {review.title ? (
-        <div className="mt-2 text-sm font-semibold text-gray-800">{review.title}</div>
+        <div className="mt-2 text-sm font-semibold text-gray-800">{getText(review.title)}</div>
       ) : null}
       {review.comment ? (
-        <p className="mt-1 text-sm text-gray-600 whitespace-pre-wrap break-words">{review.comment}</p>
+        <p className="mt-1 text-sm text-gray-600 whitespace-pre-wrap break-words">{getText(review.comment)}</p>
       ) : (
         <p className="mt-1 text-sm text-gray-400 italic">No written comment.</p>
       )}
@@ -118,7 +127,7 @@ function ReviewCard({ review, canManage, onToggle, onRespond, busy }) {
       {review.provider_response && !replying ? (
         <div className="mt-3 rounded-xl bg-gray-50 border border-gray-100 p-3">
           <div className="text-[11px] font-semibold text-gray-500 mb-1">Your response</div>
-          <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{review.provider_response}</p>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{getText(review.provider_response)}</p>
         </div>
       ) : null}
 
@@ -246,7 +255,10 @@ export default function ReviewsPage() {
         <div>
           <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
             <Star className="w-5 h-5 text-amber-400 fill-amber-400" />
-            {t?.("tenant.reviews") || "Reviews"}
+            {(() => {
+              const value = t?.("tenant.reviews");
+              return typeof value === "string" ? value : value?.en || "Reviews";
+            })()}
           </h1>
           <p className="text-sm text-gray-500">Customer feedback across bookings and orders.</p>
         </div>

@@ -8,20 +8,6 @@ import { tenantRoutes } from "@/lib/tenantRoutes";
 import { CallDock } from "@/components/collaboration";
 import BookingConversationPanel from "@/components/bookings/BookingConversationPanel";
 
-import PortalBrandRoot from "@/app/tenant-site/components/portalBrand";
-import { statusMeta, paymentMeta, isOnline } from "@/app/tenant-site/components/portalPresentation";
-import Button from "@/components/ui/Button";
-import StatusPill from "@/components/ui/StatusPill";
-import Badge from "@/components/ui/Badge";
-import Tabs from "@/components/ui/Tabs";
-import Spinner from "@/components/ui/Spinner";
-import Modal, { ModalFooter } from "@/components/ui/Modal";
-import Textarea from "@/components/ui/Textarea";
-import {
-  ArrowLeft, Calendar, Clock, MapPin, Video, User, CreditCard, Star,
-  ExternalLink, XCircle, MessageSquare, Info, ListChecks,
-} from "lucide-react";
-
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
 function resolveToken(tenantId) {
@@ -74,6 +60,76 @@ function buildGuestHeaders(domain, token, { json = true } = {}) {
   if (domain) headers["X-Tenant"] = domain;
   if (token) headers["X-Booking-Token"] = token.replace(/^Bearer /, "");
   return headers;
+}
+
+// Review modal — a stable, module-scope component so typing in the textarea
+// only re-renders this small subtree. Previously the rating/comment state
+// lived on the big BookingDetailClient parent, so every keystroke re-rendered
+// the whole page (CallDock + realtime conversation panel); that heavy
+// reconciliation replaced the textarea's DOM node and dropped focus after a
+// single character. Keeping the state colocated here fixes the focus loss
+// while the textarea stays fully controlled. Behaviour/UI/payload unchanged.
+function ReviewModal({ open, submitting, onSubmit, onClose }) {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+
+  // Reset to a fresh review each time the modal is (re)opened.
+  useEffect(() => {
+    if (open) {
+      setRating(5);
+      setComment("");
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">Leave a review</h3>
+        <p className="text-sm text-gray-500 mb-4">How was your consultation?</p>
+
+        <div className="flex items-center gap-1 mb-4">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setRating(n)}
+              className={`text-3xl leading-none ${n <= rating ? "text-yellow-400" : "text-gray-300"}`}
+              aria-label={`${n} star${n > 1 ? "s" : ""}`}
+            >
+              ★
+            </button>
+          ))}
+        </div>
+
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          rows={4}
+          placeholder="Share a few words about your experience (optional)"
+          className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+        />
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit({ rating, comment })}
+            disabled={submitting}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? "Submitting…" : "Submit review"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
 }
 
 export default function BookingDetailClient({
@@ -158,7 +214,7 @@ export default function BookingDetailClient({
       // Go straight to list endpoint (individual endpoint doesn't exist)
       const res = await fetch(
         `${API_BASE}/api/v1/guest-bookings/by-email/`,
-        { headers: buildHeaders(domain, auth.token), credentials: 'include' }
+        { headers: buildHeaders(domain, auth.token) }
       );
 
       if (!res.ok) {
@@ -211,12 +267,9 @@ export default function BookingDetailClient({
 
   const [cancelling, setCancelling] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
-  const [tab, setTab] = useState("chat"); // mobile: details | chat
 
-  const submitReview = useCallback(async () => {
+  const submitReview = useCallback(async ({ rating, comment }) => {
     const auth = resolveToken(tenantId);
     setReviewSubmitting(true);
     try {
@@ -225,7 +278,7 @@ export default function BookingDetailClient({
         {
           method: "POST",
           headers: buildGuestHeaders(domain, auth.token),
-          body: JSON.stringify({ rating: reviewRating, comment: reviewComment }),
+          body: JSON.stringify({ rating, comment }),
         }
       );
       if (!res.ok) {
@@ -233,14 +286,13 @@ export default function BookingDetailClient({
         throw new Error(data.detail || data.error || "Could not submit your review.");
       }
       setReviewOpen(false);
-      setReviewComment("");
       await fetchBookingDetail();
     } catch (e) {
       alert(e.message || "Could not submit your review.");
     } finally {
       setReviewSubmitting(false);
     }
-  }, [tenantId, domain, bookingId, reviewRating, reviewComment, fetchBookingDetail]);
+  }, [tenantId, domain, bookingId, fetchBookingDetail]);
 
   const handleCancelBooking = useCallback(async () => {
     const reason = window.prompt("Why are you cancelling this booking? (optional)", "");
@@ -311,247 +363,314 @@ export default function BookingDetailClient({
     }).format(amount || 0);
   };
 
-  // ── Branded portal chrome wrappers ──
-  const Chrome = ({ children }) => (
-    <>
-      {header?.length > 0 && <LayoutRenderer sections={[header]} site={site} />}
-      <main className="min-h-screen bg-muted">{children}</main>
-      {footer?.length > 0 && <LayoutRenderer sections={[footer]} site={site} />}
-    </>
-  );
-
-  if (!isClient || loading) {
+  if (!isClient) {
     return (
-      <Chrome>
-        <div className="flex justify-center py-24"><Spinner size="lg" /></div>
-      </Chrome>
+      <>
+        {header?.length > 0 && <LayoutRenderer sections={[header]} site={site} />}
+        <main className="min-h-screen bg-gray-50 py-8">
+          <div className="flex justify-center py-20">
+            <div className="animate-spin h-8 w-8 border-b-2 border-gray-900 rounded-full" />
+          </div>
+        </main>
+        {footer?.length > 0 && <LayoutRenderer sections={[footer]} site={site} />}
+      </>
+    );
+  }
+
+  if (loading) {
+    return (
+      <>
+        {header?.length > 0 && <LayoutRenderer sections={[header]} site={site} />}
+        <main className="min-h-screen bg-gray-50 py-8">
+          <div className="max-w-4xl mx-auto px-4">
+            <div className="flex justify-center py-20">
+              <div className="animate-spin h-8 w-8 border-b-2 border-gray-900 rounded-full" />
+            </div>
+          </div>
+        </main>
+        {footer?.length > 0 && <LayoutRenderer sections={[footer]} site={site} />}
+      </>
     );
   }
 
   if (error) {
     return (
-      <Chrome>
-        <PortalBrandRoot site={site} className="max-w-md mx-auto px-4 py-16 text-center">
-          <p className="text-danger mb-4">{error}</p>
-          <div className="flex gap-2 justify-center">
-            <Button variant="primary" onClick={fetchBookingDetail}>Try again</Button>
-            <Button variant="ghost" onClick={handleBack}>Go back</Button>
+      <>
+        {header?.length > 0 && <LayoutRenderer sections={[header]} site={site} />}
+        <main className="min-h-screen bg-gray-50 py-8">
+          <div className="max-w-4xl mx-auto px-4">
+            <button onClick={handleBack} className="mb-6 text-sm text-gray-600 hover:text-gray-900">
+              ← Back to My Bookings
+            </button>
+            <div className="bg-white rounded-lg shadow p-8 text-center">
+              <p className="text-red-600 mb-4">{error}</p>
+              <button onClick={fetchBookingDetail} className="px-4 py-2 bg-blue-600 text-white rounded-xl mr-2">
+                Try Again
+              </button>
+              <button onClick={handleBack} className="px-4 py-2 bg-gray-200 text-gray-700 rounded-xl">
+                Go Back
+              </button>
+            </div>
           </div>
-        </PortalBrandRoot>
-      </Chrome>
+        </main>
+        {footer?.length > 0 && <LayoutRenderer sections={[footer]} site={site} />}
+      </>
     );
   }
 
   if (!booking) return null;
 
-  const st = statusMeta(booking.status);
-  const pay = paymentMeta(booking);
-  const online = isOnline(booking);
-  const isTerminal = ["cancelled", "refunded"].includes(booking.status);
-  const canCancel = ["paid", "scheduled"].includes(booking.status);
-  const canReview = booking.status === "completed" && !booking.has_review;
-  const hide = (name) => (tab !== name ? "max-lg:hidden" : "");
-
-  const callAuth = resolveToken(tenantId);
-  const rawToken = (callAuth.token || "").replace(/^Bearer /, "");
-
-  const Section = ({ icon: Icon, title, children, className = "" }) => (
-    <section className={`rounded-xl border border-border bg-card p-4 ${className}`}>
-      <div className="flex items-center gap-2 mb-3">
-        {Icon && <Icon className="w-4 h-4 text-muted-foreground" />}
-        <h3 className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">{title}</h3>
-      </div>
-      {children}
-    </section>
-  );
-  const Row = ({ label, children, tone }) => (
-    <div className="flex items-baseline justify-between gap-3 py-1">
-      <span className="text-sm text-muted-foreground">{label}</span>
-      <span className={`text-sm text-end tabular-nums ${tone === "danger" ? "text-danger" : tone === "success" ? "text-success" : "text-foreground"}`}>{children}</span>
-    </div>
-  );
-
   return (
-    <Chrome>
-      <PortalBrandRoot site={site} className="max-w-5xl mx-auto px-4 py-6">
-        {/* Back */}
-        <button onClick={handleBack} className="text-sm text-muted-foreground hover:text-foreground mb-4 inline-flex items-center gap-1.5">
-          <ArrowLeft className="w-4 h-4" /> Back to my bookings
-        </button>
+    <>
+      {header?.length > 0 && <LayoutRenderer sections={[header]} site={site} />}
 
-        {/* Header */}
-        <header className="rounded-xl border border-border bg-card p-4 mb-4">
-          <div className="flex items-start justify-between gap-3">
-            <div className="min-w-0">
-              <h1 className="text-lg sm:text-xl font-bold text-foreground truncate">{booking.service_name || "Service"}</h1>
-              <p className="text-xs font-mono text-muted-foreground mt-0.5">#{booking.booking_number}</p>
-            </div>
-            <div className="flex flex-col items-end gap-1.5 shrink-0">
-              <StatusPill tone={st.tone} size="md" label={st.label} />
-              <Badge variant={pay.tone}>{pay.label}</Badge>
-            </div>
-          </div>
-        </header>
+      <main className="min-h-screen bg-gray-50 py-8">
+        <div className="max-w-4xl mx-auto px-4">
+          {/* Back Button */}
+          <button onClick={handleBack} className="mb-6 text-sm text-gray-600 hover:text-gray-900 flex items-center gap-1">
+            ← Back to My Bookings
+          </button>
 
-        {/* Mobile tabs */}
-        <div className="lg:hidden mb-4">
-          <Tabs value={tab} onChange={setTab} variant="segment" className="w-full" items={[
-            { value: "details", label: "Details", icon: Info },
-            { value: "chat", label: "Chat", icon: MessageSquare },
-          ]} />
-        </div>
-
-        {/* Workspace */}
-        <div className="lg:grid lg:grid-cols-[minmax(0,1fr)_400px] lg:gap-6 lg:items-start">
-          {/* LEFT — details */}
-          <div className={`space-y-4 min-w-0 ${hide("details")}`}>
-            {/* Scheduling + location */}
-            {(booking.scheduled_date || booking.scheduled_datetime || online || booking.meeting_url) && (
-              <Section icon={Calendar} title="Date, time & location">
-                {(booking.scheduled_date || booking.scheduled_datetime) && (
-                  <p className="text-base font-semibold text-foreground">
-                    {formatDateTime(booking.scheduled_date || booking.scheduled_datetime, booking.scheduled_time, booking.timezone)}
+          {/* Main Card */}
+          <div className="bg-white rounded-xl shadow-sm border overflow-hidden">
+            
+            {/* Header */}
+            <div className="p-6 border-b bg-gray-50">
+              <div className="flex flex-col md:flex-row md:justify-between md:items-start gap-4">
+                <div>
+                  <h1 className="text-2xl font-bold text-gray-900">
+                    {booking.service_name || "Service"}
+                  </h1>
+                  <p className="text-gray-500 mt-1">
+                    Booking #{booking.booking_number}
                   </p>
-                )}
-                {booking.duration_minutes ? (
-                  <p className="text-sm text-muted-foreground mt-0.5 flex items-center gap-1.5"><Clock className="w-3.5 h-3.5" />{booking.duration_minutes} minutes</p>
-                ) : null}
-                <div className="mt-2 flex items-center gap-1.5 text-sm text-foreground">
-                  {online ? <Video className="w-4 h-4 text-muted-foreground" /> : <MapPin className="w-4 h-4 text-muted-foreground" />}
-                  {booking.meeting_url ? (
-                    <a href={booking.meeting_url} target="_blank" rel="noopener noreferrer" className="text-primary font-medium hover:underline inline-flex items-center gap-1">
-                      {booking.meeting_provider ? `Join via ${booking.meeting_provider.replace(/_/g, " ")}` : "Join meeting"}<ExternalLink className="w-3.5 h-3.5" />
-                    </a>
-                  ) : (
-                    <span>{online ? "Online meeting" : (booking.location || "In person")}</span>
+                  <p className="text-xs text-gray-400 mt-1">
+                    ID: {booking.id}
+                  </p>
+                </div>
+                <span className={`px-4 py-2 rounded-full text-sm font-semibold capitalize w-fit ${getStatusColor(booking.status)}`}>
+                  {(booking.status || "unknown").replace(/_/g, ' ')}
+                </span>
+              </div>
+            </div>
+
+            <div className="p-6 space-y-6">
+
+              {/* Live voice / video / screen-share call surface */}
+              {isClient && (() => {
+                const callAuth = resolveToken(tenantId);
+                const rawToken = (callAuth.token || "").replace(/^Bearer /, "");
+                return (
+                  <CallDock
+                    subjectType="booking"
+                    subjectId={bookingId}
+                    tenantId={tenantId}
+                    authMode="guest"
+                    guestToken={rawToken}
+                    selfName={booking.customer_name || "You"}
+                    canStart={["paid", "scheduled"].includes(booking.status)}
+                  />
+                );
+              })()}
+
+              {/* Conversation — chat + file sharing + timeline */}
+              <div className="border rounded-xl overflow-hidden">
+                <div className="px-4 py-3 border-b bg-gray-50">
+                  <h3 className="text-sm font-semibold text-gray-700">Messages & Files</h3>
+                  <p className="text-xs text-gray-400 mt-0.5">
+                    Chat with your provider, share files, and see everything that happened.
+                  </p>
+                </div>
+                <div className="p-3">
+                  {guestToken && (
+                    <BookingConversationPanel
+                      bookingId={bookingId}
+                      domain={domain}
+                      auth={{ guestToken }}
+                      viewer="customer"
+                      showComposer={!["cancelled", "refunded"].includes(booking.status)}
+                    />
                   )}
                 </div>
-              </Section>
-            )}
+              </div>
 
-            {/* Provider */}
-            {booking.provider_name && (
-              <Section icon={User} title="Your provider">
-                <div className="flex items-center gap-3">
-                  <div className="w-10 h-10 rounded-full bg-accent text-accent-foreground flex items-center justify-center text-sm font-semibold shrink-0">
-                    {(booking.provider_name || "?").split(" ").map((n) => n[0]).join("").toUpperCase().slice(0, 2)}
+              {/* Payment Summary */}
+              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="text-sm text-blue-600 font-medium">Total Amount</p>
+                  <p className="text-xl font-bold text-blue-900">
+                    {formatMoney(booking.total_amount, booking.currency)}
+                  </p>
+                </div>
+                <div className="bg-green-50 p-4 rounded-lg">
+                  <p className="text-sm text-green-600 font-medium">Amount Paid</p>
+                  <p className="text-xl font-bold text-green-900">
+                    {formatMoney(booking.amount_paid, booking.currency)}
+                  </p>
+                </div>
+                {booking.amount_remaining > 0 && (
+                  <div className="bg-orange-50 p-4 rounded-lg">
+                    <p className="text-sm text-orange-600 font-medium">Remaining</p>
+                    <p className="text-xl font-bold text-orange-900">
+                      {formatMoney(booking.amount_remaining, booking.currency)}
+                    </p>
                   </div>
-                  <p className="text-sm font-medium text-foreground">{booking.provider_name}</p>
+                )}
+              </div>
+
+              {/* Scheduling Info */}
+              {(booking.scheduled_date || booking.scheduled_datetime) && (
+                <div className="bg-indigo-50 p-4 rounded-lg border border-indigo-100">
+                  <h3 className="text-sm font-semibold text-indigo-900 mb-2 flex items-center gap-2">
+                    📅 Scheduled For
+                  </h3>
+                  <p className="text-lg font-medium text-indigo-800">
+                    {formatDateTime(
+                      booking.scheduled_date || booking.scheduled_datetime,
+                      booking.scheduled_time,
+                      booking.timezone
+                    )}
+                  </p>
+                  {booking.duration_minutes && (
+                    <p className="text-sm text-indigo-600 mt-1">
+                      Duration: {booking.duration_minutes} minutes
+                    </p>
+                  )}
                 </div>
-              </Section>
-            )}
-
-            {/* Payment */}
-            <Section icon={CreditCard} title="Payment">
-              <Row label="Total">{formatMoney(booking.total_amount, booking.currency)}</Row>
-              <Row label="Amount paid" tone="success">{formatMoney(booking.amount_paid, booking.currency)}</Row>
-              {booking.amount_remaining > 0 && <Row label="Remaining" tone="danger">{formatMoney(booking.amount_remaining, booking.currency)}</Row>}
-            </Section>
-
-            {/* Notes */}
-            {booking.customer_notes && (
-              <Section icon={Info} title="Your notes">
-                <p className="text-sm text-foreground whitespace-pre-wrap">{booking.customer_notes}</p>
-              </Section>
-            )}
-
-            {/* Requirements */}
-            {booking.requirements && Object.keys(booking.requirements).length > 0 && (
-              <Section icon={ListChecks} title="Requirements">
-                <div className="space-y-1.5 text-sm">
-                  {Object.entries(booking.requirements).map(([key, value]) => (
-                    <div key={key}><span className="text-muted-foreground capitalize">{key.replace(/_/g, " ")}: </span><span className="text-foreground">{Array.isArray(value) ? value.join(", ") : String(value)}</span></div>
-                  ))}
-                </div>
-              </Section>
-            )}
-
-            {/* Activity */}
-            <Section icon={Clock} title="Activity">
-              <Row label="Created">{formatDate(booking.created_at)}</Row>
-              {booking.confirmed_at && <Row label="Confirmed">{formatDate(booking.confirmed_at)}</Row>}
-              {booking.completed_at && <Row label="Completed">{formatDate(booking.completed_at)}</Row>}
-              {booking.cancelled_at && <Row label="Cancelled" tone="danger">{formatDate(booking.cancelled_at)}</Row>}
-              {booking.cancelled_reason && (
-                <p className="mt-2 text-xs text-danger-soft-foreground bg-danger-soft rounded-lg p-2">Reason: {booking.cancelled_reason}</p>
               )}
-            </Section>
+
+              {/* Meeting Link */}
+              {booking.meeting_url && (
+                <div className="bg-green-50 p-4 rounded-lg border border-green-100">
+                  <h3 className="text-sm font-semibold text-green-900 mb-2 flex items-center gap-2">
+                    🔗 Meeting Link
+                  </h3>
+                  <a 
+                    href={booking.meeting_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-green-700 hover:text-green-900 hover:underline break-all font-medium"
+                  >
+                    {booking.meeting_url}
+                  </a>
+                  {booking.meeting_provider && (
+                    <p className="text-xs text-green-600 mt-1 capitalize">
+                      via {booking.meeting_provider.replace(/_/g, ' ')}
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {/* Customer Notes */}
+              {booking.customer_notes && (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Your Notes</h3>
+                  <p className="text-gray-600 whitespace-pre-wrap">{booking.customer_notes}</p>
+                </div>
+              )}
+
+              {/* Requirements */}
+              {booking.requirements && Object.keys(booking.requirements).length > 0 && (
+                <div className="bg-gray-50 p-4 rounded-lg">
+                  <h3 className="text-sm font-semibold text-gray-700 mb-2">Requirements</h3>
+                  <div className="text-sm text-gray-600 space-y-1">
+                    {Object.entries(booking.requirements).map(([key, value]) => (
+                      <div key={key} className="flex gap-2">
+                        <span className="font-medium capitalize">{key}:</span>
+                        <span>{Array.isArray(value) ? value.join(', ') : value}</span>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Timeline */}
+              <div className="border-t pt-4">
+                <h3 className="text-sm font-semibold text-gray-700 mb-3">Timeline</h3>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">Created</span>
+                    <span className="text-gray-700">{formatDate(booking.created_at)}</span>
+                  </div>
+                  {booking.confirmed_at && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Confirmed</span>
+                      <span className="text-gray-700">{formatDate(booking.confirmed_at)}</span>
+                    </div>
+                  )}
+                  {booking.completed_at && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">Completed</span>
+                      <span className="text-gray-700">{formatDate(booking.completed_at)}</span>
+                    </div>
+                  )}
+                  {booking.cancelled_at && (
+                    <div className="flex justify-between">
+                      <span className="text-red-500">Cancelled</span>
+                      <span className="text-red-700">{formatDate(booking.cancelled_at)}</span>
+                    </div>
+                  )}
+                  {booking.cancelled_reason && (
+                    <div className="mt-2 p-2 bg-red-50 rounded text-red-600 text-xs">
+                      Reason: {booking.cancelled_reason}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
 
             {/* Actions */}
-            {(canCancel || canReview || booking.meeting_url) && (
-              <div className="flex flex-wrap gap-2">
-                {booking.meeting_url && (
-                  <Button as="a" href={booking.meeting_url} target="_blank" rel="noopener noreferrer" variant="success" leftIcon={<Video className="w-4 h-4" />}>
-                    Join meeting
-                  </Button>
-                )}
-                {canReview && (
-                  <Button variant="secondary" onClick={() => setReviewOpen(true)} leftIcon={<Star className="w-4 h-4" />}>
-                    Leave a review
-                  </Button>
-                )}
-                {canCancel && (
-                  <Button variant="secondary" onClick={handleCancelBooking} loading={cancelling} leftIcon={<XCircle className="w-4 h-4" />} className="text-danger border-danger/30 hover:bg-danger-soft">
-                    Cancel booking
-                  </Button>
-                )}
-              </div>
-            )}
-          </div>
+            <div className="p-6 border-t bg-gray-50 flex flex-wrap gap-3">
+              <button
+                onClick={handleBack}
+                className="px-4 py-2 bg-white border border-gray-300 text-gray-700 rounded-lg hover:bg-gray-50 font-medium"
+              >
+                ← Back to List
+              </button>
+              
+              {["paid", "scheduled"].includes(booking.status) && (
+                <button
+                  onClick={handleCancelBooking}
+                  disabled={cancelling}
+                  className="px-4 py-2 bg-red-100 text-red-700 rounded-lg hover:bg-red-200 font-medium disabled:opacity-50"
+                >
+                  {cancelling ? "Cancelling…" : "Cancel Booking"}
+                </button>
+              )}
+              
+              {booking.status === "completed" && !booking.has_review && (
+                <button
+                  onClick={() => setReviewOpen(true)}
+                  className="px-4 py-2 bg-blue-100 text-blue-700 rounded-lg hover:bg-blue-200 font-medium"
+                >
+                  Leave Review
+                </button>
+              )}
 
-          {/* RIGHT — chat + call */}
-          <div className={`space-y-3 ${hide("chat")}`}>
-            {isClient && (
-              <CallDock
-                subjectType="booking"
-                subjectId={bookingId}
-                tenantId={tenantId}
-                authMode="guest"
-                guestToken={rawToken}
-                selfName={booking.customer_name || "You"}
-                canStart={["paid", "scheduled"].includes(booking.status)}
-              />
-            )}
-            <div className="rounded-xl border border-border bg-card overflow-hidden flex flex-col h-[70dvh] min-h-[380px] lg:h-[72vh]">
-              <div className="flex items-center gap-2 px-4 h-12 border-b border-border shrink-0">
-                <MessageSquare className="w-4 h-4 text-muted-foreground" />
-                <div className="min-w-0">
-                  <h2 className="text-sm font-semibold text-foreground leading-tight">Messages</h2>
-                  <p className="text-[11px] text-muted-foreground leading-tight">Chat with the team &amp; share files</p>
-                </div>
-              </div>
-              <div className="flex-1 min-h-0">
-                {guestToken && (
-                  <BookingConversationPanel
-                    bookingId={bookingId}
-                    domain={domain}
-                    auth={{ guestToken }}
-                    viewer="customer"
-                    fill
-                    showComposer={!isTerminal}
-                  />
-                )}
-              </div>
+              {booking.meeting_url && (
+                <a
+                  href={booking.meeting_url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 font-medium ml-auto"
+                >
+                  Join Meeting →
+                </a>
+              )}
             </div>
           </div>
         </div>
-      </PortalBrandRoot>
+      </main>
 
-      {/* Review modal */}
-      <Modal open={reviewOpen} onClose={() => setReviewOpen(false)} title="Leave a review" description="How was your experience?" size="md">
-        <div className="flex items-center gap-1 mb-3">
-          {[1, 2, 3, 4, 5].map((n) => (
-            <button key={n} type="button" onClick={() => setReviewRating(n)} aria-label={`${n} star${n > 1 ? "s" : ""}`}>
-              <Star className={`w-8 h-8 ${n <= reviewRating ? "text-warning fill-warning" : "text-border"}`} />
-            </button>
-          ))}
-        </div>
-        <Textarea value={reviewComment} onChange={(e) => setReviewComment(e.target.value)} rows={4} placeholder="Share a few words about your experience (optional)" />
-        <ModalFooter>
-          <Button variant="ghost" onClick={() => setReviewOpen(false)}>Cancel</Button>
-          <Button variant="primary" onClick={submitReview} loading={reviewSubmitting}>Submit review</Button>
-        </ModalFooter>
-      </Modal>
-    </Chrome>
+      {footer?.length > 0 && <LayoutRenderer sections={[footer]} site={site} />}
+
+      {/* Review modal — colocated state keeps typing isolated to this subtree. */}
+      <ReviewModal
+        open={reviewOpen}
+        submitting={reviewSubmitting}
+        onSubmit={submitReview}
+        onClose={() => setReviewOpen(false)}
+      />
+    </>
   );
 }

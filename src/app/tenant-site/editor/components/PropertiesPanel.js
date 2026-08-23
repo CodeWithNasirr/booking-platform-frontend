@@ -1162,7 +1162,7 @@ function DatabaseServicesEditor({
   return (
     <>
       {/* Link to Service Manager */}
-      <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
+      {/* <div className="p-4 bg-purple-50 rounded-xl border border-purple-100">
         <div className={`flex items-center justify-between ${isRTL ? "flex-row-reverse" : ""}`}>
           <div>
             <p className="text-sm font-medium text-purple-900">
@@ -1184,7 +1184,7 @@ function DatabaseServicesEditor({
             {T({ en: "Open", ar: "فتح", ur: "کھولیں" })}
           </button>
         </div>
-      </div>
+      </div> */}
 
       {/* Filters */}
       <FieldGroup 
@@ -1311,7 +1311,6 @@ function ServiceSelectItem({ service, isSelected, onToggle, language, isRTL }) {
   };
   
   const typeInfo = typeLabels[service.order_type] || typeLabels.booking;
-
   return (
     <div
       onClick={onToggle}
@@ -1351,8 +1350,7 @@ function ServiceSelectItem({ service, isSelected, onToggle, language, isRTL }) {
             {typeInfo.label}
           </span>
           <span className="text-xs text-slate-500">
-            ${service.base_price || service.packages?.[0]?.price || 0}
-
+            {service.currency} {service.base_price || service.packages?.[0]?.price || 0}
           </span>
         </div>
       </div>

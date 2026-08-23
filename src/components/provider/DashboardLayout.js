@@ -5,7 +5,9 @@ import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
 import useBlockBackNavigation from "@/lib/useBlockBackNavigation";
 import AuthGate from "@/components/auth/AuthGate";
-// import useRenderTrace from "@/lib/useRenderTrace";
+import useRenderTrace from "@/lib/useRenderTrace";
+import { PlanProvider } from "@/contexts/PlanContext";
+import { NotificationsProvider } from "@/contexts/NotificationsContext";
 import TopBar from "./TopBar";
 import Sidebar from "./Sidebar";
 
@@ -20,7 +22,7 @@ export default function DashboardLayout({ children, pageName = "Dashboard" }) {
   const router = useRouter();
   const { user, role, authReady } = useApp();
   const [sidebarOpen, setSidebarOpen] = useState(false);
-  // useRenderTrace("DashboardLayout(provider)", { role, authReady, pageName });
+  useRenderTrace("DashboardLayout(provider)", { role, authReady, pageName });
 
   useBlockBackNavigation(!!user);
 
