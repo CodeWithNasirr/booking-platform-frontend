@@ -27,11 +27,79 @@ function getHeaders(tenantId) {
   };
 }
 
+function formatBytes(bytes) {
+  const b = Number(bytes || 0);
+  if (b < 1024) return `${b} B`;
+  const units = ["KB", "MB", "GB", "TB"];
+  let v = b / 1024;
+  let i = 0;
+  while (v >= 1024 && i < units.length - 1) { v /= 1024; i += 1; }
+  return `${v.toFixed(v < 10 ? 2 : 1)} ${units[i]}`;
+}
+
+/**
+ * Tenant file-storage usage vs the plan's file_storage_gb allowance.
+ * Mobile-friendly (stacks on small screens), colour-coded progress bar, and a
+ * near/over-quota warning. Reads /api/v1/tenants/storage/usage/.
+ */
+function StorageUsageCard({ storage, t }) {
+  const unlimited = storage.unlimited;
+  const pct = unlimited ? 0 : Math.min(storage.percent || 0, 100);
+  const near = !unlimited && pct >= 80;
+  const full = !unlimited && pct >= 100;
+  const barColor = full ? "bg-red-500" : near ? "bg-amber-500" : "bg-[#8B1E3F]";
+  const limitLabel = unlimited
+    ? (t("settings.storage.unlimited") === "settings.storage.unlimited" ? "Unlimited" : t("settings.storage.unlimited"))
+    : `${storage.limit_gb ?? 0} GB`;
+
+  return (
+    <div className="rounded-xl border border-gray-200 bg-white p-4">
+      <div className="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+        <div className="flex items-center gap-2">
+          <FileCheck className="w-4 h-4 text-[#8B1E3F]" />
+          <span className="text-sm font-semibold text-gray-900">
+            {t("settings.storage.title") === "settings.storage.title" ? "Storage" : t("settings.storage.title")}
+          </span>
+        </div>
+        <span className="text-sm text-gray-600">
+          {formatBytes(storage.used_bytes)}{" "}
+          <span className="text-gray-400">/ {limitLabel}</span>
+        </span>
+      </div>
+
+      {!unlimited && (
+        <div className="mt-3 h-2 w-full rounded-full bg-gray-100 overflow-hidden">
+          <div
+            className={`h-full rounded-full transition-all ${barColor}`}
+            style={{ width: `${pct}%` }}
+          />
+        </div>
+      )}
+
+      <div className="mt-2 flex items-center justify-between text-xs">
+        <span className="text-gray-400">{unlimited ? "" : `${pct}% used`}</span>
+        {full ? (
+          <span className="text-red-600 font-medium">
+            {t("settings.storage.full") === "settings.storage.full"
+              ? "Storage full — delete files or upgrade" : t("settings.storage.full")}
+          </span>
+        ) : near ? (
+          <span className="text-amber-600 font-medium">
+            {t("settings.storage.near") === "settings.storage.near"
+              ? "Running low on storage" : t("settings.storage.near")}
+          </span>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
 export default function DocumentUploadSection({ activeTenant }) {
   const { t } = useApp()
   const [documents, setDocuments] = useState([]);
   const [docTypes, setDocTypes] = useState([]);
   const [verification, setVerification] = useState(null);
+  const [storage, setStorage] = useState(null);
   const [loading, setLoading] = useState(true);
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [error, setError] = useState(null);
@@ -40,11 +108,15 @@ export default function DocumentUploadSection({ activeTenant }) {
     if (!activeTenant) return;
     setLoading(true);
     try {
-      const [docsRes, typesRes, verifRes] = await Promise.all([
+      const [docsRes, typesRes, verifRes, storageRes] = await Promise.all([
         fetch(`${API}/api/v1/tenants/documents/`, { headers: getHeaders(activeTenant) }),
         fetch(`${API}/api/v1/tenants/document-types/`, { headers: getHeaders(activeTenant) }),
         fetch(`${API}/api/v1/tenants/verification-status/`, { headers: getHeaders(activeTenant) }),
+        fetch(`${API}/api/v1/tenants/storage/usage/`, { headers: getHeaders(activeTenant) }).catch(() => null),
       ]);
+      if (storageRes && storageRes.ok) {
+        setStorage(await storageRes.json());
+      }
       if (docsRes.ok) {
         const d = await docsRes.json();
         setDocuments(d.results || []);
@@ -110,6 +182,8 @@ export default function DocumentUploadSection({ activeTenant }) {
           {t('settings.documents.upload')}
         </button>
       </div>
+
+      {storage && <StorageUsageCard storage={storage} t={t} />}
 
       {verification && <VerificationStatusBanner verification={verification} t={t} />}
 
