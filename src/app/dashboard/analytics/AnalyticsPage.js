@@ -379,6 +379,50 @@ export default function AnalyticsPage() {
     loadAnalytics(true);
   }, [loadAnalytics, dateRange, customStart, customEnd]);
 
+  // Real CSV export of the currently-loaded metrics (no mock data). Rows are
+  // metric/value pairs plus the Top Services table, reflecting the active
+  // date range.
+  const handleExport = useCallback(() => {
+    const m = overview?.money || {};
+    const c = overview?.counts || {};
+    const cust = overview?.customers || {};
+    const rows = [
+      ["Metric", "Value"],
+      ["Total bookings", kpis?.total_bookings ?? 0],
+      ["Total revenue", m.gross_sales ?? kpis?.total_revenue ?? 0],
+      ["Net revenue", m.net_revenue ?? 0],
+      ["Refunds", m.refunds ?? 0],
+      ["Booking revenue", m.booking_revenue ?? 0],
+      ["Order revenue", m.order_revenue ?? 0],
+      ["Orders", c.orders?.total ?? 0],
+      ["Orders completed", c.orders?.completed ?? 0],
+      ["Custom requests", c.custom_requests?.total ?? 0],
+      ["Custom requests converted", c.custom_requests?.converted ?? 0],
+      ["Customers", cust.total ?? 0],
+      ["New customers", cust.new ?? 0],
+      ["Returning customers", cust.returning ?? 0],
+      [],
+      ["Top service", "Bookings", "Revenue"],
+      ...(topServices || []).map((s) => [
+        toText(s.name, "Service"), s.bookings_count ?? 0, s.revenue ?? 0,
+      ]),
+    ];
+    const esc = (v) => {
+      const s = String(v ?? "");
+      return /[",\n]/.test(s) ? `"${s.replace(/"/g, '""')}"` : s;
+    };
+    const csv = rows.map((r) => r.map(esc).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `analytics-${dateRange}-${new Date().toISOString().slice(0, 10)}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    a.remove();
+    URL.revokeObjectURL(url);
+  }, [overview, kpis, topServices, dateRange]);
+
   // ── Derived data ─────────────────────────────────────────────────────────
 
   // Revenue by category — safely unwrap multilingual category names
@@ -548,7 +592,11 @@ export default function AnalyticsPage() {
             />
           </button>
 
-          <button className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-white hover:border-[#8B1E3F]/30 transition-all shadow-sm">
+          <button
+            onClick={handleExport}
+            disabled={loading || (!overview && !kpis)}
+            className="inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl border border-gray-300 text-gray-700 font-medium hover:bg-white hover:border-[#8B1E3F]/30 transition-all shadow-sm disabled:opacity-50"
+          >
             <Download className="w-4 h-4" />
             {t("analytics.export")}
           </button>
