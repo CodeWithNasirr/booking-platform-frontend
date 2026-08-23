@@ -62,6 +62,76 @@ function buildGuestHeaders(domain, token, { json = true } = {}) {
   return headers;
 }
 
+// Review modal — a stable, module-scope component so typing in the textarea
+// only re-renders this small subtree. Previously the rating/comment state
+// lived on the big BookingDetailClient parent, so every keystroke re-rendered
+// the whole page (CallDock + realtime conversation panel); that heavy
+// reconciliation replaced the textarea's DOM node and dropped focus after a
+// single character. Keeping the state colocated here fixes the focus loss
+// while the textarea stays fully controlled. Behaviour/UI/payload unchanged.
+function ReviewModal({ open, submitting, onSubmit, onClose }) {
+  const [rating, setRating] = useState(5);
+  const [comment, setComment] = useState("");
+
+  // Reset to a fresh review each time the modal is (re)opened.
+  useEffect(() => {
+    if (open) {
+      setRating(5);
+      setComment("");
+    }
+  }, [open]);
+
+  if (!open) return null;
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6">
+        <h3 className="text-lg font-semibold text-gray-900 mb-1">Leave a review</h3>
+        <p className="text-sm text-gray-500 mb-4">How was your consultation?</p>
+
+        <div className="flex items-center gap-1 mb-4">
+          {[1, 2, 3, 4, 5].map((n) => (
+            <button
+              key={n}
+              type="button"
+              onClick={() => setRating(n)}
+              className={`text-3xl leading-none ${n <= rating ? "text-yellow-400" : "text-gray-300"}`}
+              aria-label={`${n} star${n > 1 ? "s" : ""}`}
+            >
+              ★
+            </button>
+          ))}
+        </div>
+
+        <textarea
+          value={comment}
+          onChange={(e) => setComment(e.target.value)}
+          rows={4}
+          placeholder="Share a few words about your experience (optional)"
+          className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
+        />
+
+        <div className="flex justify-end gap-2">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
+          >
+            Cancel
+          </button>
+          <button
+            onClick={() => onSubmit({ rating, comment })}
+            disabled={submitting}
+            className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
+          >
+            {submitting ? "Submitting…" : "Submit review"}
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function BookingDetailClient({
   domain,
   site,
@@ -197,11 +267,9 @@ export default function BookingDetailClient({
 
   const [cancelling, setCancelling] = useState(false);
   const [reviewOpen, setReviewOpen] = useState(false);
-  const [reviewRating, setReviewRating] = useState(5);
-  const [reviewComment, setReviewComment] = useState("");
   const [reviewSubmitting, setReviewSubmitting] = useState(false);
 
-  const submitReview = useCallback(async () => {
+  const submitReview = useCallback(async ({ rating, comment }) => {
     const auth = resolveToken(tenantId);
     setReviewSubmitting(true);
     try {
@@ -210,7 +278,7 @@ export default function BookingDetailClient({
         {
           method: "POST",
           headers: buildGuestHeaders(domain, auth.token),
-          body: JSON.stringify({ rating: reviewRating, comment: reviewComment }),
+          body: JSON.stringify({ rating, comment }),
         }
       );
       if (!res.ok) {
@@ -218,14 +286,13 @@ export default function BookingDetailClient({
         throw new Error(data.detail || data.error || "Could not submit your review.");
       }
       setReviewOpen(false);
-      setReviewComment("");
       await fetchBookingDetail();
     } catch (e) {
       alert(e.message || "Could not submit your review.");
     } finally {
       setReviewSubmitting(false);
     }
-  }, [tenantId, domain, bookingId, reviewRating, reviewComment, fetchBookingDetail]);
+  }, [tenantId, domain, bookingId, fetchBookingDetail]);
 
   const handleCancelBooking = useCallback(async () => {
     const reason = window.prompt("Why are you cancelling this booking? (optional)", "");
@@ -597,54 +664,13 @@ export default function BookingDetailClient({
 
       {footer?.length > 0 && <LayoutRenderer sections={[footer]} site={site} />}
 
-      {/* Review modal */}
-      {reviewOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-          <div className="absolute inset-0 bg-black/50" onClick={() => setReviewOpen(false)} />
-          <div className="relative w-full max-w-md bg-white rounded-2xl shadow-2xl p-6">
-            <h3 className="text-lg font-semibold text-gray-900 mb-1">Leave a review</h3>
-            <p className="text-sm text-gray-500 mb-4">How was your consultation?</p>
-
-            <div className="flex items-center gap-1 mb-4">
-              {[1, 2, 3, 4, 5].map((n) => (
-                <button
-                  key={n}
-                  type="button"
-                  onClick={() => setReviewRating(n)}
-                  className={`text-3xl leading-none ${n <= reviewRating ? "text-yellow-400" : "text-gray-300"}`}
-                  aria-label={`${n} star${n > 1 ? "s" : ""}`}
-                >
-                  ★
-                </button>
-              ))}
-            </div>
-
-            <textarea
-              value={reviewComment}
-              onChange={(e) => setReviewComment(e.target.value)}
-              rows={4}
-              placeholder="Share a few words about your experience (optional)"
-              className="w-full border border-gray-300 rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 mb-4"
-            />
-
-            <div className="flex justify-end gap-2">
-              <button
-                onClick={() => setReviewOpen(false)}
-                className="px-4 py-2 border border-gray-300 rounded-lg text-gray-700 font-medium hover:bg-gray-50"
-              >
-                Cancel
-              </button>
-              <button
-                onClick={submitReview}
-                disabled={reviewSubmitting}
-                className="px-4 py-2 bg-blue-600 text-white rounded-lg font-medium hover:bg-blue-700 disabled:opacity-50"
-              >
-                {reviewSubmitting ? "Submitting…" : "Submit review"}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      {/* Review modal — colocated state keeps typing isolated to this subtree. */}
+      <ReviewModal
+        open={reviewOpen}
+        submitting={reviewSubmitting}
+        onSubmit={submitReview}
+        onClose={() => setReviewOpen(false)}
+      />
     </>
   );
 }
