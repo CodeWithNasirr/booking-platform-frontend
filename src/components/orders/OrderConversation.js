@@ -58,6 +58,8 @@ function timelineToRequestShape(evt) {
     event: evt.event,
     actor_role: evt.actor_role,
     metadata: evt.metadata || {},
+    // Forward the attachment so file_uploaded events render the actual file.
+    attachment: evt.attachment || null,
     created_at: evt.created_at,
   };
 }

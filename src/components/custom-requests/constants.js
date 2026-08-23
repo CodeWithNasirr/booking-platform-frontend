@@ -57,6 +57,20 @@ export function buildFeed(request) {
     });
   }
   for (const ev of request.timeline || []) {
+    // A file upload carries a full `attachment` object (url/name/size/mime) —
+    // render the actual file as an attachment item instead of a plain
+    // "File uploaded" system chip. Falls back to the system chip only when no
+    // attachment is present.
+    if (ev.event === "file_uploaded" && ev.attachment && ev.attachment.url) {
+      items.push({
+        kind: "attachment",
+        key: `t-${ev.id}`,
+        at: ev.created_at,
+        author_role: ev.actor_role || "system",
+        attachment: ev.attachment,
+      });
+      continue;
+    }
     if (TIMELINE_LABELS[ev.event] === null) continue;
     items.push({
       kind: "system",
