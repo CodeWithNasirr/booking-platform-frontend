@@ -647,6 +647,15 @@ export default function BookingDetailClient({
                 </button>
               )}
 
+              {booking.status === "completed" && (
+                <button
+                  onClick={() => router.push(tenantRoutes.myReviews())}
+                  className="px-4 py-2 text-blue-700 hover:underline font-medium"
+                >
+                  My reviews →
+                </button>
+              )}
+
               {booking.meeting_url && (
                 <a
                   href={booking.meeting_url}
