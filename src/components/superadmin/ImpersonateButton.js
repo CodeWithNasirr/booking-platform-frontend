@@ -60,13 +60,14 @@ const handleStart = async () => {
         COOKIE_OPTIONS
         );
 
-        // 🔥 OPEN TENANT
-        // Base URL is environment-driven so production opens the real tenant
-        // app, not the dev host. The impersonation cookies are shared across
-        // subdomains (COOKIE_OPTIONS domain), so the dashboard picks them up.
-        const tenantAppBase =
-          process.env.NEXT_PUBLIC_TENANT_APP_URL || "http://lvh.me:3000";
-        window.open(`${tenantAppBase}/dashboard`, "_blank");
+        // 🔥 OPEN THE TENANT DASHBOARD ON THE MAIN APP DOMAIN
+        // The SaaS app (and the tenant dashboard) live on the apex domain — NOT
+        // a separate app.* host. The impersonation cookies are shared across
+        // subdomains (COOKIE_OPTIONS domain), so opening the main app picks
+        // them up. Built from the same env the rest of the app uses.
+        const proto = process.env.NEXT_PUBLIC_FRONTEND_PROTOCOL || "https";
+        const mainDomain = process.env.NEXT_PUBLIC_FRONTEND_DOMAIN || "lvh.me:3000";
+        window.open(`${proto}://${mainDomain}/dashboard`, "_blank");
 
     } catch (e) {
         setError(

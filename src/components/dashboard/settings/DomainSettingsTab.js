@@ -125,7 +125,7 @@ export default function DomainSettingsTab({
               <input type="text" value={slugValue} autoFocus
                 onChange={(e) => setSlugValue(e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, ''))}
                 className="flex-1 px-4 py-3 text-sm outline-none" />
-              <span className="px-4 py-3 bg-gray-50 text-sm text-gray-500 border-l border-gray-200 whitespace-nowrap">.neoleap.ai</span>
+              <span className="px-4 py-3 bg-gray-50 text-sm text-gray-500 border-l border-gray-200 whitespace-nowrap">.{process.env.NEXT_PUBLIC_FRONTEND_DOMAIN || "neoleap.ai"}</span>
             </div>
             <button onClick={handleSaveSlug} disabled={slugSaving}
               className="px-4 py-3 rounded-xl bg-[#8B1E3F] text-white text-sm font-medium hover:opacity-90 disabled:opacity-50">
