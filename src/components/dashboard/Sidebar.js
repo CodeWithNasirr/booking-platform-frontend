@@ -28,6 +28,7 @@ import {
   RotateCcw,
   FileText,
   RefreshCw,
+  Star,
 } from "lucide-react";
 
 // Module-scope side effect helper — writing document.cookie inside the
@@ -119,11 +120,13 @@ const menuItems = [
     key: "tenant-custom-requests",
     label: t("tenant.customRequests") || "Custom Requests",
     icon: FileText,
+    featureCode: "custom_requests",
   },
   {
     key: "tenant-subscriptions",
     label: t("tenant.subscriptions") || "Subscriptions",
     icon: RefreshCw,
+    featureCode: "subscription_services",
   },
   {
     key: "tenant-users",
@@ -146,6 +149,12 @@ const menuItems = [
     key: "tenant-customers",
     label: t("tenant.customers"),
     icon: UsersRound,
+  },
+  {
+    key: "tenant-reviews",
+    label: t("tenant.reviews") || "Reviews",
+    icon: Star,
+    featureCode: "reviews_ratings",
   },
   {
     key: "tenant-finance",
@@ -187,18 +196,21 @@ const menuItems = [
     key: "tenant-support",
     label: t("tenant.support"),
     icon: LifeBuoy,
+    featureCode:"priority_support",
   },
   {
     key: "tenant-whatsapp",
     label: t("tenant.whatsapp"),
     icon: MessageCircle,
     integrationFeature: "whatsapp_notifications",
+    featureCode: "whatsapp_integration",
   },
   {
     key: "tenant-campaigns",
     label: t("tenant.campaigns"),
     icon: Send,
     integrationFeature: "whatsapp_notifications",
+    featureCode: "marketing_campaigns",
   },
   {
     key: "tenant-settings",

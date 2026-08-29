@@ -11,7 +11,7 @@
  *   <ImpersonateButton tenantId={tenant.id} tenantName={tenant.name} />
  */
 import { COOKIE_OPTIONS } from "@/lib/cookieConfig";
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 import { UserCheck, Loader2, AlertTriangle } from "lucide-react";
 import { startImpersonation } from "@/lib/platformApi";
@@ -61,10 +61,12 @@ const handleStart = async () => {
         );
 
         // 🔥 OPEN TENANT
-        window.open(
-        `http://lvh.me:3000/dashboard`,
-        "_blank"
-        );
+        // Base URL is environment-driven so production opens the real tenant
+        // app, not the dev host. The impersonation cookies are shared across
+        // subdomains (COOKIE_OPTIONS domain), so the dashboard picks them up.
+        const tenantAppBase =
+          process.env.NEXT_PUBLIC_TENANT_APP_URL || "http://lvh.me:3000";
+        window.open(`${tenantAppBase}/dashboard`, "_blank");
 
     } catch (e) {
         setError(
@@ -145,36 +147,33 @@ export function ImpersonationBanner() {
   const router = useRouter();
 
   // Check on mount
-  useState(() => {
+  useEffect(() => {
     if (typeof window === "undefined") return;
-    const raw = Cookies.get(
-        "impersonation_tenant"
-      );
+    const raw = Cookies.get("impersonation_tenant");
     if (raw) {
       try { setSession(JSON.parse(raw)); } catch {}
     }
-  });
+  }, []);
 
   if (!session) return null;
 
   const handleStop = async () => {
     setEnding(true);
     try {
-      const token = localStorage.getItem("impersonation_token");
+      // The impersonation token lives in a cookie (set by ImpersonateButton),
+      // not localStorage — read it from there so Stop actually audit-logs the
+      // end of the session on the backend.
+      const token = Cookies.get("impersonation_token");
       if (token) {
         const { stopImpersonation } = await import("@/lib/platformApi");
         await stopImpersonation(token);
       }
     } catch {} finally {
-      Cookies.remove(
-        "impersonation_token",
-        COOKIE_OPTIONS
-      );
-
-      Cookies.remove(
-        "impersonation_tenant",
-        COOKIE_OPTIONS
-      );
+      Cookies.remove("impersonation_token", COOKIE_OPTIONS);
+      Cookies.remove("impersonation_tenant", COOKIE_OPTIONS);
+      // Drop the tenant selection too, so the superadmin returns to a clean
+      // (non-tenant) context instead of staying pinned to the impersonated one.
+      Cookies.remove("active_tenant", COOKIE_OPTIONS);
       window.location.href = "/superadmin/tenants";
     }
   };

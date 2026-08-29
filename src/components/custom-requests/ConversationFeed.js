@@ -44,6 +44,7 @@ import { ArrowDown } from "lucide-react";
 
 import ConversationBubble from "./ConversationBubble";
 import TimelineEvent from "./TimelineEvent";
+import ChatAttachment from "@/components/shared/ChatAttachment";
 import { buildFeed } from "./constants";
 
 const GROUP_WINDOW_MS = 2 * 60 * 1000;
@@ -120,6 +121,24 @@ function renderItems(items, viewer) {
 
     if (item.kind === "system") {
       out.push(<TimelineEvent key={item.key} item={item} />);
+      prevMessage = null;
+      continue;
+    }
+
+    if (item.kind === "attachment") {
+      // Align the attachment like a chat bubble: the viewer's own uploads on
+      // one side, the other participant's on the other.
+      const mine =
+        (viewer === "customer" && item.author_role === "customer") ||
+        (viewer !== "customer" && item.author_role !== "customer");
+      out.push(
+        <div
+          key={item.key}
+          className={`flex my-1.5 ${mine ? "justify-end" : "justify-start"}`}
+        >
+          <ChatAttachment attachment={item.attachment} />
+        </div>
+      );
       prevMessage = null;
       continue;
     }

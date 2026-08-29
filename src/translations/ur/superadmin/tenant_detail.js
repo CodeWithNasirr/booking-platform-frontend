@@ -22,6 +22,7 @@ export default {
   'superadmin.tenant_detail.toast.cancelled': 'سبسکرپشن منسوخ کر دیا گیا۔',
   'superadmin.tenant_detail.toast.resumed': 'سبسکرپشن دوبارہ شروع کر دیا گیا۔',
   'superadmin.tenant_detail.confirm_cancel_subscription': 'اس ٹیننٹ کی سبسکرپشن منسوخ کریں؟ وہ مدت کے اختتام تک رسائی برقرار رکھیں گے۔',
+  'superadmin.tenant_detail.confirm_cancel_immediately': 'فوری طور پر منسوخ کریں (ابھی رسائی بند کریں)؟ فوری کے لیے OK دبائیں، یا مدت کے اختتام پر ختم کرنے کے لیے Cancel دبائیں۔',
   'superadmin.tenant_detail.modals.suspend_title': 'ٹیننٹ معطل کریں',
   'superadmin.tenant_detail.modals.suspend_desc': '{{name}} معطل کریں؟ یہ ان کی پلیٹ فارم تک رسائی کو محدود کر دے گا۔',
   'superadmin.tenant_detail.modals.suspend_reason_placeholder': 'وجہ (اختیاری)…',

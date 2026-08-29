@@ -93,17 +93,37 @@ export default {
   "billing.status.rejected": "مسترد",
   "billing.status.approved": "منظور شدہ",
 
-  // Enterprise
-  "billing.enterprise.badge": "انٹرپرائز",
-  "billing.enterprise.customPrice": "حسبِ ضرورت",
-  "billing.enterprise.contactSales": "سیلز سے رابطہ کریں",
+// Enterprise
 
-  "billing.enterprise.submittedTitle": "درخواست موصول ہو گئی",
-  "billing.enterprise.submittedDesc": "ہماری سیلز ٹیم جلد آپ سے رابطہ کرے گی۔",
+"billing.enterprise.badge": "انٹرپرائز",
+"billing.enterprise.title": "انٹرپرائز",
+"billing.enterprise.contractStatus": "معاہدے کی حیثیت",
+"billing.enterprise.paymentRequired": "ادائیگی درکار ہے",
+"billing.enterprise.customPrice": "حسبِ ضرورت",
+"billing.enterprise.contactSales": "سیلز سے رابطہ کریں",
 
-  "billing.enterprise.requestTitle": "انٹرپرائز درخواست",
-  "billing.enterprise.statusPending": "جائزے کے منتظر",
-  "billing.enterprise.statusUnderReview": "جائزے میں",
+"billing.enterprise.billing": "بلنگ",
+"billing.enterprise.monthly": "ماہانہ",
+"billing.enterprise.paymentTerms": "ادائیگی کی شرائط",
+"billing.enterprise.contractPeriod": "معاہدے کی مدت",
+"billing.enterprise.renewal": "تجدید",
+
+"billing.enterprise.submittedTitle": "درخواست موصول ہو گئی",
+"billing.enterprise.submittedDesc": "ہماری سیلز ٹیم جلد آپ سے رابطہ کرے گی۔",
+"billing.enterprise.requestTitle": "انٹرپرائز درخواست",
+"billing.enterprise.statusPending": "جائزے کے منتظر",
+"billing.enterprise.statusUnderReview": "جائزے میں",
+"billing.enterprise.payNow": "ابھی ادائیگی کریں",
+"billing.status.incomplete": "نامکمل",
+// Urdu
+"billing.enterprise.paymentPending": "ادائیگی زیرِ التواء",
+// Urdu
+"billing.enterprise.paid": "ادا شدہ",
+"billing.enterprise.periodEnd": "مدت کا اختتام",
+// ur
+"plan.feature_locked_title": "خصوصیت دستیاب نہیں",
+"plan.feature_locked_body": "یہ خصوصیت آپ کے موجودہ پلان میں شامل نہیں ہے۔ اسے فعال کرنے کے لیے اپنا پلان اپ گریڈ کریں۔",
+"plan.view_plans": "پلانز دیکھیں",
   "billing.enterprise.requestPendingDesc": "ہماری سیلز ٹیم آپ کی درخواست کا جائزہ لے رہی ہے اور جلد آپ سے رابطہ کرے گی۔ منظوری سے پہلے آپ کسی بھی وقت درخواست واپس لے سکتے ہیں۔",
   "billing.enterprise.submittedOn": "جمع کرائی گئی",
   "billing.enterprise.withdraw": "درخواست واپس لیں",

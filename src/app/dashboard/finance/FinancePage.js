@@ -50,6 +50,9 @@ const financeAPI = {
       t
     ),
 
+  // Filter/badge vocabulary sourced from the backend model choices.
+  getMeta: (t) => apiFetch(`/api/v1/finance/meta/`, t),
+
   // Transactions
   getTransactions: (params, t) =>
     apiFetch(
@@ -88,9 +91,11 @@ const financeAPI = {
 // ─── Constants ───────────────────────────────────────────────────────────────
 
 const DATE_RANGES = (t) => [
+  { label: t('finance.dateRanges.today') || 'Today', value: 'today' },
   { label: t('finance.dateRanges.thisWeek'), value: '7d' },
   { label: t('finance.dateRanges.thisMonth'), value: '30d' },
   { label: t('finance.dateRanges.thisQuarter'), value: '90d' },
+  { label: t('finance.dateRanges.last12Months') || '12 months', value: '12m' },
   { label: t('finance.dateRanges.lastMonth'), value: 'last_month' },
   { label: t('finance.dateRanges.thisYear'), value: 'this_year' },
 ]
@@ -114,14 +119,26 @@ const TRANSACTION_STATUSES = (t) => [
   { label: t('finance.status.refunded'), value: 'refunded' },
 ]
 
+// Fallback only — the real set comes from /finance/meta/ (Invoice.status:
+// draft/issued/paid/cancelled). The old list used sent/overdue which do NOT
+// exist on the model, so those filters matched nothing and issued invoices had
+// no option.
 const INVOICE_STATUSES = (t) => [
   { label: t('finance.filters.allStatuses'), value: '' },
   { label: t('finance.invoiceStatus.draft'), value: 'draft' },
-  { label: t('finance.invoiceStatus.sent'), value: 'sent' },
+  { label: t('finance.invoiceStatus.issued') === 'finance.invoiceStatus.issued' ? 'Issued' : t('finance.invoiceStatus.issued'), value: 'issued' },
   { label: t('finance.invoiceStatus.paid'), value: 'paid' },
-  { label: t('finance.invoiceStatus.overdue'), value: 'overdue' },
   { label: t('finance.invoiceStatus.cancelled'), value: 'cancelled' },
 ]
+
+// Build a dropdown ({label,value}) from a backend meta list, prepending an
+// "All" option; falls back to the static list if meta hasn't loaded.
+function statusOptions(metaList, allLabel, fallback) {
+  if (Array.isArray(metaList) && metaList.length) {
+    return [{ label: allLabel, value: '' }, ...metaList];
+  }
+  return fallback;
+}
 
 const PAYOUT_STATUSES = [
   { label: "All Statuses", value: "" },
@@ -170,12 +187,16 @@ function getDateRangeParams(rangeValue) {
   const daysAgo = (n) => new Date(now - n * 86400000);
 
   switch (rangeValue) {
+    case "today":
+      return { start_date: fmt(now), end_date: fmt(now) };
     case "7d":
       return { start_date: fmt(daysAgo(7)), end_date: fmt(now) };
     case "30d":
       return { start_date: fmt(daysAgo(30)), end_date: fmt(now) };
     case "90d":
       return { start_date: fmt(daysAgo(90)), end_date: fmt(now) };
+    case "12m":
+      return { start_date: fmt(daysAgo(365)), end_date: fmt(now) };
     case "last_month":
       return {
         start_date: fmt(new Date(now.getFullYear(), now.getMonth() - 1, 1)),
@@ -273,10 +294,10 @@ function StatusBadge({ status, type = "transaction", t } ) {
       refunded: { bg: "bg-red-100", text: "text-red-700", border: "border-red-200", icon: ArrowDownRight },
     },
     invoice: {
+      // Matches the Invoice model: draft / issued / paid / cancelled.
       draft: { bg: "bg-gray-100", text: "text-gray-600", border: "border-gray-200", icon: FileText },
-      sent: { bg: "bg-blue-100", text: "text-blue-700", border: "border-blue-200", icon: Send },
+      issued: { bg: "bg-blue-100", text: "text-blue-700", border: "border-blue-200", icon: Send },
       paid: { bg: "bg-green-100", text: "text-green-700", border: "border-green-200", icon: CheckCircle2 },
-      overdue: { bg: "bg-red-100", text: "text-red-700", border: "border-red-200", icon: AlertCircle },
       cancelled: { bg: "bg-gray-100", text: "text-gray-600", border: "border-gray-200", icon: XCircle },
     },
     payout: {
@@ -296,10 +317,15 @@ function StatusBadge({ status, type = "transaction", t } ) {
     icon: AlertCircle,
   };
 
-  const label = t(`finance.status.${status}`)
+  // Prefer a translation; otherwise show the humanized raw status (never the
+  // untranslated key like "finance.status.issued").
+  const translated = t(`finance.status.${status}`);
+  const label = translated === `finance.status.${status}`
+    ? String(status || "").replace(/_/g, " ")
+    : translated;
   return (
     <span
-      className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-full border ${config.bg} ${config.text} ${config.border}`}
+      className={`inline-flex items-center gap-1 px-3 py-1.5 text-xs font-semibold rounded-full border capitalize ${config.bg} ${config.text} ${config.border}`}
     >
       {label}
     </span>
@@ -433,7 +459,7 @@ function SkeletonRows({ count = 5 }) {
 
 // ─── Transactions Tab ────────────────────────────────────────────────────────
 
-function TransactionsTab({ dateRange, activeTenant, t }) {
+function TransactionsTab({ dateRange, activeTenant, meta, t }) {
   const [transactions, setTransactions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -493,13 +519,13 @@ function TransactionsTab({ dateRange, activeTenant, t }) {
           <FilterSelect
             value={typeFilter}
             onChange={setTypeFilter}
-            options={TRANSACTION_TYPES(t)}
+            options={statusOptions(meta?.transaction_types, t('finance.filters.allTypes'), TRANSACTION_TYPES(t))}
             className="min-w-[140px]"
           />
           <FilterSelect
             value={statusFilter}
             onChange={setStatusFilter}
-            options={TRANSACTION_STATUSES(t)}
+            options={statusOptions(meta?.transaction_statuses, t('finance.filters.allStatuses'), TRANSACTION_STATUSES(t))}
             className="min-w-[140px]"
           />
         </div>
@@ -585,18 +611,31 @@ function TransactionsTab({ dateRange, activeTenant, t }) {
                     </td>
                     <td className="py-4 px-4">
                       <div className="text-sm">
-                        {txn.booking_number && (
-                          <span className="text-[#8B1E3F] font-semibold">
+                        {txn.booking_number ? (
+                          <a
+                            href="/dashboard/bookings"
+                            className="text-[#8B1E3F] font-semibold hover:underline"
+                          >
                             {txn.booking_number}
+                          </a>
+                        ) : txn.order_number ? (
+                          <a
+                            href={txn.order_id ? `/dashboard/orders/${txn.order_id}` : "/dashboard/orders"}
+                            className="text-indigo-600 font-semibold hover:underline"
+                          >
+                            {txn.order_number}
+                          </a>
+                        ) : txn.source && txn.source !== "other" ? (
+                          <span className="text-gray-500 text-xs capitalize">
+                            {String(txn.source).replace(/_/g, " ")}
                           </span>
-                        )}
-                        {txn.project_number && (
-                          <span className="text-gray-500 text-xs ml-1">
-                            / {txn.project_number}
-                          </span>
-                        )}
-                        {!txn.booking_number && !txn.project_number && (
+                        ) : (
                           <span className="text-gray-300">—</span>
+                        )}
+                        {txn.external_id && (
+                          <div className="text-[10px] text-gray-400 mt-0.5 font-mono truncate max-w-[140px]">
+                            {txn.external_id}
+                          </div>
                         )}
                       </div>
                     </td>
@@ -657,7 +696,7 @@ function TransactionsTab({ dateRange, activeTenant, t }) {
 
 // ─── Invoices Tab ────────────────────────────────────────────────────────────
 
-function InvoicesTab({ dateRange, activeTenant , t}) {
+function InvoicesTab({ dateRange, activeTenant, meta, t }) {
   const [invoices, setInvoices] = useState([]);
   const [loading, setLoading] = useState(true);
   const [page, setPage] = useState(1);
@@ -762,7 +801,7 @@ function InvoicesTab({ dateRange, activeTenant , t}) {
         <FilterSelect
           value={statusFilter}
           onChange={setStatusFilter}
-          options={INVOICE_STATUSES(t)}
+          options={statusOptions(meta?.invoice_statuses, t('finance.filters.allStatuses'), INVOICE_STATUSES(t))}
           className="min-w-[140px]"
         />
       </div>
@@ -1079,8 +1118,19 @@ export default function FinancePage() {
   const [stats, setStats] = useState(null);
   const [statsLoading, setStatsLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
+  const [meta, setMeta] = useState(null);
 
   useBlockBackNavigation(!!user);
+
+  // Load the filter/badge vocabulary from the backend once (per tenant).
+  useEffect(() => {
+    if (!activeTenant) return;
+    let cancelled = false;
+    financeAPI.getMeta(activeTenant)
+      .then((m) => { if (!cancelled) setMeta(m); })
+      .catch(() => { /* fall back to static status lists */ });
+    return () => { cancelled = true; };
+  }, [activeTenant]);
 
   // Auth guard
   useEffect(() => {
@@ -1203,7 +1253,7 @@ export default function FinancePage() {
         />
         <StatCard
           title="Refunds Issued"
-          value={formatCurrency(stats?.total_refunds || 0)}
+          value={formatCurrency(stats?.total_refunds || 0, stats?.currency)}
           change={
             stats?.refund_count
               ? `${stats.refund_count} refund${stats.refund_count !== 1 ? "s" : ""}`
@@ -1211,6 +1261,51 @@ export default function FinancePage() {
           }
           icon={RefreshCw}
           color="from-red-500 to-red-600"
+          loading={statsLoading}
+        />
+      </div>
+
+      {/* ── Net revenue + booking/order split + payment states ─────────── */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard
+          title="Net Revenue"
+          value={formatCurrency(stats?.net_revenue || 0, stats?.currency)}
+          change={stats?.net_revenue_change}
+          detail="Gross − refunds"
+          icon={DollarSign}
+          color="from-emerald-500 to-emerald-600"
+          loading={statsLoading}
+        />
+        <StatCard
+          title="Booking Revenue"
+          value={formatCurrency(stats?.booking_revenue || 0, stats?.currency)}
+          detail={stats?.avg_booking_value
+            ? `Avg ${formatCurrency(stats.avg_booking_value, stats?.currency)}` : "This period"}
+          icon={CheckCircle}
+          color="from-[#8B1E3F] to-[#6B1630]"
+          loading={statsLoading}
+        />
+        <StatCard
+          title="Order Revenue"
+          value={formatCurrency(stats?.order_revenue || 0, stats?.currency)}
+          detail={stats?.avg_order_value
+            ? `Avg ${formatCurrency(stats.avg_order_value, stats?.currency)}` : "This period"}
+          icon={CheckCircle}
+          color="from-indigo-500 to-indigo-600"
+          loading={statsLoading}
+        />
+        <StatCard
+          title="Payments"
+          value={`${stats?.successful_payments?.count || 0} ok`}
+          change={
+            (stats?.failed_payments?.count || stats?.pending_payments?.count)
+              ? `${stats?.failed_payments?.count || 0} failed · ${stats?.pending_payments?.count || 0} pending`
+              : undefined
+          }
+          detail={stats?.pending_payouts
+            ? `${formatCurrency(stats.pending_payouts, stats?.currency)} payouts pending` : undefined}
+          icon={Clock}
+          color="from-slate-500 to-slate-600"
           loading={statsLoading}
         />
       </div>
@@ -1247,6 +1342,7 @@ export default function FinancePage() {
             <TransactionsTab
               dateRange={dateRange}
               activeTenant={activeTenant}
+              meta={meta}
               t={t}
             />
           )}
@@ -1254,6 +1350,7 @@ export default function FinancePage() {
             <InvoicesTab
               dateRange={dateRange}
               activeTenant={activeTenant}
+              meta={meta}
               t={t}
             />
           )}

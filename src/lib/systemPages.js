@@ -60,6 +60,18 @@ export const SYSTEM_PAGES = {
     auth: true,
     resolve: () => tenantRoutes.mySubscriptions(),
   },
+
+  my_reviews: {
+    key: "my_reviews",
+    labels: {
+      en: "My Reviews",
+      ar: "تقييماتي",
+      ur: "میرے جائزے",
+    },
+    icon: "Star",
+    auth: true,
+    resolve: () => tenantRoutes.myReviews(),
+  },
 };
 
 export function listSystemPages({ includeAuthOnly = true } = {}) {

@@ -22,6 +22,7 @@ export default {
   'superadmin.tenant_detail.toast.cancelled': 'تم إلغاء الاشتراك.',
   'superadmin.tenant_detail.toast.resumed': 'تم استئناف الاشتراك.',
   'superadmin.tenant_detail.confirm_cancel_subscription': 'إلغاء اشتراك هذا المستأجر؟ سيحتفظون بالوصول حتى نهاية الفترة.',
+  'superadmin.tenant_detail.confirm_cancel_immediately': 'إلغاء فوري (إيقاف الوصول الآن)؟ اضغط موافق للإلغاء الفوري، أو إلغاء للإنهاء في نهاية الفترة.',
   'superadmin.tenant_detail.modals.suspend_title': 'تعليق المستأجر',
   'superadmin.tenant_detail.modals.suspend_desc': 'تعليق {{name}}؟ سيؤدي هذا إلى تقييد وصولهم إلى المنصة.',
   'superadmin.tenant_detail.modals.suspend_reason_placeholder': 'السبب (اختياري)…',

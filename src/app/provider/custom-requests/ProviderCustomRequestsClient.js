@@ -22,6 +22,7 @@ import {
 
 import { useApp } from "@/contexts/AppContext";
 import DashboardLayout from "@/components/provider/DashboardLayout";
+import PlanFeatureGate from "@/components/dashboard/PlanFeatureGate";
 
 import {
   StatusBadge,
@@ -97,7 +98,12 @@ export default function ProviderCustomRequestsClient() {
   return (
     <DashboardLayout pageName="Custom Requests">
       <BrandRoot className="contents">
-        <Inner />
+        {/* Plan-gated: blocks direct URL access when the tenant's plan doesn't
+            include custom requests. Inside DashboardLayout so PlanProvider is
+            available. */}
+        <PlanFeatureGate feature="custom_requests">
+          <Inner />
+        </PlanFeatureGate>
       </BrandRoot>
     </DashboardLayout>
   );

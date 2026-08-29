@@ -45,7 +45,7 @@ import {
 } from "@/lib/notificationsApi";
 
 const TENANT_CATEGORIES = ["bookings", "orders", "custom_requests", "support"];
-const PLATFORM_CATEGORIES = ["platform", "support", "billing", "integrations"];
+const PLATFORM_CATEGORIES = ["platform", "support", "billing", "enterprise", "integrations"];
 const POLL_MS = 60000;
 
 const NotificationsContext = createContext(null);

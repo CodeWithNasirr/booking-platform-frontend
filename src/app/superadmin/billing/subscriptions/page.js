@@ -40,7 +40,7 @@ function StatusBadge({ status, t }) {
   );
 }
 
-function formatCurrency(amount, currency = "USD") {
+function formatCurrency(amount, currency = "SAR") {
   if (amount == null || isNaN(amount)) return "—";
   return new Intl.NumberFormat("en-US", { style: "currency", currency, minimumFractionDigits: 0 }).format(Number(amount));
 }

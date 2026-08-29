@@ -12,7 +12,11 @@ import {
   fetchEnterpriseRequest,
   submitEnterpriseRequest,
   cancelEnterpriseRequest,
+  fetchEnterpriseContract,
+  createEnterpriseCheckout,
+  downloadInvoicePdf,
 } from "@/lib/billingApi";
+import { formatCurrency } from "@/lib/currency";
 import {
   CreditCard,
   Crown,
@@ -81,6 +85,28 @@ export default function BillingDashboard() {
   const [enterpriseReq, setEnterpriseReq] = useState(null);
   const [enterprisePlan, setEnterprisePlan] = useState(null); // plan being requested (opens modal)
   const [enterpriseSubmitting, setEnterpriseSubmitting] = useState(false);
+  const [enterpriseContract, setEnterpriseContract] = useState(null);
+  const [payingEnterprise, setPayingEnterprise] = useState(false);
+  const [downloadingInvoice, setDownloadingInvoice] = useState(null);
+
+  const handleDownloadInvoice = async (inv) => {
+    setDownloadingInvoice(inv.id);
+    try {
+      const blob = await downloadInvoicePdf(activeTenant, inv.id);
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = `${inv.invoice_number || "invoice"}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      a.remove();
+      window.URL.revokeObjectURL(url);
+    } catch (err) {
+      alert(err.message || "Failed to download invoice");
+    } finally {
+      setDownloadingInvoice(null);
+    }
+  };
 
   // Check URL for checkout result
   useEffect(() => {
@@ -103,20 +129,37 @@ export default function BillingDashboard() {
     } else if (checkout === "cancelled") {
       setCheckoutBanner("cancelled");
     }
+
+    // Enterprise payment return — poll for the verified (webhook-driven) state.
+    const ent = searchParams.get("enterprise");
+    if (ent === "success") {
+      const url = new URL(window.location);
+      url.searchParams.delete("enterprise");
+      window.history.replaceState(null, "", url.toString());
+      let attempts = 0;
+      const poll = () => {
+        attempts += 1;
+        loadData(true);
+        if (attempts < 6) setTimeout(poll, 2500);
+      };
+      setTimeout(poll, 1500);
+    }
   }, [searchParams]);
 
   const loadData = useCallback(async (silent = false) => {
     if (!activeTenant) return;
     try {
       if (!silent) setLoading(true);
-      const [dashData, plansData, entData] = await Promise.all([
+      const [dashData, plansData, entData, contractData] = await Promise.all([
         fetchBillingDashboard(activeTenant),
         fetchPlans(),
         fetchEnterpriseRequest(activeTenant).catch(() => ({ request: null })),
+        fetchEnterpriseContract(activeTenant).catch(() => ({ contract: null })),
       ]);
       setDashboard(dashData);
       setPlans(plansData);
       setEnterpriseReq(entData?.request || null);
+      setEnterpriseContract(contractData?.contract || null);
       if (dashData.current_plan?.billing_interval) {
         setBillingInterval(dashData.current_plan.billing_interval);
       }
@@ -231,6 +274,18 @@ export default function BillingDashboard() {
     }
   };
 
+  const handleEnterprisePay = async () => {
+    setPayingEnterprise(true);
+    try {
+      const { checkout_url } = await createEnterpriseCheckout(activeTenant);
+      if (checkout_url) window.location.href = checkout_url;
+      else throw new Error("No checkout URL returned");
+    } catch (err) {
+      alert(err.message || "Could not start payment");
+      setPayingEnterprise(false);
+    }
+  };
+
   const toggleSection = (key) => setExpandedSections((p) => ({ ...p, [key]: !p[key] }));
 
   const getPrice = (plan) => {
@@ -288,6 +343,16 @@ export default function BillingDashboard() {
       {/* ═══════ ENTERPRISE REQUEST STATUS ═══════ */}
       {enterpriseReq && OPEN_ENTERPRISE_STATUSES.includes(enterpriseReq.status) && (
         <EnterpriseStatusCard req={enterpriseReq} onCancel={handleCancelEnterprise} t={t} />
+      )}
+
+      {/* ═══════ ENTERPRISE CONTRACT + PAYMENT ═══════ */}
+      {enterpriseContract && (
+        <EnterpriseContractCard
+          contract={enterpriseContract}
+          onPay={handleEnterprisePay}
+          paying={payingEnterprise}
+          t={t}
+        />
       )}
 
       {/* ═══════ MY PLAN ═══════ */}
@@ -365,11 +430,20 @@ export default function BillingDashboard() {
                     <td className="px-4 py-3 text-gray-500">{inv.paid_at ? new Date(inv.paid_at).toLocaleDateString() : "—"}</td>
                     <td className="px-4 py-3"><StatusBadge status={inv.status} /></td>
                     <td className="px-4 py-3">
-                      {inv.stripe_url && (
-                        <a href={inv.stripe_url} target="_blank" rel="noopener noreferrer" className="text-[#8B1E3F] hover:underline text-xs flex items-center gap-1">
-                          <Download className="w-3 h-3" /> PDF
-                        </a>
-                      )}
+                      {/* The PDF endpoint is authenticated + tenant-scoped, so
+                          we fetch it as a blob (with the auth/impersonation
+                          headers) rather than a plain link — a bare <a> can't
+                          send the Bearer/X-Impersonate header. The old code
+                          referenced inv.stripe_url, which never existed, so no
+                          download ever showed. */}
+                      <button
+                        onClick={() => handleDownloadInvoice(inv)}
+                        disabled={downloadingInvoice === inv.id}
+                        className="text-[#8B1E3F] hover:underline text-xs flex items-center gap-1 disabled:opacity-50"
+                      >
+                        <Download className="w-3 h-3" />
+                        {downloadingInvoice === inv.id ? "…" : "PDF"}
+                      </button>
                     </td>
                   </tr>
                 ))}
@@ -469,7 +543,7 @@ function CurrentPlanCard({ sub, t , onManage, onViewPlans, actionLoading }) {
 
       <div className="p-5 bg-white space-y-4">
         <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-          <InfoBlock label={t("billing.price")} value={`$${sub.current_price}/${sub.billing_interval === "year" ? "yr" : "mo"}`} />
+          <InfoBlock label={t("billing.price")} value={`${formatCurrency(sub.current_price, sub.currency || "SAR")}/${sub.billing_interval === "year" ? "yr" : "mo"}`} />
           {sub.is_trialing && sub.days_remaining_in_trial > 0 && (
             <InfoBlock label={t("billing.trialRemaining")} value={`${sub.days_remaining_in_trial} ${t("billing.days")}`} warn={sub.days_remaining_in_trial <= 3} />
           )}
@@ -565,7 +639,7 @@ function PlanPickerModal({ plans, currentTier, billingInterval,currentInterval,o
                     <span className="text-2xl font-extrabold text-gray-900">{t("billing.enterprise.customPrice") || "Custom"}</span>
                   ) : (
                     <>
-                      <span className="text-2xl font-extrabold text-gray-900">{isFree ? "Free" : `$${price}`}</span>
+                      <span className="text-2xl font-extrabold text-gray-900">{isFree ? "Free" : formatCurrency(price, plan.currency || "SAR")}</span>
                       {!isFree && <span className="text-gray-500 text-sm">/mo</span>}
                     </>
                   )}
@@ -599,6 +673,88 @@ function PlanPickerModal({ plans, currentTier, billingInterval,currentInterval,o
             );
           })}
         </div>
+      </div>
+    </div>
+  );
+}
+
+function EnterpriseContractCard({ contract, onPay, paying, t }) {
+  const fmtDate = (d) => (d ? new Date(d).toLocaleDateString(undefined, {
+    day: "2-digit", month: "short", year: "numeric" }) : "—");
+  const cadenceLabel = {
+    monthly: t("billing.enterprise.monthly") || "Monthly",
+    quarterly: t("billing.enterprise.quarterly") || "Quarterly",
+    yearly: t("billing.enterprise.yearly") || "Annual",
+    one_time: t("billing.enterprise.oneTime") || "One-time",
+    custom: t("billing.enterprise.customCadence") || "Custom",
+  }[contract.billing_cadence] || contract.billing_cadence;
+
+  const payStatus = contract.payment_status;
+  const PAY_STYLE = {
+    paid: { bg: "bg-emerald-50", text: "text-emerald-700", dot: "bg-emerald-500",
+            label: t("billing.enterprise.paid") || "Paid" },
+    pending: { bg: "bg-amber-50", text: "text-amber-700", dot: "bg-amber-500",
+               label: t("billing.enterprise.paymentPending") || "Payment pending" },
+    failed: { bg: "bg-red-50", text: "text-red-700", dot: "bg-red-500",
+              label: t("billing.enterprise.paymentFailed") || "Payment failed" },
+    unpaid: { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400",
+              label: t("billing.enterprise.paymentRequired") || "Payment required" },
+  }[payStatus] || { bg: "bg-gray-100", text: "text-gray-600", dot: "bg-gray-400", label: payStatus };
+
+  const priceLabel = contract.custom_price != null
+    ? formatCurrency(contract.custom_price, contract.currency || "SAR")
+    : "—";
+  // Show Pay Now only when the backend says the contract is payable.
+  const showPay = !!contract.is_payable;
+
+  return (
+    <div className="rounded-xl border border-[#8B1E3F]/25 bg-[#8B1E3F]/[0.03] overflow-hidden">
+      <div className="p-5">
+        <div className="flex items-start justify-between gap-3 mb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-xl bg-[#8B1E3F]/10 flex items-center justify-center flex-shrink-0">
+              <Building2 className="w-5 h-5 text-[#8B1E3F]" />
+            </div>
+            <div>
+              <h3 className="font-bold text-gray-900">{t("billing.enterprise.title") || "Enterprise"}</h3>
+              <p className="text-xs text-gray-500">
+                {t("billing.enterprise.contractStatus") || "Contract"}: {contract.status}
+              </p>
+            </div>
+          </div>
+          <span className={`inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-medium ${PAY_STYLE.bg} ${PAY_STYLE.text}`}>
+            <span className={`w-1.5 h-1.5 rounded-full ${PAY_STYLE.dot}`} />
+            {PAY_STYLE.label}
+          </span>
+        </div>
+
+        <div className="grid grid-cols-2 sm:grid-cols-3 gap-4">
+          <InfoBlock label={t("billing.price") || "Price"} value={`${priceLabel} / ${cadenceLabel}`} />
+          <InfoBlock label={t("billing.enterprise.billing") || "Billing"} value={cadenceLabel} />
+          <InfoBlock label={t("billing.enterprise.paymentTerms") || "Payment terms"}
+            value={(contract.payment_terms || "").replace(/_/g, " ").toUpperCase() || "—"} />
+          <InfoBlock label={t("billing.enterprise.contractPeriod") || "Contract"}
+            value={`${fmtDate(contract.contract_start)} – ${fmtDate(contract.contract_end)}`} />
+          {contract.renewal_date && (
+            <InfoBlock label={t("billing.enterprise.renewal") || "Renews"} value={fmtDate(contract.renewal_date)} />
+          )}
+          {contract.current_period_end && (
+            <InfoBlock label={t("billing.enterprise.periodEnd") || "Access until"} value={fmtDate(contract.current_period_end)} />
+          )}
+        </div>
+
+        {showPay && (
+          <div className="mt-5 flex items-center justify-end gap-3">
+            <button
+              onClick={onPay}
+              disabled={paying}
+              className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl text-sm font-semibold text-white bg-gradient-to-r from-[#8B1E3F] to-[#6B1630] hover:opacity-90 shadow-md disabled:opacity-50"
+            >
+              {paying && <Clock className="w-4 h-4 animate-spin" />}
+              {t("billing.enterprise.payNow") || "Pay Now"} · {priceLabel}
+            </button>
+          </div>
+        )}
       </div>
     </div>
   );

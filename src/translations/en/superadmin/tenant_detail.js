@@ -35,6 +35,7 @@ export default {
 
   // ── Confirmations ──
   'superadmin.tenant_detail.confirm_cancel_subscription': "Cancel this tenant's subscription? They'll retain access until period end.",
+  'superadmin.tenant_detail.confirm_cancel_immediately': "Cancel IMMEDIATELY (cut off access now)? Click OK for immediate, or Cancel to end at the period's end.",
 
   // ── Modals ──
   'superadmin.tenant_detail.modals.suspend_title': 'Suspend Tenant',

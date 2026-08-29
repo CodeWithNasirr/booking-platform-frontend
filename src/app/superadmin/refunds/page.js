@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useMemo } from "react";
 import { useSuperAdmin } from "@/contexts/Superadmincontext";
 import SuperAdminLayout from "@/components/superadmin/SuperAdminLayout";
 import { useTranslation } from "@/lib/t";
@@ -43,6 +43,341 @@ async function platformPost(path) {
   const res = await fetch(`${API}${path}`, { method: "POST", headers: platformHeaders(), credentials: "include" });
   if (!res.ok) throw new Error(`${res.status}`);
   return res.json();
+}
+
+async function platformPostBody(path, body) {
+  const res = await fetch(`${API}${path}`, {
+    method: "POST", headers: platformHeaders(), credentials: "include",
+    body: JSON.stringify(body),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) {
+    const err = new Error(data?.detail || `Request failed: ${res.status}`);
+    err.status = res.status;
+    throw err;
+  }
+  return data;
+}
+
+/* ────────────────────────────────────────────────
+   Superadmin Issue-Refund Modal
+   Select tenant → refundable record → full/partial → confirm.
+   Reuses the backend by-record endpoint (tenant Refund model + Moyasar).
+   ──────────────────────────────────────────────── */
+
+function SuperadminRefundModal({ onClose, onDone, t }) {
+  const [tenantSearch, setTenantSearch] = useState("");
+  const [tenants, setTenants] = useState([]);
+  const [tenant, setTenant] = useState(null);
+
+  const [records, setRecords] = useState([]);
+  const [loadingRecords, setLoadingRecords] = useState(false);
+  const [record, setRecord] = useState(null);
+
+  const [mode, setMode] = useState("full");
+  const [partial, setPartial] = useState("");
+  const [detail, setDetail] = useState("");
+  const [confirming, setConfirming] = useState(false);
+  const [submitting, setSubmitting] = useState(false);
+  const [error, setError] = useState("");
+  const [result, setResult] = useState(null);   // created refund; then polled
+
+  // Tenant search
+  useEffect(() => {
+    if (tenant) return undefined;
+    let cancelled = false;
+    const h = setTimeout(async () => {
+      try {
+        const qs = tenantSearch ? `?search=${encodeURIComponent(tenantSearch)}` : "";
+        const d = await platformFetch(`/api/v1/platform/tenants/${qs}`);
+        const list = Array.isArray(d) ? d : (d?.results || []);
+        if (!cancelled) setTenants(list.slice(0, 15));
+      } catch { if (!cancelled) setTenants([]); }
+    }, 250);
+    return () => { cancelled = true; clearTimeout(h); };
+  }, [tenantSearch, tenant]);
+
+  // Refundable records for the chosen tenant
+  useEffect(() => {
+    if (!tenant || record) return undefined;
+    let cancelled = false;
+    setLoadingRecords(true);
+    (async () => {
+      try {
+        const d = await platformFetch(
+          `/api/v1/platform/refunds/refundable/?tenant_id=${tenant.id}`);
+        if (!cancelled) setRecords(d?.results || []);
+      } catch { if (!cancelled) setRecords([]); }
+      finally { if (!cancelled) setLoadingRecords(false); }
+    })();
+    return () => { cancelled = true; };
+  }, [tenant, record]);
+
+  const refundable = record ? parseFloat(record.refundable) : 0;
+  const amount = mode === "full" ? refundable
+    : Math.min(parseFloat(partial || "0") || 0, refundable);
+  const amountValid = amount > 0 && amount <= refundable + 1e-9;
+  const money = (v) => `${record?.currency || ""} ${Number(v).toFixed(2)}`;
+
+  async function submit() {
+    if (!record || !amountValid) return;
+    setSubmitting(true); setError("");
+    try {
+      const created = await platformPostBody("/api/v1/platform/refunds/by-record/", {
+        tenant_id: tenant.id,
+        [record.kind === "booking" ? "booking_id" : "order_id"]: record.id,
+        amount: amount.toFixed(2),
+        reason: "admin_initiated",
+        reason_detail: detail,
+      });
+      // Do NOT declare success from the 201 — show the real lifecycle and
+      // poll the actual gateway/webhook-driven status.
+      setResult(created);
+      onDone?.();
+    } catch (e) {
+      setError(e.message || "Refund failed");
+      setConfirming(false);
+    } finally {
+      setSubmitting(false);
+    }
+  }
+
+  // Poll the created refund's real status until it reaches a terminal state.
+  useEffect(() => {
+    if (!result?.id) return undefined;
+    const terminal = (s) => ["completed", "failed", "cancelled"].includes(s);
+    if (terminal(result.status)) return undefined;
+    let stop = false;
+    const h = setInterval(async () => {
+      try {
+        const d = await platformFetch(`/api/v1/platform/refunds/${result.id}/`);
+        if (stop) return;
+        setResult(d);
+        if (terminal(d.status)) clearInterval(h);
+      } catch { /* keep polling */ }
+    }, 3000);
+    return () => { stop = true; clearInterval(h); };
+  }, [result?.id, result?.status]);
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+      <div className="bg-white rounded-xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto">
+        <div className="flex items-center justify-between p-5 border-b border-gray-200 sticky top-0 bg-white">
+          <h3 className="text-lg font-semibold text-gray-900">{t("monitoring_refund_issue_title")}</h3>
+          <button onClick={onClose} className="p-1.5 rounded-lg hover:bg-gray-100">
+            <XCircle className="w-5 h-5 text-gray-500" />
+          </button>
+        </div>
+
+        <div className="p-5 space-y-4">
+          {error && (
+            <div className="rounded-lg bg-red-50 border border-red-200 p-3 text-xs text-red-700">{error}</div>
+          )}
+
+          {/* Result — real lifecycle from gateway/webhook, not the 201 */}
+          {result && (
+            <RefundStatusView result={result} money={money} t={t} />
+          )}
+
+          {/* 1 — tenant */}
+          {!result && !tenant && (
+            <>
+              <div className="relative">
+                <Search className="absolute top-1/2 -translate-y-1/2 start-3 w-4 h-4 text-gray-400" />
+                <input autoFocus value={tenantSearch} onChange={e => setTenantSearch(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 ps-9 pe-3 py-2 text-sm focus:outline-none focus:ring-2"
+                  style={{ "--tw-ring-color": `${MAROON}30` }}
+                  placeholder={t("monitoring_refund_tenant_search")} />
+              </div>
+              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-56 overflow-y-auto">
+                {tenants.length === 0 && (
+                  <div className="p-6 text-center text-sm text-gray-400">{t("monitoring_refund_no_tenants")}</div>
+                )}
+                {tenants.map(tn => (
+                  <button key={tn.id} onClick={() => setTenant(tn)}
+                    className="w-full text-start p-3 hover:bg-rose-50/60 text-sm font-medium text-gray-900">
+                    {tn.name}
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* 2 — record */}
+          {!result && tenant && !record && (
+            <>
+              <div className="flex items-center justify-between text-sm">
+                <span className="font-medium text-gray-900">{tenant.name}</span>
+                <button onClick={() => { setTenant(null); setRecords([]); }}
+                  className="text-xs text-gray-500 underline">{t("monitoring_refund_change")}</button>
+              </div>
+              <div className="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-64 overflow-y-auto">
+                {loadingRecords && (
+                  <div className="p-4 text-center"><Loader2 className="w-4 h-4 animate-spin inline text-gray-400" /></div>
+                )}
+                {!loadingRecords && records.length === 0 && (
+                  <div className="p-6 text-center text-sm text-gray-400">{t("monitoring_refund_no_records")}</div>
+                )}
+                {records.map(r => (
+                  <button key={`${r.kind}:${r.id}`} onClick={() => setRecord(r)}
+                    className="w-full text-start p-3 hover:bg-rose-50/60 flex items-center justify-between gap-3">
+                    <span className="min-w-0">
+                      <span className="font-medium text-gray-900 truncate">{r.number}</span>
+                      <span className="block text-xs text-gray-500 truncate">{r.customer_name || r.customer_email}</span>
+                    </span>
+                    <span className="text-sm font-semibold flex-shrink-0" style={{ color: MAROON }}>
+                      {r.currency} {Number(r.refundable).toFixed(2)}
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </>
+          )}
+
+          {/* 3 — amount + confirm */}
+          {!result && record && (
+            <>
+              <div className="rounded-lg bg-gray-50 border border-gray-200 p-3 text-sm">
+                <div className="flex items-center justify-between">
+                  <span className="font-medium text-gray-900">{record.number}</span>
+                  <button onClick={() => setRecord(null)} className="text-xs text-gray-500 underline">
+                    {t("monitoring_refund_change")}
+                  </button>
+                </div>
+                <div className="text-xs text-gray-500 mt-1">
+                  {tenant.name} · {t("monitoring_refund_refundable")}: <b>{money(refundable)}</b>
+                </div>
+              </div>
+
+              <div className="flex gap-2">
+                {["full", "partial"].map(m => (
+                  <button key={m} onClick={() => setMode(m)}
+                    className={`flex-1 px-3 py-1.5 rounded-lg text-xs font-medium ${mode === m ? "text-white" : "text-gray-600 bg-gray-100"}`}
+                    style={mode === m ? { backgroundColor: MAROON } : {}}>
+                    {t(`monitoring_refund_${m}`)}
+                  </button>
+                ))}
+              </div>
+
+              {mode === "partial" && (
+                <input type="number" step="0.01" min="0" max={refundable} value={partial}
+                  onChange={e => setPartial(e.target.value)}
+                  className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                  placeholder="0.00" />
+              )}
+
+              <textarea value={detail} onChange={e => setDetail(e.target.value)} rows={2}
+                className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
+                placeholder={t("monitoring_refund_note")} />
+
+              {confirming && (
+                <div className="rounded-lg bg-amber-50 border border-amber-200 p-3 flex gap-2">
+                  <AlertTriangle className="w-4 h-4 text-amber-500 flex-shrink-0 mt-0.5" />
+                  <p className="text-xs text-amber-800">
+                    {t("monitoring_refund_warning", { amount: money(amount), tenant: tenant.name })}
+                  </p>
+                </div>
+              )}
+            </>
+          )}
+        </div>
+
+        {result && (
+          <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-200 sticky bottom-0 bg-white">
+            <button onClick={onClose}
+              className="px-5 py-2 text-sm font-medium text-white rounded-lg"
+              style={{ backgroundColor: MAROON }}>
+              {t("common.done") || "Done"}
+            </button>
+          </div>
+        )}
+
+        {!result && record && (
+          <div className="flex items-center justify-end gap-3 p-5 border-t border-gray-200 sticky bottom-0 bg-white">
+            <button onClick={onClose} disabled={submitting}
+              className="px-4 py-2 text-sm font-medium text-gray-700 bg-white border border-gray-300 rounded-lg hover:bg-gray-50">
+              {t("common.cancel") || "Cancel"}
+            </button>
+            {!confirming ? (
+              <button onClick={() => setConfirming(true)} disabled={!amountValid}
+                className="px-5 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50"
+                style={{ backgroundColor: MAROON }}>
+                {t("monitoring_refund_review")}
+              </button>
+            ) : (
+              <button onClick={submit} disabled={submitting || !amountValid}
+                className="inline-flex items-center gap-2 px-5 py-2 text-sm font-medium text-white rounded-lg disabled:opacity-50"
+                style={{ backgroundColor: MAROON }}>
+                {submitting && <Loader2 className="w-4 h-4 animate-spin" />}
+                {t("monitoring_refund_confirm")}
+              </button>
+            )}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/* Refund lifecycle view — requested → processing → refunded / failed,
+   driven by the polled backend status (never assumed from the 201). */
+function RefundStatusView({ result, money, t }) {
+  const status = result.status;
+  const steps = [
+    { key: "requested", label: t("monitoring_refund_step_requested") },
+    { key: "processing", label: t("monitoring_refund_step_processing") },
+    { key: "completed", label: t("monitoring_refund_step_refunded") },
+  ];
+  const order = { requested: 0, approved: 0, processing: 1, completed: 2 };
+  const failed = status === "failed";
+  const idx = failed ? 1 : (order[status] ?? 0);
+
+  return (
+    <div className="py-2">
+      <div className="text-center mb-4">
+        <div className="text-sm text-gray-500">{result.refund_number}</div>
+        <div className="text-2xl font-semibold text-gray-900 mt-1">
+          {result.currency} {result.customer_refund}
+        </div>
+      </div>
+
+      {failed ? (
+        <div className="rounded-lg bg-red-50 border border-red-200 p-4 text-center">
+          <XCircle className="w-8 h-8 text-red-500 mx-auto mb-2" />
+          <div className="text-sm font-medium text-red-800">{t("monitoring_refund_step_failed")}</div>
+          {result.last_error && (
+            <div className="text-xs text-red-600 mt-1">{result.last_error.slice(0, 160)}</div>
+          )}
+        </div>
+      ) : (
+        <ol className="space-y-3">
+          {steps.map((s, i) => {
+            const done = i < idx || status === "completed" && i <= idx;
+            const active = i === idx && status !== "completed";
+            return (
+              <li key={s.key} className="flex items-center gap-3">
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center flex-shrink-0 ${
+                  done ? "bg-emerald-500 text-white" : active ? "bg-amber-400 text-white" : "bg-gray-200 text-gray-400"}`}>
+                  {done ? <CheckCircle className="w-4 h-4" />
+                    : active ? <Loader2 className="w-3.5 h-3.5 animate-spin" />
+                    : <Clock className="w-3.5 h-3.5" />}
+                </span>
+                <span className={`text-sm ${done || active ? "text-gray-900 font-medium" : "text-gray-400"}`}>
+                  {s.label}
+                </span>
+              </li>
+            );
+          })}
+        </ol>
+      )}
+
+      {status !== "completed" && !failed && (
+        <p className="text-xs text-gray-400 text-center mt-4">
+          {t("monitoring_refund_awaiting_webhook")}
+        </p>
+      )}
+    </div>
+  );
 }
 
 function formatDate(d) {
@@ -143,6 +478,9 @@ export default function PlatformMonitoringPage() {
   const [webhookFailures, setWebhookFailures] = useState([]);
 
   const [toast, setToast] = useState(null);
+  const [showRefund, setShowRefund] = useState(false);
+  // Snapshot "now" once at mount (lazy init keeps Date.now() out of render).
+  const [nowMs] = useState(() => Date.now());
   function showToast(msg, type = "success") {
     setToast({ msg, type });
     setTimeout(() => setToast(null), 3000);
@@ -185,13 +523,29 @@ export default function PlatformMonitoringPage() {
           </div>
         )}
 
-        {/* Monitoring badge */}
-        <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg w-fit">
-          <MonitorCheck className="w-4 h-4 text-blue-600" />
-          <span className="text-xs font-medium text-blue-700">
-            {t("monitoring_badge")}
-          </span>
+        {/* Monitoring badge + issue-refund action */}
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-2 px-3 py-2 bg-blue-50 border border-blue-200 rounded-lg w-fit">
+            <MonitorCheck className="w-4 h-4 text-blue-600" />
+            <span className="text-xs font-medium text-blue-700">
+              {t("monitoring_badge")}
+            </span>
+          </div>
+          <button onClick={() => setShowRefund(true)}
+            className="inline-flex items-center gap-2 px-4 py-2 text-sm font-medium text-white rounded-lg"
+            style={{ backgroundColor: MAROON }}>
+            <RotateCcw className="w-4 h-4" />
+            {t("monitoring_refund_issue_title")}
+          </button>
         </div>
+
+        {showRefund && (
+          <SuperadminRefundModal
+            t={t}
+            onClose={() => setShowRefund(false)}
+            onDone={() => { showToast(t("monitoring_refund_success")); setTimeout(loadAll, 3000); }}
+          />
+        )}
 
         {/* Stats */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
@@ -311,7 +665,7 @@ export default function PlatformMonitoringPage() {
                   </thead>
                   <tbody className="divide-y divide-gray-100">
                     {disputes.map(d => {
-                      const hoursLeft = d.evidence_due_by ? Math.max(0, (new Date(d.evidence_due_by) - Date.now()) / 3600000) : null;
+                      const hoursLeft = d.evidence_due_by ? Math.max(0, (new Date(d.evidence_due_by).getTime() - nowMs) / 3600000) : null;
                       const isUrgent = hoursLeft !== null && hoursLeft < 24;
                       return (
                         <tr key={d.id} className={`hover:bg-gray-50/60 ${isUrgent ? "bg-red-50/30" : ""}`}>
