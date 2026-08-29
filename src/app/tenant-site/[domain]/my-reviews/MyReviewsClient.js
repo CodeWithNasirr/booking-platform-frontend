@@ -24,26 +24,74 @@ import StarRating from "@/components/shared/StarRating";
 
 const API_BASE = process.env.NEXT_PUBLIC_API_URL || "";
 
+
+function displayText(value, lang = "en") {
+  if (value == null) return "";
+
+  if (typeof value === "string" || typeof value === "number") {
+    return String(value);
+  }
+
+  if (typeof value === "object") {
+    return (
+      value[lang] ||
+      value.en ||
+      Object.values(value).find(
+        (v) => typeof v === "string" && v.trim()
+      ) ||
+      ""
+    );
+  }
+
+  return "";
+}
+
+
 // Collect every customer credential we can find in localStorage.
 function resolveAuth() {
   const out = { authorization: null, orderToken: null };
-  try {
-    const jwt = localStorage.getItem("customer_token");
-    if (jwt) out.authorization = `Bearer ${jwt}`;
 
+  try {
     const keys = Object.keys(localStorage);
-    if (!out.authorization) {
-      const bKey = keys.find((k) => k.startsWith("customer_booking_token_"));
-      if (bKey) {
-        const bt = localStorage.getItem(bKey);
-        if (bt) out.authorization = bt.startsWith("Bearer ") ? bt : `Bearer ${bt}`;
+
+    // Prefer the same token used by My Bookings
+    const bKey = keys.find((k) =>
+      k.startsWith("customer_booking_token_")
+    );
+
+    if (bKey) {
+      const token = localStorage.getItem(bKey);
+
+      if (token) {
+        out.authorization = token.startsWith("Bearer ")
+          ? token
+          : `Bearer ${token}`;
       }
     }
-    const oKey = keys.find((k) => k.startsWith("customer_order_token_"));
-    if (oKey) out.orderToken = localStorage.getItem(oKey) || null;
+
+    // Order guest token
+    const oKey = keys.find((k) =>
+      k.startsWith("customer_order_token_")
+    );
+
+    if (oKey) {
+      out.orderToken = localStorage.getItem(oKey) || null;
+    }
+
+    // Fallback to normal JWT
+    if (!out.authorization) {
+      const jwt = localStorage.getItem("customer_token");
+
+      if (jwt) {
+        out.authorization = jwt.startsWith("Bearer ")
+          ? jwt
+          : `Bearer ${jwt}`;
+      }
+    }
   } catch {
-    /* localStorage unavailable */
+    // localStorage unavailable
   }
+
   return out;
 }
 
@@ -77,10 +125,12 @@ function ReviewRow({ review, onOpen, isRTL }) {
             </span>
           </div>
           <div className="mt-1 text-sm font-semibold text-gray-900 truncate">
-            {review.service_name || review.business_name || "Service"}
+           {displayText(review.service_name) || displayText(review.business_name) || "Service"}
           </div>
           <div className="text-xs text-gray-400">
-            {[review.business_name, review.reference].filter(Boolean).join(" · ")}
+           {[displayText(review.business_name), displayText(review.reference)]
+  .filter(Boolean)
+  .join(" · ")}
           </div>
         </div>
         <div className="text-[11px] text-gray-400 whitespace-nowrap">
@@ -89,10 +139,10 @@ function ReviewRow({ review, onOpen, isRTL }) {
       </div>
 
       {review.title ? (
-        <div className="mt-2 text-sm font-semibold text-gray-800">{review.title}</div>
+        <div className="mt-2 text-sm font-semibold text-gray-800">{displayText(review.title)}</div>
       ) : null}
       {review.comment ? (
-        <p className="mt-1 text-sm text-gray-600 whitespace-pre-wrap break-words">{review.comment}</p>
+        <p className="mt-1 text-sm text-gray-600 whitespace-pre-wrap break-words">{displayText(review.comment)}</p>
       ) : (
         <p className="mt-1 text-sm text-gray-400 italic">Rated {review.rating}/5</p>
       )}
@@ -100,9 +150,9 @@ function ReviewRow({ review, onOpen, isRTL }) {
       {review.provider_response ? (
         <div className="mt-3 rounded-xl bg-gray-50 border border-gray-100 p-3">
           <div className="text-[11px] font-semibold text-gray-500 mb-1">
-            Response from {review.business_name || "the business"}
+            Response from {displayText(review.business_name) || "the business"}
           </div>
-          <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{review.provider_response}</p>
+          <p className="text-sm text-gray-700 whitespace-pre-wrap break-words">{displayText(review.provider_response)}</p>
         </div>
       ) : null}
 
