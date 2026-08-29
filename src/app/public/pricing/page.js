@@ -21,21 +21,51 @@ export default function PricingPage() {
   const [loading, setLoading] = useState(true);
   const [expandedFaq, setExpandedFaq] = useState(null);
 
+  // useEffect(() => {
+  //   async function fetchPlans() {
+  //     try {
+  //       const res = await fetch(
+  //         `${process.env.NEXT_PUBLIC_API_URL}/api/v1/billing/plans/`
+  //       );
+  //       const data = await res.json();
+
+  //       setPlans(data);
+  //     } catch (err) {
+  //       console.error("Failed to load plans:", err);
+  //     } finally {
+  //       setLoading(false);
+  //     }
+  //   }
+  //   fetchPlans();
+  // }, []);
+
   useEffect(() => {
     async function fetchPlans() {
       try {
-        const res = await fetch(
-          `${process.env.NEXT_PUBLIC_API_URL}/api/v1/billing/plans/`
-        );
-        const data = await res.json();
+        const res = await fetch(`${API}/api/v1/billing/plans/`, {
+          method: "GET",
+          credentials: "include",
+          headers: {
+            "Content-Type": "application/json",
+          },
+          cache: "no-store",
+        });
 
-        setPlans(data);
+        const data = await res.json().catch(() => []);
+
+        if (!res.ok) {
+          console.error("Failed to load plans:", res.status, data);
+          return;
+        }
+
+        setPlans(Array.isArray(data) ? data : data.results || []);
       } catch (err) {
         console.error("Failed to load plans:", err);
       } finally {
         setLoading(false);
       }
     }
+
     fetchPlans();
   }, []);
 
