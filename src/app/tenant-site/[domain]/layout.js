@@ -35,15 +35,21 @@ export async function generateMetadata({ params }) {
       };
     }
 
+    const ogImage = site.og_image || null;
     return {
-      title: site.seo_title || site.tenant?.name || "Welcome",
+      title: site.seo_title || site.business_name || site.tenant?.name || "Welcome",
       description: site.seo_description || "",
       keywords: site.seo_keywords || "",
+      robots: { index: true, follow: true },
       openGraph: {
-        title: site.seo_title || site.tenant?.name,
+        title: site.seo_title || site.business_name || site.tenant?.name,
         description: site.seo_description,
         type: "website",
+        ...(ogImage ? { images: [{ url: ogImage }] } : {}),
       },
+      ...(ogImage
+        ? { twitter: { card: "summary_large_image", images: [ogImage] } }
+        : {}),
     };
   } catch {
     return {
