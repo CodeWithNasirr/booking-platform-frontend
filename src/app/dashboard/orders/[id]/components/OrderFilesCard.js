@@ -2,6 +2,7 @@
 
 import { useApp } from '@/contexts/AppContext';
 import { FileText, Download, FileImage } from 'lucide-react';
+import { resolveMediaUrl } from '@/lib/mediaUrl';
 import { Section } from './ui';
 
 function fmtSize(bytes) {
@@ -25,7 +26,7 @@ export default function OrderFilesCard({ order }) {
       <div className="space-y-2">
         {files.map((file) => {
           const name = file.original_filename || file.file_name || 'file';
-          const url = file.file_url || file.file;
+          const url = resolveMediaUrl(file.file_url || file.file);
           const isImg = IMG.test(name);
           return (
             <a

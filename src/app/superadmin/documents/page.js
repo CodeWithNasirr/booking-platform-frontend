@@ -4,6 +4,7 @@
 import { useState, useEffect, useCallback } from "react";
 import SuperAdminLayout from "@/components/superadmin/SuperAdminLayout";
 import { useTranslation } from "@/lib/t";
+import { resolveMediaUrl } from "@/lib/mediaUrl";
 import {
   FileText, Search, Filter, Eye, Check, X, Clock, AlertCircle,
   CheckCircle, XCircle, RefreshCcw, Loader2, ChevronLeft, ChevronRight,
@@ -205,9 +206,9 @@ function DocumentDrawer({ docId, onClose, onAction, t, isRTL }) {
               <h4 className="text-sm font-semibold text-gray-900 mb-3">{t("superadmin.documents.preview_title")}</h4>
               <div className="bg-gray-50 rounded-xl border border-gray-200 overflow-hidden">
                 {doc.content_type?.startsWith("image/") ? (
-                  <img src={doc.file_url} alt={doc.file_name} className="w-full max-h-96 object-contain bg-white" />
+                  <img src={resolveMediaUrl(doc.file_url)} alt={doc.file_name} className="w-full max-h-96 object-contain bg-white" />
                 ) : doc.content_type === "application/pdf" ? (
-                  <iframe src={doc.file_url} title={doc.file_name} className="w-full h-96 bg-white" />
+                  <iframe src={resolveMediaUrl(doc.file_url)} title={doc.file_name} className="w-full h-96 bg-white" />
                 ) : (
                   <div className="flex flex-col items-center justify-center py-12 text-gray-400">
                     <FileText className="w-16 h-16 mb-3" />
@@ -218,7 +219,7 @@ function DocumentDrawer({ docId, onClose, onAction, t, isRTL }) {
                 <div className="p-3 border-t border-gray-200 bg-white flex items-center justify-between">
                   <span className="text-xs text-gray-500 truncate">{doc.file_name}</span>
                   <a
-                    href={doc.file_url}
+                    href={resolveMediaUrl(doc.file_url)}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex items-center gap-1 text-xs font-medium text-[#800020] hover:underline"

@@ -13,6 +13,7 @@
  */
 
 import { Eye } from "lucide-react";
+import { resolveMediaUrl } from "@/lib/mediaUrl";
 
 function ext(name = "") {
   const dot = name.lastIndexOf(".");
@@ -52,10 +53,12 @@ export default function AttachmentGrid({ files }) {
       className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3"
       aria-label="Attachments"
     >
-      {files.map((f) => (
+      {files.map((f) => {
+        const fileUrl = resolveMediaUrl(f.file);
+        return (
         <li key={f.id}>
           <a
-            href={f.file}
+            href={fileUrl}
             target="_blank"
             rel="noreferrer"
             className="group block rounded-xl overflow-hidden border border-gray-200 hover:border-gray-300 hover:shadow-sm transition focus:outline-none focus-visible:ring-2 focus-visible:ring-[color:var(--brand-primary,#3B82F6)]/30"
@@ -64,7 +67,7 @@ export default function AttachmentGrid({ files }) {
               <div className="relative">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
                 <img
-                  src={f.file}
+                  src={fileUrl}
                   alt={f.file_name}
                   className="w-full h-28 object-cover"
                   loading="lazy"
@@ -86,7 +89,8 @@ export default function AttachmentGrid({ files }) {
             </div>
           </a>
         </li>
-      ))}
+        );
+      })}
     </ul>
   );
 }

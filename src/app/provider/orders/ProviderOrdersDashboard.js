@@ -23,6 +23,7 @@ import {
   OrderTimelineFeed, OrderConversation,
 } from "@/components/orders";
 import { useRealtime } from "@/lib/realtime";
+import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { applyOrderEnvelope, applyTenantOrderSummary } from "@/lib/realtimePatches";
 import Cookies from "js-cookie";
 
@@ -865,7 +866,7 @@ function OrderFilesDisplay({ files, t, isRTL }) {
         {fileList.map((file) => (
           <a
             key={file.id}
-            href={file.file_url || file.file}
+            href={resolveMediaUrl(file.file_url || file.file)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center gap-3 p-3 bg-white border rounded-lg hover:bg-gray-50 transition-colors"
