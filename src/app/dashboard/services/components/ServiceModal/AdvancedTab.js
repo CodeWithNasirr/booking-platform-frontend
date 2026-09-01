@@ -1,9 +1,10 @@
 "use client";
 
 import { useApp } from "@/contexts/AppContext";
+import { ServiceMediaManager } from "../ServiceMediaManager";
 
-export function AdvancedTab({ form, setForm }) {
-  const { t, isRTL } = useApp();
+export function AdvancedTab({ form, setForm, slug }) {
+  const { t, isRTL, activeTenant } = useApp();
 
   return (
     <div className="space-y-4">
@@ -19,18 +20,13 @@ export function AdvancedTab({ form, setForm }) {
         />
       </div>
 
-      <div>
-        <label className="block text-sm font-medium text-gray-700 mb-2">
-          {t("advanced.imageUrl")}
-        </label>
-        <input
-          type="url"
-          value={form.image}
-          onChange={(e) => setForm({ ...form, image: e.target.value })}
-          className="w-full px-4 py-3 border rounded-xl"
-          placeholder="https://..."
-        />
-      </div>
+      {/* Real file upload → backend → R2. No URL entry. */}
+      <ServiceMediaManager
+        slug={slug}
+        tenantId={activeTenant}
+        form={form}
+        setForm={setForm}
+      />
 
       <div className="flex items-center justify-between p-4 bg-gray-50 rounded-xl">
         <div>

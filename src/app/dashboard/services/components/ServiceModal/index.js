@@ -131,7 +131,7 @@ export function ServiceModal({
           )}
 
           {activeTab === "advanced" && (
-            <AdvancedTab form={form} setForm={setForm} />
+            <AdvancedTab form={form} setForm={setForm} slug={editing?.slug} />
           )}
         </div>
 
