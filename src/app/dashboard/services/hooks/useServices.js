@@ -7,6 +7,8 @@ import Cookies from "js-cookie";
 import { useBillingGate } from "@/lib/useBillingGate";
 import { usePaymentGateway } from "@/lib/usePaymentGateway";
 import { apiFetch } from "@/lib/apiClient";
+import { stripAddonClientFields } from "../components/AddonManager";
+import { flushPendingServiceMedia } from "../components/ServiceMediaManager";
 export function useServices() {
   const { user, loadingUser, requiresOnboarding, activeTenant,t,isRTL } = useApp();
   const router = useRouter();
@@ -51,6 +53,10 @@ export function useServices() {
     planFeatures: [],
     maxCapacity: 1,
     image: "",
+    imageFile: null,
+    imagePreview: "",
+    gallery: [],
+    galleryFiles: [],
     deliveryDays: 7,
     revisions: 1,
     packages: [],
@@ -147,7 +153,7 @@ export function useServices() {
           created_at: s.created_at,
           deleted_at: s.deleted_at,
           deliveryDays: s.default_delivery_days,
-          image: s.image || "",
+          image: s.image_url || "",
         }));
 
         setServices(normalized);
@@ -206,6 +212,10 @@ export function useServices() {
       planFeatures: [],
       maxCapacity: 1,
       image: "",
+      imageFile: null,
+      imagePreview: "",
+      gallery: [],
+      galleryFiles: [],
       hasMilestones: false,
       requiresDeposit: false,
       depositPercent: 30,
@@ -270,9 +280,11 @@ export function useServices() {
         auto_renew_default: isSubscription ? form.autoRenewDefault !== false : true,
         plan_features: isSubscription ? planFeatures : [],
         is_active: form.isActive,
-        image: form.image,
+        // NOTE: image & gallery are NEVER sent here — they are set only via the
+        // dedicated upload endpoints (server owns the storage key). The write
+        // API ignores them, so a client can't inject an arbitrary URL.
         packages: form.pricingType === "package" ? form.packages : [],
-        addons: form.addons,
+        addons: stripAddonClientFields(form.addons),
         availability: ["booking", "hybrid"].includes(form.orderType) ? form.availability : [],
         requirements: form.requirements || [],
       };
@@ -303,6 +315,10 @@ export function useServices() {
       }
       if (!saved) return;
 
+      // A brand-new service had no slug when the user picked images, so upload
+      // any deferred files now that it exists, then refetch the canonical URLs.
+      await flushPendingServiceMedia(saved.slug, form, tenantId);
+
       const fresh = await apiFetch(`/api/v1/services/${saved.slug}/`,tenantId);
       const normalizedService = {
         id: fresh.id,
@@ -320,7 +336,8 @@ export function useServices() {
         // hasMilestones: fresh.has_milestones,
         // requiresDeposit: fresh.requires_deposit,
         deliveryDays: fresh.default_delivery_days,
-        image: fresh.image || "",
+        image: fresh.image_url || "",
+        gallery: fresh.gallery || [],
         packages: fresh.packages || [],
         addons: fresh.addons || [],
         availability: fresh.availability || [],
@@ -379,7 +396,11 @@ export function useServices() {
           : [],
         deliveryDays: fullService.default_delivery_days || 7,
         revisions: fullService.default_revisions || 1,
-        image: fullService.image || "",
+        image: fullService.image_url || "",   // canonical display URL
+        imageFile: null,
+        imagePreview: "",
+        gallery: fullService.gallery || [],
+        galleryFiles: [],
         packages: fullService.packages || [],
         addons: fullService.addons || [],
         availability: mappedAvailability || [],

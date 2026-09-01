@@ -155,13 +155,31 @@ export default {
 
    "addons.title": "الإضافات والعروض الإضافية",
   "addons.namePlaceholder": "اسم الإضافة (مثل: تعديل إضافي)",
+  "addons.nameArPlaceholder": "الاسم (بالعربية)",
+  "addons.nameUrPlaceholder": "الاسم (بالأردية)",
   "addons.price": "السعر",
   "addons.additionalDays": "+أيام",
   "addons.add": "إضافة خيار",
+  "addons.remove": "حذف الإضافة",
+  "addons.empty": "لا توجد إضافات بعد. أضف واحدة لتقديم خيارات إضافية عند الدفع.",
 
   "advanced.fullDescription": "الوصف الكامل",
   "advanced.imageUrl": "رابط الصورة",
+  "advanced.image": "صورة الخدمة",
+  "advanced.imageHint": "JPG أو PNG أو WEBP أو GIF · حتى 5 ميجابايت",
+  "advanced.uploadImage": "رفع صورة",
+  "advanced.replaceImage": "استبدال",
+  "advanced.removeImage": "إزالة",
+  "advanced.gallery": "معرض الصور",
+  "advanced.galleryHint": "أضف صورًا إضافية تظهر في صفحة الخدمة",
+  "advanced.addGallery": "إضافة صور",
+  "advanced.uploading": "جارٍ الرفع…",
+  "advanced.uploadError": "فشل الرفع. حاول مرة أخرى.",
+  "advanced.imageTooLarge": "الصورة كبيرة جدًا (الحد الأقصى 5 ميجابايت).",
+  "advanced.invalidType": "نوع ملف غير مدعوم. استخدم JPG أو PNG أو WEBP أو GIF.",
+  "advanced.saveFirst": "احفظ الخدمة أولًا ثم ارفع الصور.",
+  "advanced.maxGallery": "يمكنك إضافة حتى {max} صور.",
   "advanced.activeStatus": "حالة التفعيل",
   "advanced.activeHint": "مرئي للعملاء",
-  
+
 }
