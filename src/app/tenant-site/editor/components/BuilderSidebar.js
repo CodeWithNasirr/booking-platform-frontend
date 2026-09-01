@@ -17,6 +17,7 @@ import { useBuilder } from "../context/BuilderContext";
 import { useTenantLang } from "../../contexts/TenantLangContext";
 import { resolveTranslated } from "../../[domain]/utils/resolveTranslated";
 import { getSectionPresets, getSectionCategories } from "../api/builderApi";
+import SEOSettingsPanel from "./SEOSettingsPanel";
 import {
   Layers,
   Palette,
@@ -1100,18 +1101,18 @@ function ColorInput({ label, value, onChange, isRTL }) {
 // ============================================================
 
 function SettingsTab({ state, language, isRTL, T }) {
+  // Page Settings → SEO (Phase 5). Uses the existing /api/v1/website/seo/ API
+  // and the centralized media upload for the Open-Graph image.
   return (
-    <div className="p-4 space-y-6">
-      <div className={`text-center py-8 text-slate-400 ${isRTL ? "text-right" : ""}`}>
-        <Settings className="w-12 h-12 mx-auto mb-4 opacity-50" />
-        <p className="text-sm font-medium mb-2">{T({ en: "Site Settings", ar: "إعدادات الموقع", ur: "سائٹ کی ترتیبات" })}</p>
-        <p className="text-xs">{T({ en: "Coming soon...", ar: "قريبًا...", ur: "جلد آ رہا ہے..." })}</p>
-      </div>
+    <div>
+      <SEOSettingsPanel T={T} isRTL={isRTL} />
 
-      {/* Preview of what's coming */}
-      <div className="space-y-2">
+      {/* Still-planned settings, shown below the live SEO panel. */}
+      <div className="px-4 pb-4 space-y-2">
+        <div className="text-[10px] uppercase tracking-wide text-slate-400 pt-2">
+          {T({ en: "More settings", ar: "مزيد من الإعدادات", ur: "مزید ترتیبات" })}
+        </div>
         {[
-          { en: "SEO Settings", ar: "إعدادات SEO", ur: "SEO سیٹنگز" },
           { en: "Analytics Integration", ar: "تكامل التحليلات", ur: "اینالیٹکس انٹیگریشن" },
           { en: "Custom Domain", ar: "نطاق مخصص", ur: "کسٹم ڈومین" },
           { en: "Social Links", ar: "روابط التواصل", ur: "سوشل لنکس" },
