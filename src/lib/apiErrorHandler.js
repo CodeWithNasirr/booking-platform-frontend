@@ -86,10 +86,16 @@ export function handleApiError(res, data) {
   const detail = data?.detail || data?.message || `Request failed (${res.status})`;
   const config = PLATFORM_ERRORS[code];
 
-  const err    = new Error(detail);
-  err.status   = res.status;
-  err.code     = code;
-  err.data     = data;
+  const err = new Error(detail);
+
+  err.status = res.status;
+  err.code = code;
+  err.data = data;
+
+  // Preserve backend validation fields
+  if (data && typeof data === "object") {
+    Object.assign(err, data);
+  }
 
   // If this is a known platform error, broadcast to UI subscribers
   if (config) {

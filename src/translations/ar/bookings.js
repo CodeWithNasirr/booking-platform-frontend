@@ -115,6 +115,7 @@ export default {
   'bookings.modal.create.cancel': 'إلغاء',
   'bookings.modal.create.success': 'تم إنشاء الحجز بنجاح',
   'bookings.modal.create.error': 'فشل في إنشاء الحجز',
+  'bookings.modal.edit.noSlots': 'لا توجد مواعيد متاحة لهذا التاريخ',
 
   // =====================
   // VIEW BOOKING MODAL

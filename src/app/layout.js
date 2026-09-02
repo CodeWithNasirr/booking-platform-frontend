@@ -2,6 +2,7 @@
 
 import "../app/globals.css";
 import DirectionSync from "@/components/ui/DirectionSync";
+import { Toaster } from "react-hot-toast";
 
 export default function RootLayout({ children }) {
   // Default to LTR/English for static rendering; DirectionSync applies
@@ -12,6 +13,8 @@ export default function RootLayout({ children }) {
       <body suppressHydrationWarning>
         <DirectionSync />
         {children}
+        <Toaster position="top-right" />
+        
       </body>
     </html>
   );

@@ -129,7 +129,7 @@ export default function Header({ data, lang: propLang }) {
                 <img 
                   src={logo_url || theme.logo_url} 
                   alt="Logo" 
-                  className="h-9 object-contain" 
+                  className="h-10 object-contain" 
                 />
               ) : (
                 <span className="text-xl font-bold" style={{ color: "var(--color-primary)" }}>

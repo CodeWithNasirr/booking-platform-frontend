@@ -27,7 +27,7 @@ import Step2_Services from "./steps/Step2_Services";
 import Step3_Provider from "./steps/Step3_Provider";
 import Step4_Availability from "./steps/Step4_Availability";
 import Step5_DomainTemplate from "./steps/Step5_DomainTemplate";
-
+import { toast } from "react-hot-toast";
 import LanguageSwitcher from "@/components/shared/LanguageSwitcher";
 
 
@@ -58,15 +58,15 @@ export default function OnboardingWizard({ tenant }) {
 
 
   useEffect(() => {
-    console.log("ONBOARDING PAGE");
+    // console.log("ONBOARDING PAGE");
 
-    console.log({
-      authInitialized,
-      loadingUser,
-      user,
-      activeTenant,
-      tenantsLength: tenants.length,
-    });
+    // console.log({
+    //   authInitialized,
+    //   loadingUser,
+    //   user,
+    //   activeTenant,
+    //   tenantsLength: tenants.length,
+    // });
 
     if (!authInitialized) return;
 
@@ -168,12 +168,40 @@ export default function OnboardingWizard({ tenant }) {
 
 
 
-    useEffect(() => {
-    const savedProviderId = localStorage.getItem("provider_id");
-    if (savedProviderId) {
-        setProviderId(savedProviderId);
+  useEffect(() => {
+    if (tenantState?.has_providers === false) {
+      // Individual tenant: backend determines the owner provider.
+      setProviderId(null);
+      localStorage.removeItem("provider_id");
+      return;
     }
-    }, []);
+
+    // Business/team tenant: recover provider if localStorage is available.
+    const savedProviderId = localStorage.getItem("provider_id");
+
+    if (savedProviderId) {
+      setProviderId(savedProviderId);
+      return;
+    }
+
+    // No localStorage value — recover the logged-in user's provider.
+    apiFetch("/api/v1/providers/", tenantState.id, {
+      method: "GET",
+    })
+      .then((data) => {
+        const providers = Array.isArray(data) ? data : [];
+
+        const myProvider = providers.find(
+          (provider) => provider.user_id === user?.id
+        );
+
+        if (myProvider?.id) {
+          setProviderId(myProvider.id);
+          localStorage.setItem("provider_id", myProvider.id);
+        }
+      })
+      .catch(console.error);
+  }, [tenantState, user]);
 
 
 
@@ -193,22 +221,26 @@ export default function OnboardingWizard({ tenant }) {
     );
 
     // If individual owner → provider already exists in backend
-    if (tenantState.has_providers === false) {
-      apiFetch(
-      "/api/v1/providers/me/",
-      tenantState.id,
-      {
-        method: "GET",
-      }
-    )
-      .then((data) => {
-        if (data?.id) {
-          setProviderId(data.id);
-          localStorage.setItem("provider_id", data.id);
-        }
-      })
-      .catch(console.error);
-        }
+    // if (tenantState.has_providers === false) {
+    //   apiFetch(
+    //     "/api/v1/providers/",
+    //     tenantState.id,
+    //     {
+    //       method: "GET",
+    //     }
+    //   )
+    //     .then((data) => {
+    //       const providers = Array.isArray(data) ? data : [];
+
+    //       if (providers.length > 0) {
+    //         const provider = providers[0];
+
+    //         setProviderId(provider.id);
+    //         localStorage.setItem("provider_id", provider.id);
+    //       }
+    //     })
+    //     .catch(console.error);
+    // }
 
 
   }, [tenantState]);
@@ -217,27 +249,30 @@ export default function OnboardingWizard({ tenant }) {
   // ------------------------------------------------------
   // FORM DATA
   // ------------------------------------------------------
-  const [formData, setFormData] = useState({
-    // business
-    businessName: "",
-    business_type: "",
-    address: "",
-    city: "",
-    country: "",
-    timezone: "",
-    currency: "",
+const [formData, setFormData] = useState({
+  // business
+  businessName: "",
+  business_type: "",
+  address: "",
+  city: "",
+  country: "",
+  timezone: "",
+  currency: "",
 
-    // provider
-    providerName: "",
-    providerEmail: "",
-    providerPhone: "",
-    assignAllServices: true,
+  // provider
+  providerName: "",
+  providerEmail: "",
+  providerPhone: "",
+  assignAllServices: true,
 
-    // domain/template
-    subdomain: "",
-    customDomain: "",
-    selectedTemplate: "",
-  });
+  // domain/template
+  subdomain: "",
+  customDomain: "",
+  selectedTemplate: "",
+  selectedLayout: "",
+});
+
+
 
   const updateFormData = (field, value) =>
     setFormData((prev) => ({ ...prev, [field]: value }));
@@ -395,6 +430,26 @@ export default function OnboardingWizard({ tenant }) {
       return;
     }
 
+
+    if (currentStep === 5) {
+      if (!formData.subdomain?.trim()) {
+        toast.error("Please enter a subdomain.");
+        return;
+      }
+
+      if (!formData.selectedTemplate) {
+        toast.error("Please select a template.");
+        return;
+      }
+
+      if (!formData.selectedLayout) {
+        toast.error("Please select a layout.");
+        return;
+      }
+    }
+
+
+
     let endpoint = "";
     let body;
     let headers = {
@@ -458,10 +513,20 @@ export default function OnboardingWizard({ tenant }) {
                 body,
               }
             );
-    } catch (err) {
-      console.error(err);
-      return;
-    }
+    } 
+catch (err) {
+  const message = err?.subdomain?.[0] || "Unknown API error";
+  window.alert(message);
+
+  
+
+  return;
+}
+
+
+
+
+
 
     if (json.tenant) {
       setTenantState((p) => ({ ...p, ...json.tenant }));

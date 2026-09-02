@@ -123,6 +123,8 @@ export default {
   "bookings.modal.create.cancel": "منسوخ کریں",
   "bookings.modal.create.success": "بکنگ کامیابی سے بن گئی",
   "bookings.modal.create.error": "بکنگ بنانے میں ناکامی",
+  'bookings.modal.edit.noSlots': 'اس تاریخ کے لیے کوئی وقت دستیاب نہیں ہے',
+
 
   // =====================
   // VIEW BOOKING

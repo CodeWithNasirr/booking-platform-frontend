@@ -15,9 +15,16 @@
  * package/add-on selectors are UNCHANGED.
  */
 
-import { useState, useMemo } from "react";
+import { useState, useMemo,useEffect } from "react";
 import Link from "next/link";
-import { Star, Clock, ChevronRight } from "lucide-react";
+import {
+  Star,
+  Clock,
+  ChevronRight,
+  X,
+  ChevronLeft,
+  ChevronRight as ChevronRightIcon,
+} from "lucide-react";
 
 import { useTenantLang } from "@/app/tenant-site/contexts/TenantLangContext";
 import { useTenantTheme } from "@/app/tenant-site/contexts/TenantThemeContext";
@@ -60,6 +67,7 @@ export default function ServiceDetailClient({
 
   const [selectedPackage, setSelectedPackage] = useState(null);
   const [selectedAddons, setSelectedAddons] = useState([]);
+  const [lightboxIndex, setLightboxIndex] = useState(null);
 
   const name = resolveTranslated(service.name, lang);
   const description = resolveTranslated(service.description, lang);
@@ -102,6 +110,40 @@ export default function ServiceDetailClient({
   const headerSection = header ? [header] : [];
   const footerSection = footer ? [footer] : [];
 
+  useEffect(() => {
+  if (lightboxIndex === null) return;
+
+  const handleKeyDown = (event) => {
+    if (event.key === "Escape") {
+      setLightboxIndex(null);
+      return;
+    }
+
+    if (event.key === "ArrowLeft") {
+      setLightboxIndex((current) =>
+        current === 0 ? gallery.length - 1 : current - 1
+      );
+      return;
+    }
+
+    if (event.key === "ArrowRight") {
+      setLightboxIndex((current) =>
+        current === gallery.length - 1 ? 0 : current + 1
+      );
+    }
+  };
+
+  document.addEventListener("keydown", handleKeyDown);
+
+  // Prevent the page underneath from scrolling.
+  document.body.style.overflow = "hidden";
+
+  return () => {
+    document.removeEventListener("keydown", handleKeyDown);
+    document.body.style.overflow = "";
+  };
+}, [lightboxIndex, gallery.length]);
+
   return (
     <>
       {headerSection.length > 0 && (
@@ -133,16 +175,44 @@ export default function ServiceDetailClient({
                     )}
                   </div>
 
-                  {gallery.length > 0 && (
-                    <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
-                      {gallery.map((img, i) => (
-                        <div key={i} className="w-20 h-14 rounded-lg overflow-hidden bg-muted shrink-0">
-                          {/* eslint-disable-next-line @next/next/no-img-element */}
-                          <img src={img} alt="" className="w-full h-full object-cover" />
-                        </div>
-                      ))}
-                    </div>
-                  )}
+                 {gallery.length > 0 && (
+                <div className="flex gap-2 mt-3 overflow-x-auto pb-2">
+                  {gallery.map((img, i) => {
+                    const imageUrl =
+                      typeof img === "string"
+                        ? img
+                        : img?.url;
+
+                    if (!imageUrl) return null;
+
+                    return (
+                      <button
+                        key={
+                          typeof img === "string"
+                            ? img
+                            : img.key || img.url || i
+                        }
+                        type="button"
+                        onClick={() => setLightboxIndex(i)}
+                        className="w-20 h-14 rounded-lg overflow-hidden bg-muted shrink-0 border border-border hover:ring-2 hover:ring-primary/50 focus:outline-none focus:ring-2 focus:ring-primary transition"
+                        aria-label={`View image ${i + 1} of ${gallery.length}`}
+                      >
+                        {/* eslint-disable-next-line @next/next/no-img-element */}
+                        <img
+                          src={imageUrl}
+                          alt={
+                            typeof img === "object"
+                              ? img.name || ""
+                              : ""
+                          }
+                          className="w-full h-full object-cover"
+                          loading="lazy"
+                        />
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
                 </div>
               )}
 
@@ -311,6 +381,97 @@ export default function ServiceDetailClient({
             </a>
           </div>
         </div>
+
+        {lightboxIndex !== null && gallery[lightboxIndex] && (
+  <div
+    className="fixed inset-0 z-[100] bg-black/90 flex items-center justify-center p-4"
+    role="dialog"
+    aria-modal="true"
+    aria-label="Image gallery"
+    onClick={(event) => {
+      if (event.target === event.currentTarget) {
+        setLightboxIndex(null);
+      }
+    }}
+  >
+    {/* Close */}
+    <button
+      type="button"
+      onClick={() => setLightboxIndex(null)}
+      className="absolute top-4 right-4 z-20 w-10 h-10 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition"
+      aria-label="Close gallery"
+    >
+      <X className="w-6 h-6" />
+    </button>
+
+    {/* Counter */}
+    <div className="absolute top-5 left-1/2 -translate-x-1/2 z-20 px-3 py-1.5 rounded-full bg-black/60 text-white text-sm">
+      {lightboxIndex + 1} / {gallery.length}
+    </div>
+
+    {/* Previous */}
+    {gallery.length > 1 && (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+
+          setLightboxIndex((current) =>
+            current === 0
+              ? gallery.length - 1
+              : current - 1
+          );
+        }}
+        className={`absolute z-20 ${
+          isRTL ? "right-3 sm:right-6" : "left-3 sm:left-6"
+        } top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition`}
+        aria-label="Previous image"
+      >
+        <ChevronLeft className="w-6 h-6" />
+      </button>
+    )}
+
+    {/* Next */}
+    {gallery.length > 1 && (
+      <button
+        type="button"
+        onClick={(event) => {
+          event.stopPropagation();
+
+          setLightboxIndex((current) =>
+            current === gallery.length - 1
+              ? 0
+              : current + 1
+          );
+        }}
+        className={`absolute z-20 ${
+          isRTL ? "left-3 sm:left-6" : "right-3 sm:right-6"
+        } top-1/2 -translate-y-1/2 w-11 h-11 sm:w-12 sm:h-12 rounded-full bg-black/60 text-white flex items-center justify-center hover:bg-black/80 transition`}
+        aria-label="Next image"
+      >
+        <ChevronRightIcon className="w-6 h-6" />
+      </button>
+    )}
+
+    {/* Full image */}
+    <div className="relative w-full h-full flex items-center justify-center pointer-events-none">
+      {/* eslint-disable-next-line @next/next/no-img-element */}
+      <img
+        src={
+          typeof gallery[lightboxIndex] === "string"
+            ? gallery[lightboxIndex]
+            : gallery[lightboxIndex]?.url
+        }
+        alt={
+          typeof gallery[lightboxIndex] === "object"
+            ? gallery[lightboxIndex]?.name || ""
+            : ""
+        }
+        className="max-w-full max-h-full object-contain select-none"
+      />
+    </div>
+  </div>
+)}
       </PortalBrandRoot>
 
       {footerSection.length > 0 && (

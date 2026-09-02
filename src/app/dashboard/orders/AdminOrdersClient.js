@@ -114,7 +114,7 @@ export default function AdminOrdersClient() {
     [orders, statusFilter],
   );
 
-  const currency = orders[0]?.currency || "USD";
+  const currency = orders[0]?.currency || "SAR";
   const { money } = makeFormatters(isRTL, currency);
   const totalRevenue = useMemo(
     () => orders.reduce((s, o) => (REVENUE_STATUSES.includes(o.status) ? s + parseFloat(o.total_amount || 0) : s), 0),
