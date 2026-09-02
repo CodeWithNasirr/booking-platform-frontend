@@ -8,6 +8,7 @@ import {
   FileCheck, ChevronRight,
 } from "lucide-react";
 import Cookies from "js-cookie";
+import { resolveMediaUrl } from "@/lib/mediaUrl";
 
 const API = process.env.NEXT_PUBLIC_API_URL || "";
 const MAROON = "#8B1E3F";
@@ -354,7 +355,7 @@ function DocumentRow({ doc, onDelete, t }) {
         <div className="flex items-center gap-1 flex-shrink-0">
           {doc.file_url && (
            <a
-            href={`http://127.0.0.1:8000${doc.file_url}`}
+            href={resolveMediaUrl(doc.file_url)}
             target="_blank"
             rel="noopener noreferrer"
             className="p-2 rounded-lg hover:bg-white/60 transition-colors"

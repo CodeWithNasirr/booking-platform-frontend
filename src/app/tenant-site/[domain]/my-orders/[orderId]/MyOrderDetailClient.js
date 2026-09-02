@@ -22,6 +22,7 @@ import { useState, useEffect, useCallback, useRef } from "react";
 import { useRouter } from "next/navigation";
 import LayoutRenderer from "../../LayoutRenderer";
 import { tenantRoutes } from "@/lib/tenantRoutes";
+import { resolveMediaUrl } from "@/lib/mediaUrl";
 import { Button, EmptyState } from "@/components/ui";
 import PortalBrandRoot from "@/app/tenant-site/components/portalBrand";
 import Badge from "@/components/ui/Badge";
@@ -462,7 +463,7 @@ export default function MyOrderDetailClient({ domain, orderId,site,header,footer
                       const kb = file.file_size ? `${(file.file_size / 1024).toFixed(1)} KB` : "";
                       return (
                         <li key={file.id}>
-                          <a href={file.download_url || file.file_url || file.file} target="_blank" rel="noopener noreferrer"
+                          <a href={resolveMediaUrl(file.download_url || file.file_url || file.file)} target="_blank" rel="noopener noreferrer"
                             className="flex items-center gap-3 p-2.5 rounded-lg border border-border hover:bg-muted transition-colors">
                             <span className="w-8 h-8 rounded-lg bg-muted text-muted-foreground flex items-center justify-center shrink-0"><Package className="w-4 h-4" /></span>
                             <span className="text-sm text-foreground truncate flex-1">{name}</span>
