@@ -18,6 +18,7 @@ import { notFound } from "next/navigation";
 import Script from "next/script";
 import { fetchIntegrations } from "@/lib/fetchIntegrations";
 import PlatformGate from "@/components/ui/PlatformGate";
+import { resolveMediaUrl } from "@/lib/mediaUrl";
 
 import "./styles.css"
 export const dynamic = "force-dynamic";
@@ -36,11 +37,14 @@ export async function generateMetadata({ params }) {
     }
 
     const ogImage = site.og_image || null;
+    const favicon = resolveMediaUrl(site.tenant_favicon);
     return {
       title: site.seo_title || site.business_name || site.tenant?.name || "Welcome",
       description: site.seo_description || "",
       keywords: site.seo_keywords || "",
       robots: { index: true, follow: true },
+      // Apply the tenant's uploaded favicon to the browser tab.
+      ...(favicon ? { icons: { icon: favicon, shortcut: favicon, apple: favicon } } : {}),
       openGraph: {
         title: site.seo_title || site.business_name || site.tenant?.name,
         description: site.seo_description,
