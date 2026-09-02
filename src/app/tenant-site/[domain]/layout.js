@@ -19,6 +19,7 @@ import Script from "next/script";
 import { fetchIntegrations } from "@/lib/fetchIntegrations";
 import PlatformGate from "@/components/ui/PlatformGate";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
+import { googleFontsHref } from "@/lib/tenantFonts";
 
 import "./styles.css"
 export const dynamic = "force-dynamic";
@@ -124,8 +125,17 @@ export default async function TenantSiteLayout({ children, params }) {
     site.settings?.supported_languages || ["en", "ar", "ur"];
   const tenantTimezone = site.tenant_timezone || "UTC";
 
+  // Load the tenant's selected fonts (setting font-family alone won't render a
+  // webfont that isn't fetched).
+  const fontHref = googleFontsHref([mergedTheme.fonts?.base, mergedTheme.fonts?.heading]);
+
  return (
   <>
+    {/* ✅ TENANT WEBFONTS */}
+    {fontHref && (
+      <link rel="stylesheet" href={fontHref} />
+    )}
+
     {/* ✅ META PIXEL */}
     {metaPixelId && (
       <Script id="meta-pixel" strategy="afterInteractive">
