@@ -49,7 +49,8 @@ export default function BrandingPanel() {
       const res = await getBranding(activeTenant);
       setData(res);
       setTheme(res.theme || {});
-      setHideBrand(!!res.hide_platform_branding);
+      // The toggle reads "Remove platform branding" = hide = NOT show_powered_by.
+      setHideBrand(res.show_powered_by === false);
     } catch (e) {
       setError(e?.detail || t("branding.loadError"));
     } finally {
@@ -76,11 +77,13 @@ export default function BrandingPanel() {
     setSaving(true);
     setError("");
     try {
-      const payload = { ...theme, hide_platform_branding: hideBrand };
+      // Send flat theme fields (the API maps them into the existing nested
+      // theme_config) plus the canonical show_powered_by (inverse of "hide").
+      const payload = { ...theme, show_powered_by: !hideBrand };
       const res = await updateBranding(activeTenant, payload);
       setData(res);
       setTheme(res.theme || {});
-      setHideBrand(!!res.hide_platform_branding);
+      setHideBrand(res.show_powered_by === false);
       setSaved(true);
     } catch (e) {
       setError(e?.detail || t("branding.saveError"));
