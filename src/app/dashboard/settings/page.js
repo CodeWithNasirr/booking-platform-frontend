@@ -9,12 +9,13 @@ import NotificationTabs from '@/components/dashboard/settings/NotificationTabs'
 import DomainSettingsTab from '@/components/dashboard/settings/DomainSettingsTab'
 import TenantPermissionGate from '@/components/dashboard/TenantPermissionGate'
 import DocumentUploadSection from '@/components/dashboard/settings/DocumentUploadSection'
+import BrandingPanel from '@/components/dashboard/settings/BrandingPanel'
 
 import { useRef } from "react";
 import {
   Building2, Bell, Zap, Globe, Languages, Save, Upload,
   Mail, Phone, MapPin, Loader2, Check, AlertCircle,
-  CreditCard,
+  CreditCard, Palette,
 } from 'lucide-react'
 import useBlockBackNavigation from '@/lib/useBlockBackNavigation'
 import BillingSettings from '@/components/dashboard/billing/BillingSettings'
@@ -72,6 +73,7 @@ export default function TenantSettingsPage() {
 
   const TABS = [
     { key: 'business', labelKey: 'settings.tabs.business', icon: Building2 },
+    { key: 'branding', labelKey: 'settings.tabs.branding', icon: Palette },
     { key: 'billing', labelKey: 'settings.tabs.billing', icon: CreditCard },
     { key: 'notifications', labelKey: 'settings.tabs.notifications', icon: Bell },
     { key: 'domain', labelKey: 'settings.tabs.domain', icon: Globe },
@@ -265,6 +267,8 @@ export default function TenantSettingsPage() {
                 activeTenant={activeTenant}
               />
             )}
+
+            {activeTab === 'branding' && <BrandingPanel />}
 
             {activeTab === 'billing' && <BillingSettings />}
 
