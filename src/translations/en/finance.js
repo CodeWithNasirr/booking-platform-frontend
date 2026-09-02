@@ -2,6 +2,7 @@ export default {
   // Finance Page
   "finance.title": "Finance",
   "finance.subtitle": "Track transactions, invoices, and financial performance",
+  "finance.multiCurrencyNotice": "This account has revenue in multiple currencies. Totals are shown per currency and never combined.",
   "finance.exportReport": "Export Report",
 
   // Tabs

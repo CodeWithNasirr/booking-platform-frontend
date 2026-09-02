@@ -2,6 +2,7 @@ export default {
   // Finance Page
   "finance.title": "المالية",
   "finance.subtitle": "تتبع المعاملات والفواتير والأداء المالي",
+  "finance.multiCurrencyNotice": "يحتوي هذا الحساب على إيرادات بعملات متعددة. تُعرض الإجماليات لكل عملة على حدة ولا تُجمع أبدًا.",
   "finance.exportReport": "تصدير التقرير",
 
   // Tabs

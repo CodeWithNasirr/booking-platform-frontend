@@ -2,6 +2,7 @@ export default {
   // Finance Page
   "finance.title": "مالیات",
   "finance.subtitle": "لین دین، انوائسز اور مالی کارکردگی کا جائزہ لیں",
+  "finance.multiCurrencyNotice": "اس اکاؤنٹ میں متعدد کرنسیوں میں آمدنی ہے۔ ٹوٹل ہر کرنسی کے لیے الگ دکھائے جاتے ہیں اور کبھی یکجا نہیں کیے جاتے۔",
   "finance.exportReport": "رپورٹ ایکسپورٹ کریں",
 
   // Tabs

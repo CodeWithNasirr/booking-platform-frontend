@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import { useState, useEffect, useCallback, useMemo, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
+import { formatCurrency } from "@/lib/currency";
 import useBlockBackNavigation from "@/lib/useBlockBackNavigation";
 import {
   DollarSign,
@@ -151,15 +152,8 @@ const PAYOUT_STATUSES = [
 const PAGE_SIZE = 15;
 
 // ─── Utilities ───────────────────────────────────────────────────────────────
-
-function formatCurrency(amount, currency = "SAR") {
-  return new Intl.NumberFormat("en-SA", {
-    style: "currency",
-    currency,
-    minimumFractionDigits: 2,
-    maximumFractionDigits: 2,
-  }).format(amount || 0);
-}
+// formatCurrency comes from the shared @/lib/currency (imported at top) —
+// ISO-code driven, never assumes USD/SAR. Always pass the record's own currency.
 
 function formatDate(dateStr) {
   if (!dateStr) return "—";
@@ -1210,11 +1204,35 @@ export default function FinancePage() {
         </div>
       </div>
 
+      {/* ── Multi-currency notice: KPIs below are shown in ONE currency;
+             amounts in different currencies are never summed together. ──── */}
+      {Array.isArray(stats?.by_currency) && stats.by_currency.length > 1 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+          <p className="text-sm font-medium text-amber-800 mb-2">
+            {t('finance.multiCurrencyNotice') !== 'finance.multiCurrencyNotice'
+              ? t('finance.multiCurrencyNotice')
+              : 'This account has revenue in multiple currencies. Totals are shown per currency and never combined.'}
+          </p>
+          <div className="flex flex-wrap gap-2">
+            {stats.by_currency.map((b) => (
+              <span key={b.currency}
+                className={`px-3 py-1.5 rounded-lg text-sm border ${
+                  b.currency === stats.currency
+                    ? 'bg-white border-amber-300 font-semibold text-amber-900'
+                    : 'bg-amber-100/50 border-amber-200 text-amber-800'}`}>
+                {b.currency}: {formatCurrency(b.net_revenue, b.currency)}
+                <span className="text-amber-600"> · {b.payment_count}</span>
+              </span>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Stat Cards ──────────────────────────────────────────────────── */}
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <StatCard
           title={t('finance.stats.totalRevenue')}
-          value={formatCurrency(stats?.total_revenue || 0)}
+          value={formatCurrency(stats?.total_revenue || 0, stats?.currency)}
           change={stats?.revenue_change}
           detail={t('finance.stats.vsPreviousPeriod')}
           icon={DollarSign}
@@ -1243,7 +1261,7 @@ export default function FinancePage() {
           value={stats?.completed_bookings?.toLocaleString() || "0"}
           change={
             stats?.platform_fees
-              ? `${formatCurrency(stats.platform_fees)} fees`
+              ? `${formatCurrency(stats.platform_fees, stats?.currency)} fees`
               : undefined
           }
           detail="This period"
