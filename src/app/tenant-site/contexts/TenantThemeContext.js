@@ -102,20 +102,47 @@ export function TenantThemeProvider({ theme = {}, children }) {
       });
     }
 
-    // 🔤 Fonts
-    if (theme.fonts?.base) vars["--font-base"] = theme.fonts.base;
-    if (theme.fonts?.heading) vars["--font-heading"] = theme.fonts.heading;
+    // 🔤 Fonts — set BOTH the builder-style vars (--font-base/--font-heading)
+    // AND the names the public storefront stylesheet actually consumes
+    // (--font-family for body, --heading-font-family for headings), so a font
+    // chosen in Builder OR Branding reaches the live site. Branding stores a
+    // bare family ("Poppins"); add a generic fallback if there's no stack.
+    const withFallback = (f) =>
+      f && !String(f).includes(",") ? `${f}, system-ui, sans-serif` : f;
+    if (theme.fonts?.base) {
+      const base = withFallback(theme.fonts.base);
+      vars["--font-base"] = base;
+      vars["--font-family"] = base;
+    }
+    if (theme.fonts?.heading || theme.fonts?.base) {
+      const heading = withFallback(theme.fonts?.heading || theme.fonts?.base);
+      vars["--font-heading"] = heading;
+      vars["--heading-font-family"] = heading;
+    }
 
-    // 🟦 Radius & Shadow
-    if (theme.radius) vars["--radius"] = theme.radius;
+    // 🟦 Radius & Shadow — likewise alias --border-radius (storefront) alongside
+    // --radius (builder).
+    if (theme.radius) {
+      vars["--radius"] = theme.radius;
+      vars["--border-radius"] = theme.radius;
+    }
     if (theme.shadow) vars["--shadow"] = theme.shadow;
 
     return vars;
   }, [theme]);
 
+  // Apply the base font on the wrapper so ALL content inherits it (body text
+  // otherwise keeps the stylesheet's inherited default). Headings still switch
+  // to the heading font via var(--heading-font-family) in styles.css.
+  const rootStyle = useMemo(() => {
+    const s = { ...cssVariables };
+    if (cssVariables["--font-family"]) s.fontFamily = cssVariables["--font-family"];
+    return s;
+  }, [cssVariables]);
+
   return (
     <TenantThemeContext.Provider value={theme}>
-      <div className="tenant-theme-root" style={cssVariables}>
+      <div className="tenant-theme-root" style={rootStyle}>
         {children}
       </div>
     </TenantThemeContext.Provider>

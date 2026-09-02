@@ -14,6 +14,7 @@ import { useState, useEffect, useCallback } from "react";
 import { Loader2, Check, Upload, Trash2, Image as ImageIcon, Lock } from "lucide-react";
 import { useApp } from "@/contexts/AppContext";
 import { resolveMediaUrl } from "@/lib/mediaUrl";
+import { googleFontsHref } from "@/lib/tenantFonts";
 import {
   getBranding, updateBranding,
   uploadBrandingLogo, deleteBrandingLogo,
@@ -127,9 +128,12 @@ export default function BrandingPanel() {
 
   const fonts = data?.available_fonts || [];
   const canWhiteLabel = !!data?.can_white_label;
+  const fontHref = googleFontsHref([theme.font_family, theme.heading_font_family]);
 
   return (
     <div className="space-y-8">
+      {/* Load the selected fonts so the live preview renders them accurately. */}
+      {fontHref && <link rel="stylesheet" href={fontHref} />}
       {/* ── Assets ─────────────────────────────────────────────── */}
       <section>
         <h3 className="text-base font-semibold text-gray-900 mb-1">{t("branding.assets")}</h3>
