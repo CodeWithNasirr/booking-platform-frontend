@@ -5,6 +5,9 @@ import { useRouter } from 'next/navigation'
 import { useApp } from '@/contexts/AppContext'
 import useCustomers from './hooks/useCustomers'
 import { useTenantPermission } from "@/lib/useTenantPermission";
+import { useTenantLocale } from "@/lib/useTenantLocale";
+import { formatCurrency as sharedFormatCurrency } from "@/lib/currency";
+import { formatTenantDate } from "@/lib/datetime";
 
 import {
   Plus,
@@ -62,7 +65,8 @@ const defaultAvailableTags = [
 ]
 
 export default function CustomersPage() {
-  const { user, loadingUser, requiresOnboarding, t, isRTL,tenants  } = useApp()
+  const { user, loadingUser, requiresOnboarding, t, isRTL } = useApp()
+  const { currency: tenantCurrency, timezone: tenantTimezone, language: tenantLanguage } = useTenantLocale()
   const router = useRouter()
 
   const { allowed: canView } = useTenantPermission("customers.view");
@@ -348,21 +352,12 @@ export default function CustomersPage() {
       .toUpperCase()
       .slice(0, 2)
   }
-  const currency = tenants[0]?.default_currency || 'SAR'; 
-  const formatCurrency = (amount) => {
-    return new Intl.NumberFormat('en-US', {
-      style: 'currency',
-      currency: currency,
-    }).format(amount || 0)
-  }
+  // ACTIVE tenant currency + timezone (shared source of truth), not tenants[0].
+  const formatCurrency = (amount) => sharedFormatCurrency(amount, tenantCurrency, tenantLanguage)
 
   const formatDate = (dateStr) => {
     if (!dateStr) return 'N/A'
-    return new Date(dateStr).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-    })
+    return formatTenantDate(dateStr, tenantTimezone, tenantLanguage)
   }
 
   // Get tags list (combine available from API with defaults)
@@ -1119,7 +1114,7 @@ export default function CustomersPage() {
                           ? formatCurrency(
                               viewingCustomer.total_spent / viewingCustomer.total_bookings
                             )
-                          : '$0'}
+                          : formatCurrency(0)}
                       </p>
                     </div>
                   </div>

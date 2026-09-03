@@ -2,6 +2,8 @@
 'use client';
 
 import { useApp } from '@/contexts/AppContext';
+import { useTenantLocale } from '@/lib/useTenantLocale';
+import { formatCurrency } from '@/lib/currency';
 import {
   Calendar,
   CalendarClock,
@@ -16,16 +18,10 @@ import {
  * dashboard tiles, no hard-coded colours.
  */
 export default function BookingStats({ stats }) {
-  const { t, isRTL, tenants } = useApp();
-  const currency = tenants?.[0]?.default_currency || 'SAR';
-
-  const formatCurrency = (amount) =>
-    new Intl.NumberFormat(isRTL ? 'ar-SA' : 'en-US', {
-      style: 'currency',
-      currency,
-      minimumFractionDigits: 0,
-      maximumFractionDigits: 0,
-    }).format(amount || 0);
+  const { t, isRTL } = useApp();
+  // ACTIVE tenant's currency (not tenants[0]) via the shared source of truth.
+  const { currency, language } = useTenantLocale();
+  const money = (amount) => formatCurrency(amount, currency, language);
 
   const upcoming =
     (stats.pending || 0) + (stats.confirmed || 0) + (stats.inProgress || 0);
@@ -62,7 +58,7 @@ export default function BookingStats({ stats }) {
     {
       key: 'revenue',
       label: t('bookings.stats.revenue'),
-      value: formatCurrency(stats.revenue || 0),
+      value: money(stats.revenue || 0),
       icon: Wallet,
       chip: 'bg-muted text-muted-foreground',
       wide: true,

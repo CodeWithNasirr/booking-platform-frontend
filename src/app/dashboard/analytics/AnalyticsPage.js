@@ -4,6 +4,7 @@ import Cookies from "js-cookie";
 import { useState, useEffect, useCallback, useMemo } from "react";
 import { useRouter } from "next/navigation";
 import { useApp } from "@/contexts/AppContext";
+import { useTenantLocale } from "@/lib/useTenantLocale";
 import useBlockBackNavigation from "@/lib/useBlockBackNavigation";
 import {
   AreaChart,
@@ -186,14 +187,18 @@ function toText(val, fallback = "—") {
   return fallback;
 }
 
-function formatCurrency(amount) {
-  if (amount == null || isNaN(amount)) return "SAR 0";
-  return new Intl.NumberFormat("en-SA", {
-    style: "currency",
-    currency: "SAR",
-    minimumFractionDigits: 0,
-    maximumFractionDigits: 0,
-  }).format(amount);
+// Currency comes from the active tenant (passed in); never hardcoded. 0 decimals
+// for compact KPI display. Empty code → bare number (no assumed symbol).
+function formatCurrency(amount, currency = "") {
+  const value = Number(amount) || 0;
+  const code = typeof currency === "string" ? currency.trim().toUpperCase() : "";
+  const opts = { minimumFractionDigits: 0, maximumFractionDigits: 0 };
+  if (!code) return new Intl.NumberFormat(undefined, opts).format(value);
+  try {
+    return new Intl.NumberFormat(undefined, { style: "currency", currency: code, ...opts }).format(value);
+  } catch {
+    return `${code} ${new Intl.NumberFormat(undefined, opts).format(value)}`;
+  }
 }
 
 function formatNumber(num) {
@@ -274,6 +279,9 @@ function MaroonTooltip({ active, payload, label, formatter }) {
 
 export default function AnalyticsPage() {
   const { user, loadingUser, requiresOnboarding, activeTenant, t } = useApp();
+  const { currency: tenantCurrency } = useTenantLocale();
+  // Bind the active tenant's currency once; all money in this page uses it.
+  const money = (amount) => formatCurrency(amount, tenantCurrency);
   const router = useRouter();
   const [dateRange, setDateRange] = useState("30d");
   const [loading, setLoading] = useState(true);
@@ -478,7 +486,7 @@ export default function AnalyticsPage() {
     },
     {
       title: t("analytics.kpi.revenue"),
-      value: formatCurrency(kpis?.total_revenue || 0),
+      value: money(kpis?.total_revenue || 0),
       change: kpis?.revenue_change,
       icon: DollarSign,
       color: "from-green-500 to-green-600",
@@ -676,12 +684,12 @@ export default function AnalyticsPage() {
               value: formatNumber(overview.counts?.custom_requests?.total || 0),
               sub: `${overview.counts?.custom_requests?.converted || 0} converted` },
             { label: t("analytics.metric.bookingRevenue") || "Booking revenue",
-              value: formatCurrency(overview.money?.booking_revenue || 0) },
+              value: money(overview.money?.booking_revenue || 0) },
             { label: t("analytics.metric.orderRevenue") || "Order revenue",
-              value: formatCurrency(overview.money?.order_revenue || 0) },
+              value: money(overview.money?.order_revenue || 0) },
             { label: t("analytics.metric.netRevenue") || "Net revenue",
-              value: formatCurrency(overview.money?.net_revenue || 0),
-              sub: `${formatCurrency(overview.money?.refunds || 0)} refunded` },
+              value: money(overview.money?.net_revenue || 0),
+              sub: `${money(overview.money?.refunds || 0)} refunded` },
             { label: t("analytics.metric.customers") || "Customers",
               value: formatNumber(overview.customers?.total || 0),
               sub: `${overview.customers?.new || 0} new · ${overview.customers?.returning || 0} returning` },
@@ -809,7 +817,7 @@ export default function AnalyticsPage() {
                       boxShadow: "0 4px 6px -1px rgb(0 0 0 / 0.1)",
                     }}
                     formatter={(value) => [
-                      formatCurrency(value),
+                      money(value),
                       t("analytics.kpi.revenue"),
                     ]}
                   />
@@ -835,7 +843,7 @@ export default function AnalyticsPage() {
                         {item.name}
                       </div>
                       <div className="text-xs text-gray-600">
-                        {formatCurrency(item.revenue)}
+                        {money(item.revenue)}
                       </div>
                     </div>
                   </div>
@@ -878,13 +886,13 @@ export default function AnalyticsPage() {
                   <YAxis
                     stroke="#9CA3AF"
                     style={{ fontSize: "12px" }}
-                    tickFormatter={(v) => formatCurrency(v)}
+                    tickFormatter={(v) => money(v)}
                   />
                   <Tooltip
                     content={(props) => (
                       <MaroonTooltip
                         {...props}
-                        formatter={(v) => formatCurrency(v)}
+                        formatter={(v) => money(v)}
                       />
                     )}
                   />
@@ -1069,7 +1077,7 @@ export default function AnalyticsPage() {
                   </div>
                   <div className="text-right flex-shrink-0 ml-4">
                     <div className="font-bold text-gray-900">
-                      {formatCurrency(service.revenue)}
+                      {money(service.revenue)}
                     </div>
                     {service.avg_rating ? (
                       <div className="flex items-center justify-end gap-1 text-sm text-green-600">
@@ -1134,7 +1142,7 @@ export default function AnalyticsPage() {
                     </div>
                     <div className="text-right flex-shrink-0 ml-4">
                       <div className="font-bold text-gray-900">
-                        {formatCurrency(provider.revenue)}
+                        {money(provider.revenue)}
                       </div>
                       {provider.avg_rating ? (
                         <div className="flex items-center justify-end gap-1 text-sm text-amber-500">
