@@ -1,8 +1,33 @@
 "use client";
 
-import { useRef } from "react";
+import { useRef, useState, useEffect } from "react";
 import { Paperclip, Send } from "lucide-react";
 import { Button } from "@/components/ui";
+
+// Keyboard-safe offset for a viewport-pinned composer. On mobile, the on-screen
+// keyboard shrinks the VISUAL viewport but not the layout viewport, so a plain
+// `fixed bottom-0` element sits hidden behind the keyboard. We track
+// window.visualViewport and lift the composer by the covered height. No-op on
+// desktop / where visualViewport is unavailable.
+function useKeyboardInset(enabled) {
+  const [inset, setInset] = useState(0);
+  useEffect(() => {
+    if (!enabled || typeof window === "undefined" || !window.visualViewport) return;
+    const vv = window.visualViewport;
+    const update = () => {
+      const covered = window.innerHeight - vv.height - vv.offsetTop;
+      setInset(covered > 40 ? covered : 0); // ignore small UI-chrome deltas
+    };
+    update();
+    vv.addEventListener("resize", update);
+    vv.addEventListener("scroll", update);
+    return () => {
+      vv.removeEventListener("resize", update);
+      vv.removeEventListener("scroll", update);
+    };
+  }, [enabled]);
+  return inset;
+}
 
 /**
  * StickyComposer — text + attachment row. Brand-aware send
@@ -23,11 +48,18 @@ export default function StickyComposer({
   sticky = false,
 }) {
   const fileInputRef = useRef(null);
+  const keyboardInset = useKeyboardInset(sticky);
   const wrapperClass = sticky
     ? "fixed inset-x-0 bottom-0 border-t bg-white/95 backdrop-blur z-30"
     : "border-t bg-white";
+  // Lift above the on-screen keyboard when present; otherwise honor the safe
+  // area (iOS home indicator / notch).
   const wrapperStyle = sticky
-    ? { paddingBottom: "env(safe-area-inset-bottom)" }
+    ? {
+        bottom: keyboardInset ? `${keyboardInset}px` : undefined,
+        paddingBottom: keyboardInset ? undefined : "env(safe-area-inset-bottom)",
+        transition: "bottom 0.15s ease-out",
+      }
     : undefined;
 
   function onKeyDown(e) {
