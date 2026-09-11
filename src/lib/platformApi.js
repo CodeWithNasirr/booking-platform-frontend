@@ -265,6 +265,57 @@ export async function testPaymentWebhook(provider) {
   });
 }
 
+// ═══════════════════════════════════════════════════════════════
+// EMAIL / GENERIC PLATFORM INTEGRATIONS  (Brevo, SendGrid, SMTP)
+// The API key is stored encrypted server-side and only ever returned
+// masked — the raw value never reaches the browser.
+// ═══════════════════════════════════════════════════════════════
+
+/** List email integrations (Brevo / SendGrid / SMTP). */
+export async function fetchEmailIntegrations() {
+  return platformFetch("/api/v1/platform/integrations/?type=email");
+}
+
+/** Create default integration rows if missing (idempotent). */
+export async function seedIntegrations() {
+  return platformFetch("/api/v1/platform/integrations/seed/", {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+/** Save credentials (encrypted) and/or non-secret config for a provider. */
+export async function configureIntegration(providerCode, { credentials, config } = {}) {
+  return platformFetch(`/api/v1/platform/integrations/${providerCode}/configure/`, {
+    method: "POST",
+    body: JSON.stringify({ credentials, config }),
+  });
+}
+
+/** Enable / disable a provider. */
+export async function toggleIntegration(providerCode, enabled) {
+  return platformFetch(`/api/v1/platform/integrations/${providerCode}/toggle/`, {
+    method: "POST",
+    body: JSON.stringify({ enabled }),
+  });
+}
+
+/** Validate stored credentials against the provider's API. */
+export async function testIntegrationConnection(providerCode) {
+  return platformFetch(`/api/v1/platform/integrations/${providerCode}/test/`, {
+    method: "POST",
+    body: JSON.stringify({}),
+  });
+}
+
+/** Send a real test email through this provider. */
+export async function sendIntegrationTestEmail(providerCode, to) {
+  return platformFetch(`/api/v1/platform/integrations/${providerCode}/test-email/`, {
+    method: "POST",
+    body: JSON.stringify({ to }),
+  });
+}
+
 
 
 // ═══════════════════════════════════════════════════════════════

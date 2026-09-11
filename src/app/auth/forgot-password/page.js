@@ -1,7 +1,105 @@
-// app/auth/forgot-password/page.jsx
+// app/auth/forgot-password/page.js
+"use client";
 
-import ComingSoon from "@/components/ui/ComingSoon";
+import { useState } from "react";
+import Link from "next/link";
+import { Mail, Loader2, ArrowLeft, CheckCircle2 } from "lucide-react";
+
+const API = process.env.NEXT_PUBLIC_API_URL || "";
 
 export default function ForgotPasswordPage() {
-  return <ComingSoon title="Forgot Password Page" />;
+  const [email, setEmail] = useState("");
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [error, setError] = useState(null);
+
+  const submit = async (e) => {
+    e.preventDefault();
+    setLoading(true);
+    setError(null);
+    try {
+      const res = await fetch(`${API}/api/v1/auth/password/reset/`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: email.trim().toLowerCase() }),
+      });
+      // The endpoint always returns 200 (no account enumeration); any
+      // 2xx means "if the account exists, a link was sent".
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}));
+        throw new Error(data.detail || "Something went wrong. Please try again.");
+      }
+      setDone(true);
+    } catch (err) {
+      setError(err.message);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen flex items-center justify-center bg-gray-50 px-4 py-12">
+      <div className="w-full max-w-md bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+        {done ? (
+          <div className="text-center">
+            <div className="w-12 h-12 rounded-full bg-green-50 flex items-center justify-center mx-auto mb-4">
+              <CheckCircle2 className="w-6 h-6 text-green-600" />
+            </div>
+            <h1 className="text-xl font-bold text-gray-900 mb-2">Check your email</h1>
+            <p className="text-sm text-gray-500">
+              If an account exists for <strong>{email}</strong>, we&apos;ve sent a link to reset
+              your password. The link expires in 30 minutes.
+            </p>
+            <Link href="/auth/login" className="inline-flex items-center gap-2 mt-6 text-sm font-medium text-gray-700 hover:text-gray-900">
+              <ArrowLeft className="w-4 h-4" /> Back to sign in
+            </Link>
+          </div>
+        ) : (
+          <>
+            <div className="w-12 h-12 rounded-full bg-gray-100 flex items-center justify-center mb-4">
+              <Mail className="w-6 h-6 text-gray-700" />
+            </div>
+            <h1 className="text-xl font-bold text-gray-900">Forgot your password?</h1>
+            <p className="text-sm text-gray-500 mt-1 mb-6">
+              Enter your account email and we&apos;ll send you a secure link to reset it.
+            </p>
+
+            {error && (
+              <div className="mb-4 p-3 rounded-lg bg-red-50 border border-red-200 text-sm text-red-700">
+                {error}
+              </div>
+            )}
+
+            <form onSubmit={submit} className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-1">Email</label>
+                <input
+                  type="email"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  placeholder="you@example.com"
+                  className="w-full px-3 py-2.5 rounded-lg border border-gray-300 text-sm focus:border-gray-900 focus:ring-2 focus:ring-gray-900/10 outline-none"
+                />
+              </div>
+              <button
+                type="submit"
+                disabled={loading || !email.trim()}
+                className="w-full inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-black disabled:opacity-50"
+              >
+                {loading ? <Loader2 className="w-4 h-4 animate-spin" /> : null}
+                {loading ? "Sending…" : "Send reset link"}
+              </button>
+            </form>
+
+            <div className="mt-6 text-center">
+              <Link href="/auth/login" className="inline-flex items-center gap-2 text-sm font-medium text-gray-600 hover:text-gray-900">
+                <ArrowLeft className="w-4 h-4" /> Back to sign in
+              </Link>
+            </div>
+          </>
+        )}
+      </div>
+    </div>
+  );
 }

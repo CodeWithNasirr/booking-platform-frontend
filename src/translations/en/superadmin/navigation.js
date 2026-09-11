@@ -10,6 +10,7 @@ export default {
   'superadmin.nav.announcements': 'Announcements',
   'superadmin.nav.templates': 'Templates',
   'superadmin.nav.integrations': 'Integrations',
+  'superadmin.nav.emailIntegrations': 'Email Integrations',
   'superadmin.nav.support': 'Support',
   'superadmin.nav.subadmins': 'Sub-Admins',
   'superadmin.nav.logs': 'Logs & Audit',

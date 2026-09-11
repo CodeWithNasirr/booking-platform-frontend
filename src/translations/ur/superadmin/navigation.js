@@ -9,6 +9,7 @@ export default {
   'superadmin.nav.announcements': 'اعلانات',
   'superadmin.nav.templates': 'ٹیمپلیٹس',
   'superadmin.nav.integrations': 'انٹیگریشنز',
+  'superadmin.nav.emailIntegrations': 'ای میل انٹیگریشنز',
   'superadmin.nav.support': 'سپورٹ',
   'superadmin.nav.subadmins': 'سب ایڈمنز',
   'superadmin.nav.logs': 'لاگز اور آڈٹ',

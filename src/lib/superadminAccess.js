@@ -43,6 +43,7 @@ export const SUPERADMIN_ACCESS_RULES = [
 
   // Integrations
   { prefix: "/superadmin/integrations", perms: ["system.manage_integrations"] },
+  { prefix: "/superadmin/email", perms: ["system.manage_integrations"] },
 
   // Support
   { prefix: "/superadmin/support", perms: ["tickets.view"] },

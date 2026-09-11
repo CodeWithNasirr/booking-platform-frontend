@@ -9,6 +9,7 @@ export default {
   'superadmin.nav.announcements': 'الإعلانات',
   'superadmin.nav.templates': 'القوالب',
   'superadmin.nav.integrations': 'التكاملات',
+  'superadmin.nav.emailIntegrations': 'تكاملات البريد الإلكتروني',
   'superadmin.nav.support': 'الدعم',
   'superadmin.nav.subadmins': 'المشرفون الفرعيون',
   'superadmin.nav.logs': 'السجلات والتدقيق',

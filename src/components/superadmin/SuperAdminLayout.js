@@ -24,6 +24,7 @@ import {
   Crown,
   Inbox,
   Lock,
+  Mail,
 } from "lucide-react";
 
 import { usePathname, useRouter } from "next/navigation";
@@ -81,6 +82,7 @@ const SuperAdminLayout = ({ children, title, description, breadcrumbs = [] }) =>
     { key: "/superadmin/announcements", label: t("superadmin.nav.announcements"), icon: Megaphone },
     { key: "/superadmin/templates", label: t("superadmin.nav.templates"), icon: FileText },
     { key: "/superadmin/integrations", label: t("superadmin.nav.integrations"), icon: Settings },
+    { key: "/superadmin/email", label: t("superadmin.nav.emailIntegrations"), icon: Mail },
     { key: "/superadmin/support", label: t("superadmin.nav.support"), icon: LifeBuoy },
     { key: "/superadmin/sub-admins", label: t("superadmin.nav.subadmins"), icon: ShieldCheck },
     { key: "/superadmin/logs", label: t("superadmin.nav.logs"), icon: ScrollText },
