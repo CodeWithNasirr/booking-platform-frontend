@@ -299,8 +299,10 @@ export default function TemplateSelector({ isOpen, onClose, onSelectTemplate }) 
                           : "bg-gray-100 text-gray-700 hover:bg-gray-200"
                       }`}
                     >
-                      {category === "online_services" ? "Online Services" : 
-                       category === "digital_services" ? "Digital Services" : 
+                      {category === "online_services" ? "Online Services" :
+                       category === "digital_services" ? "Digital Services" :
+                       category === "education" ? "Education" :
+                       category === "government" ? "E-Government" :
                        category}
                     </button>
                   ))}
@@ -447,8 +449,10 @@ function TemplateCard({ template, labels, language, isRTL, onSelect }) {
         </p>
         <div className="mt-2">
           <span className="text-xs text-blue-600 bg-blue-50 px-2 py-1 rounded-full">
-            {template.template_type === "online_services" ? "Online Services" : 
-             template.template_type === "digital_services" ? "Digital Services" : 
+            {template.template_type === "online_services" ? "Online Services" :
+             template.template_type === "digital_services" ? "Digital Services" :
+             template.template_type === "education" ? "Education" :
+             template.template_type === "government" ? "E-Government" :
              template.template_type}
           </span>
         </div>
